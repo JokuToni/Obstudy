@@ -7,7 +7,7 @@
     } from "$lib/types/exercises";
     import StudyText from "$lib/components/practice/StudyText.svelte";
     import ResultsView from "./ResultsView.svelte";
-    import AnswerGrading from "$lib/components/practice/AnswerGrading.svelte";
+    import GradingMenu from "$lib/components/practice/GradingMenu.svelte";
     import {
         button,
         focusRing,
@@ -51,6 +51,7 @@
     let imageFailed = $state(false);
     let viewingQuestion = $state(false);
     let questionHeading = $state<HTMLHeadingElement>();
+    let gradingQuestionId = $state<string | null>(null);
     const question = $derived(session.questions[questionIndex]);
     const draft = $derived(
         answers.find((answer) => answer.questionId === question?.id) ?? {
@@ -86,6 +87,16 @@
                 ),
         );
         questionIndex = Math.max(0, firstUnanswered);
+        void tick().then(focusAnswer);
+        // Capture prevents the browser's radio-arrow behavior from selecting an
+        // answer when the user only wants to move focus.
+        document.addEventListener("keydown", hotkey, true);
+        return () => {
+            document.removeEventListener("keydown", hotkey, true);
+        };
+    });
+    $effect(() => {
+        if (showReview || closing) gradingQuestionId = null;
     });
     $effect(() => {
         question?.id;
@@ -96,9 +107,13 @@
         imageFailed = false;
     });
     async function navigate(index: number): Promise<void> {
-        questionIndex = index;
+        gradingQuestionId = null;
+        questionIndex = Math.max(
+            0,
+            Math.min(session.questions.length - 1, index),
+        );
         await tick();
-        questionHeading?.focus();
+        focusAnswer();
     }
     function changeText(text: string): void {
         onChange({ ...draft, text });
@@ -112,8 +127,117 @@
             });
     }
     function reveal(): void {
-        if (canReveal && !draft.revealed)
+        if (canReveal && !draft.revealed && !session.closedAt) {
             onChange({ ...draft, revealed: true });
+            if (question.format === 1) gradingQuestionId = question.id;
+            void tick().then(() =>
+                document
+                    .querySelector('[aria-label="Example answer"]')
+                    ?.scrollIntoView({ block: "nearest" }),
+            );
+        }
+    }
+    function focusAnswer(): void {
+        if (showReview || closing || document.querySelector("dialog[open]"))
+            return;
+        const input = document.querySelector<HTMLTextAreaElement>(
+            "#practice-answer:not(:disabled)",
+        );
+        const choices = Array.from(
+            document.querySelectorAll<HTMLInputElement>(
+                "input[data-practice-choice]:not(:disabled)",
+            ),
+        );
+        if (input) {
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+        } else if (choices.length)
+            (choices.find((choice) => choice.checked) ?? choices[0]).focus();
+        else questionHeading?.focus();
+    }
+    async function advance(): Promise<void> {
+        if (questionIndex + 1 < session.questions.length)
+            await navigate(questionIndex + 1);
+        // onFinish serializes outstanding saves before entering results.
+        else if (submittedCount === session.questions.length) await onFinish();
+    }
+    function forward(): void {
+        if (
+            session.closedAt ||
+            ((session.reviewedAt || reviewRequest > 0) && draft.revealed)
+        )
+            viewingQuestion = false;
+        else if (!draft.revealed) reveal();
+        else if (questionIndex + 1 < session.questions.length)
+            void navigate(questionIndex + 1);
+        else if (!saving && submittedCount === session.questions.length)
+            void onFinish();
+    }
+    function chooseGrade(grade?: AnswerGrade, ai = false): void {
+        const questionId = gradingQuestionId;
+        if (!questionId) return;
+        gradingQuestionId = null;
+        if (grade) onGrade(questionId, grade);
+        if (ai) void onAiGrade(questionId);
+        void tick().then(advance);
+    }
+    function hotkey(event: KeyboardEvent): void {
+        if (
+            event.defaultPrevented ||
+            event.isComposing ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            closing ||
+            showReview ||
+            document.querySelector("dialog[open]")
+        )
+            return;
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.repeat) return;
+            if (event.key === "ArrowLeft") {
+                if (questionIndex > 0) void navigate(questionIndex - 1);
+            } else forward();
+        } else if (
+            question?.format === 0 &&
+            !draft.revealed &&
+            !session.closedAt
+        ) {
+            const choices = Array.from(
+                document.querySelectorAll<HTMLInputElement>(
+                    "input[data-practice-choice]:not(:disabled)",
+                ),
+            );
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                event.preventDefault();
+                event.stopPropagation();
+                const current = choices.indexOf(
+                    document.activeElement as HTMLInputElement,
+                );
+                const next =
+                    current < 0
+                        ? event.key === "ArrowDown"
+                            ? 0
+                            : choices.length - 1
+                        : (current +
+                              (event.key === "ArrowDown" ? 1 : -1) +
+                              choices.length) %
+                          choices.length;
+                choices[next]?.focus();
+            } else if (
+                event.key === "Enter" &&
+                document.activeElement instanceof HTMLInputElement &&
+                choices.includes(document.activeElement)
+            ) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!event.repeat)
+                    selectChoice(choices.indexOf(document.activeElement));
+            }
+        }
     }
 </script>
 
@@ -122,21 +246,21 @@
     aria-label="Practice session"
 >
     <header
-        class="shrink-0 border-b border-border bg-sidebar px-4 py-4 sm:px-6"
+        class="shrink-0 border-b border-border bg-sidebar px-4 py-1 sm:px-6"
     >
-        <div class="mx-auto flex max-w-3xl items-center gap-3">
-            <div class="min-w-0 flex-1">
-                <p class="text-xs/4 text-text-muted">
-                    {session.mode === "study"
-                        ? "Study session"
-                        : "Practice session"}
-                </p>
+        <div class="mx-auto flex min-h-8 max-w-3xl items-center gap-3">
+            <div class="flex min-w-0 flex-1 items-baseline gap-3">
                 <h1
-                    class="mt-1 truncate text-base/6 font-semibold"
+                    class="min-w-0 truncate text-sm/5 font-semibold"
                     title={session.noteTitle}
                 >
                     {session.noteTitle}
                 </h1>
+                <p class="shrink-0 text-xs/4 text-text-muted">
+                    {session.mode === "study"
+                        ? "Study session"
+                        : "Practice session"}
+                </p>
             </div>
             <span role="status" class="text-xs/4 text-text-muted"
                 >{saving
@@ -147,14 +271,20 @@
             >
             <button
                 type="button"
-                class={button}
+                class={[button, "min-h-7! px-2! py-1! text-xs!"]}
                 disabled={closing}
                 onclick={onClose}
                 >{closing ? "Saving and exiting…" : "Save and exit"}</button
             >
         </div>
     </header>
-    <main inert={closing} class="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6">
+    <main
+        inert={closing}
+        class={[
+            "min-h-0 flex-1 overflow-y-auto px-4 sm:px-6",
+            gradingQuestionId ? "pb-48" : "",
+        ]}
+    >
         {#if errorMessage}<div
                 role="alert"
                 class="mx-auto mt-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 text-sm/5 text-danger"
@@ -290,6 +420,7 @@
                                     ]}
                                     ><input
                                         type="radio"
+                                        data-practice-choice
                                         name={`answer-${question.id}`}
                                         checked={draft.selectedChoiceIndex ===
                                             index}
@@ -374,16 +505,7 @@
                                 </div>
                             </details>{/if}
                     </section>
-                    <AnswerGrading
-                        answer={draft}
-                        busy={grading[question.id]}
-                        error={gradingErrors[question.id]}
-                        disabled={!!session.closedAt}
-                        onGrade={(grade) => onGrade(question.id, grade)}
-                        onAi={() => {
-                            void onAiGrade(question.id);
-                        }}
-                    />{/if}
+                {/if}
             </div>
         {/if}
     </main>
@@ -405,6 +527,33 @@
                     max={session.questions.length}
                     class="block h-1 w-full appearance-none overflow-hidden rounded-full bg-surface accent-accent-solid [&::-moz-progress-bar]:bg-accent-solid [&::-webkit-progress-bar]:bg-surface [&::-webkit-progress-value]:bg-accent-solid"
                 ></progress>
+                {#if draft.revealed && question.format === 1 && !session.closedAt}
+                    <div
+                        class="flex flex-wrap items-center justify-between gap-2 text-xs/5 text-text-muted"
+                    >
+                        <span role="status"
+                            >{grading[question.id]
+                                ? "Grading with AI…"
+                                : draft.grade
+                                  ? `Grade: ${draft.grade.points} / 1`
+                                  : "Not graded yet"}</span
+                        >
+                        <button
+                            type="button"
+                            class={button}
+                            disabled={grading[question.id]}
+                            onclick={() => {
+                                gradingQuestionId = question.id;
+                            }}>Grade answer</button
+                        >
+                    </div>
+                    {#if gradingErrors[question.id]}<p
+                            role="alert"
+                            class="text-xs/5 text-danger"
+                        >
+                            {gradingErrors[question.id]}
+                        </p>{/if}
+                {/if}
                 <div class="flex items-center justify-between gap-3">
                     <button
                         type="button"
@@ -416,29 +565,32 @@
                     {#if session.closedAt || ((session.reviewedAt || reviewRequest > 0) && draft.revealed)}<button
                             type="button"
                             class={primaryButton}
-                            onclick={() => {
-                                viewingQuestion = false;
-                            }}>Back to review</button
+                            onclick={forward}>Back to review</button
                         >
                     {:else if draft.revealed}{#if questionIndex + 1 === session.questions.length}<button
                                 type="button"
                                 class={primaryButton}
                                 disabled={saving ||
                                     submittedCount !== session.questions.length}
-                                onclick={onFinish}>Review answers</button
+                                onclick={forward}>Review answers</button
                             >{:else}<button
                                 type="button"
                                 class={primaryButton}
-                                onclick={() => navigate(questionIndex + 1)}
-                                >Next question →</button
+                                onclick={forward}>Next question →</button
                             >{/if}
                     {:else}<button
                             type="button"
                             class={primaryButton}
                             disabled={!canReveal || !!session.closedAt}
-                            onclick={reveal}>Reveal answer</button
+                            onclick={forward}>Reveal answer</button
                         >{/if}
                 </div>
             </div>
         </footer>{/if}
 </section>
+
+{#if gradingQuestionId}<GradingMenu
+        onGrade={(grade) => chooseGrade(grade)}
+        onAi={() => chooseGrade(undefined, true)}
+        onSkip={() => chooseGrade()}
+    />{/if}

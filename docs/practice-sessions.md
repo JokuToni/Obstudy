@@ -36,11 +36,23 @@ Users answer and submit by revealing the example answer. Multiple-choice answers
 are graded automatically as correct (1) or incorrect (0), using the immutable
 question snapshot in native code. Freeform answers can be self graded as Incorrect
 (0), Partly correct (0.5), or Correct (1), or graded on request through the active
-AI integration. The same controls appear immediately after submission and in the
-results view. Users may move on without grading and finish grading in results.
+AI integration. Submitting a freeform answer opens a small floating grading prompt
+with Skip initially focused. The example and criteria remain scrollable behind it.
+Skip, self grading, and AI grading advance automatically to the next question or
+results; AI runs in the background and never steals the next input's focus.
+Skipped answers and AI errors can be handled with the grading controls in results.
+The practice footer offers Grade answer to reopen the prompt on a submitted answer.
 AI requests include the question, example answer, criteria, and student answer as
 JSON reference data. Invalid model scores or missing explanations remain ungraded
 and offer retry or self grading. No paid grading runs automatically.
+
+The practice header is a compact row with the session label to the right of the
+note title. Each new editable question focuses its textarea or first/selected
+choice. Plain Left/Right invokes Previous/the current forward action (submit,
+next, or review); modified arrows and IME input keep their normal editing behavior.
+Multiple-choice Up/Down moves focus without selecting, and Enter selects. In the
+grading prompt Left/Right wraps through choices and Enter activates; Escape skips.
+Question hotkeys pause while a grading prompt or exit confirmation is open.
 
 Drafts autosave for recovery, but newly submitted freeform answers enter durable
 answer history only after receiving a grade. Migration `0007_answer_grading.sql`

@@ -25,6 +25,7 @@ async function setup(
     practice = false,
     math = false,
     native = false,
+    extraQuestion = false,
 ): Promise<void> {
     await page.clock.install({ time: new Date("2026-10-25T12:00:00Z") });
     const initialNote = practiceNote(new Date("2026-10-25T12:00:00Z"));
@@ -38,6 +39,7 @@ async function setup(
         stored.fsrsData.due = dueDates[index];
     });
     const initialSession = practiceSession();
+    if (extraQuestion) initialSession.questions.push(initialNote.questions[2]);
     if (math) {
         const question = initialSession.questions[0];
         question.text = String.raw`For x ∈ ℝ, compare \frac{1}{2} with \(x^2 \ge 0\). $$\sum_{n=1}^{3} n = 6$$ Miten ℝ_{>0} ja ℝ_{≥0} eroavat?`;
@@ -730,9 +732,7 @@ test("practice window supports materials, answering, reload recovery, and a save
     await page
         .getByRole("button", { name: "Reveal answer", exact: true })
         .click();
-    await page
-        .getByRole("button", { name: "Review answers", exact: true })
-        .click();
+    await page.getByRole("button", { name: "Skip", exact: true }).click();
     await expect(
         page.getByRole("heading", { name: "Review your answers", exact: true }),
     ).toBeVisible();
@@ -787,9 +787,10 @@ for (const gradingMode of [
             await page
                 .getByRole("button", { name: "Correct · 1", exact: true })
                 .click();
-        await page
-            .getByRole("button", { name: "Review answers", exact: true })
-            .click();
+        if (gradingMode !== "self immediately")
+            await page
+                .getByRole("button", { name: "Skip", exact: true })
+                .click();
         await expect(
             page.getByRole("heading", {
                 name: "Review your answers",
@@ -869,6 +870,169 @@ for (const gradingMode of [
         ).toBeVisible();
     });
 }
+
+test("keyboard navigation focuses inputs, moves choice focus without selecting, and defaults the grading popup to Skip", async ({
+    page,
+}) => {
+    await setup(page, true, false, false, true);
+    const radios = page.getByRole("radio");
+    await expect(radios.first()).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(radios.nth(1)).toBeFocused();
+    await expect(radios.nth(1)).not.toBeChecked();
+    await page.keyboard.press("ArrowUp");
+    await expect(radios.first()).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(radios.first()).toBeChecked();
+    await page.keyboard.press("ArrowRight");
+    await expect(
+        page.getByRole("region", { name: "Example answer", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await expect(
+        page.getByText("Question 2 of 3", { exact: true }),
+    ).toBeVisible();
+    const input = page.getByLabel("Your answer", { exact: true });
+    await expect(input).toBeFocused();
+    await page.keyboard.type("An endpoint explanation");
+    await page.keyboard.press("Shift+ArrowLeft");
+    await expect(
+        page.getByText("Question 2 of 3", { exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("ArrowLeft");
+    await expect(
+        page.getByText("Question 1 of 3", { exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue("An endpoint explanation");
+    await page.keyboard.press("ArrowRight");
+    const menu = page.getByRole("dialog", {
+        name: "Grade your answer",
+        exact: true,
+    });
+    await expect(menu).toBeVisible();
+    await expect(
+        menu.getByRole("button", { name: "Skip", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("ArrowLeft");
+    await expect(
+        menu.getByRole("button", { name: "Grade with AI", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(
+        menu.getByRole("button", { name: "Skip", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(
+        page.getByText("Question 3 of 3", { exact: true }),
+    ).toBeVisible();
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue("");
+    await page.keyboard.press("ArrowLeft");
+    await expect(
+        page.getByText("Question 2 of 3", { exact: true }),
+    ).toBeVisible();
+    await expect(
+        page.getByRole("region", { name: "Grade this answer", exact: true }),
+    ).toHaveCount(0);
+    await page
+        .getByRole("button", { name: "Grade answer", exact: true })
+        .click();
+    await page.keyboard.press("ArrowRight");
+    await expect(
+        menu.getByRole("button", { name: "Incorrect · 0", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(
+        page.getByText("Question 3 of 3", { exact: true }),
+    ).toBeVisible();
+    await expect(input).toBeFocused();
+    await expect
+        .poll(async () => {
+            const state = await page.evaluate(
+                () =>
+                    JSON.parse(
+                        sessionStorage.getItem("practice-session-test")!,
+                    ) as ExerciseSession,
+            );
+            return state.draftAnswers.find(
+                (answer) => answer.questionId === "q1",
+            )?.grade?.points;
+        })
+        .toBe(0);
+});
+
+test("AI selection advances and focuses the next input before grading completes; header stays slim", async ({
+    page,
+}) => {
+    await setup(page, true, false, false, true);
+    await page.setViewportSize({ width: 580, height: 550 });
+    const header = page.locator("header");
+    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(44);
+    const title = await header
+        .getByRole("heading", { name: "Intervals", exact: true })
+        .boundingBox();
+    const mode = await header
+        .getByText("Study session", { exact: true })
+        .boundingBox();
+    expect(mode!.x).toBeGreaterThan(title!.x);
+    expect(Math.abs(mode!.y - title!.y)).toBeLessThan(8);
+    await submitFreeform(page);
+    const menu = page.getByRole("dialog", {
+        name: "Grade your answer",
+        exact: true,
+    });
+    await expect(
+        menu.getByRole("button", { name: "Skip", exact: true }),
+    ).toBeFocused();
+    await page.screenshot({
+        path: `/tmp/obstudy-grading-menu-${test.info().project.name}.png`,
+    });
+    await page
+        .getByText("What a good answer includes", { exact: true })
+        .click();
+    await expect(
+        page.getByText("Explain whether endpoints belong to each interval.", {
+            exact: true,
+        }),
+    ).toBeVisible();
+    await page.evaluate(() => {
+        (
+            window as unknown as { practiceControls: { holdAiGrade: boolean } }
+        ).practiceControls.holdAiGrade = true;
+    });
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => "releasePracticeAi" in window);
+    await expect(
+        page.getByText("Question 3 of 3", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Your answer", { exact: true })).toBeFocused();
+    await page.keyboard.type("Continue while AI grades");
+    await page.evaluate(() => {
+        (
+            window as unknown as { releasePracticeAi: () => void }
+        ).releasePracticeAi();
+    });
+    await expect
+        .poll(async () => {
+            const state = await page.evaluate(
+                () =>
+                    JSON.parse(
+                        sessionStorage.getItem("practice-session-test")!,
+                    ) as ExerciseSession,
+            );
+            return state.draftAnswers.find(
+                (answer) => answer.questionId === "q1",
+            )?.grade?.source;
+        })
+        .toBe("ai");
+    await expect(page.getByLabel("Your answer", { exact: true })).toHaveValue(
+        "Continue while AI grades",
+    );
+    await expect(page.getByLabel("Your answer", { exact: true })).toBeFocused();
+});
 
 test("invalid AI grading can be retried or replaced with self grading", async ({
     page,
