@@ -33,6 +33,7 @@
         onConfigureAi: () => void;
         onManage: (request: NoteQuestionActionRequest) => Promise<void>;
     } = $props();
+    let managementDialog: HTMLDialogElement;
     let questionCount = $state<number | undefined>(10);
     let difficulty = $state<Difficulty>(0);
     let questionFormat = $state<QuestionFormatSelection>(2);
@@ -103,10 +104,18 @@
             questionFormat = request.questionFormat ?? 2;
         }
     });
+    function closeManagement(): void {
+        managementDialog.close();
+        pendingAction = null;
+    }
+    function configureAi(): void {
+        closeManagement();
+        onConfigureAi();
+    }
     function generate(): void {
         if (busy || pendingAction || disabledReason || invalidCount) return;
         if (generationDisabledReason) {
-            onConfigureAi();
+            configureAi();
             return;
         }
         void onGenerate({
@@ -162,9 +171,22 @@
 
 <section class="space-y-6" aria-label={`${noteTitle(note)} progress`}>
     <div>
-        <h2 class="break-words text-[22px]/[30px] font-semibold">
-            {noteTitle(note)}
-        </h2>
+        <div class="flex flex-wrap items-center gap-3">
+            <h2 class="min-w-0 break-words text-[22px]/[30px] font-semibold">
+                {noteTitle(note)}
+            </h2>
+            <button
+                type="button"
+                class={[button, "shrink-0"]}
+                aria-haspopup="dialog"
+                aria-controls={`manage-questions-${note.id}`}
+                onclick={(event) => {
+                    // WebKit does not focus buttons on pointer clicks by default.
+                    event.currentTarget.focus();
+                    managementDialog.showModal();
+                }}>Manage questions</button
+            >
+        </div>
         <p class="mt-2 text-sm text-text-secondary">
             Study progress and questions for this note.
         </p>
@@ -190,8 +212,33 @@
     {#if !note.questions.length}<p class="text-sm text-text-muted">
             No questions have been generated for this note yet.
         </p>{/if}
-    <div class="space-y-3 border-t border-border pt-4">
-        <h3 class="text-base font-semibold">Manage questions</h3>
+    <dialog
+        bind:this={managementDialog}
+        id={`manage-questions-${note.id}`}
+        aria-labelledby={`manage-questions-title-${note.id}`}
+        onclose={() => {
+            pendingAction = null;
+        }}
+        class="m-auto max-h-[calc(100dvh_-_32px)] w-[calc(100%_-_32px)] max-w-3xl space-y-4 overflow-y-auto rounded-lg border border-border bg-canvas p-4 text-text-primary shadow-xl backdrop:bg-scrim/60 sm:p-6"
+    >
+        <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0 space-y-1">
+                <h2
+                    id={`manage-questions-title-${note.id}`}
+                    class="text-base font-semibold"
+                >
+                    Manage questions
+                </h2>
+                <p class="break-words text-sm/5 text-text-secondary">
+                    {noteTitle(note)}
+                </p>
+            </div>
+            <button
+                type="button"
+                class={[button, "shrink-0"]}
+                onclick={closeManagement}>Close</button
+            >
+        </div>
         {#if showAdditionalOptions}
             <p class="text-xs/5 text-text-secondary">
                 Generate additional practice questions from all topics in this
@@ -355,7 +402,7 @@
                 {#if generationDisabledReason && generationDisabledReason !== "Loading AI integrations…"}<button
                         type="button"
                         class={button}
-                        onclick={onConfigureAi}>Open AI integrations</button
+                        onclick={configureAi}>Open AI integrations</button
                     >{/if}
             </div>{/if}
         {#if generation}
@@ -434,5 +481,5 @@
         {:else if !basicQuestionCount}<p class="text-xs text-text-muted">
                 Only basic questions have a study schedule to reset.
             </p>{/if}
-    </div>
+    </dialog>
 </section>

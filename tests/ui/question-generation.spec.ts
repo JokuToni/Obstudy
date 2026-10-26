@@ -313,13 +313,17 @@ test("generation service uses the shared AI IPC, persists basic cards, and exclu
     }
 });
 
-async function openNote(page: Page): Promise<void> {
+async function openNote(page: Page, manage = true): Promise<void> {
     await page
         .getByRole("button", { name: /^Sets(?: Topic parsing error)?$/ })
         .click();
     await expect(
         page.getByRole("heading", { name: "Sets", exact: true }),
     ).toBeVisible();
+    if (manage)
+        await page
+            .getByRole("button", { name: "Manage questions", exact: true })
+            .click();
 }
 
 async function releaseGeneration(page: Page): Promise<void> {
@@ -329,6 +333,42 @@ async function releaseGeneration(page: Page): Promise<void> {
         ).continueGeneration(),
     );
 }
+
+test("note question management opens beside the title and closes with focus restored", async ({
+    page,
+}) => {
+    await mockGeneration(page, { showNote: true, configured: true });
+    await openNote(page, false);
+    const trigger = page.getByRole("button", {
+        name: "Manage questions",
+        exact: true,
+    });
+    const title = page.getByRole("heading", { name: "Sets", exact: true });
+    const dialog = page.getByRole("dialog", {
+        name: "Manage questions",
+        exact: true,
+    });
+    await expect(trigger).toBeVisible();
+    await expect(
+        page.getByRole("button", { name: "Generate questions", exact: true }),
+    ).toHaveCount(0);
+    const titleBox = (await title.boundingBox())!;
+    const triggerBox = (await trigger.boundingBox())!;
+    expect(triggerBox.x).toBeGreaterThan(titleBox.x + titleBox.width);
+    expect(Math.abs(triggerBox.y - titleBox.y)).toBeLessThan(4);
+    await trigger.click();
+    await expect(dialog).toBeVisible();
+    await expect(
+        dialog.getByRole("button", { name: "Close", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+});
 
 test("note tab shows saved progress, survives closing the tab, and offers additional question settings", async ({
     page,
@@ -362,6 +402,7 @@ test("note tab shows saved progress, survives closing the tab, and offers additi
             .locator("..")
             .locator("dd"),
     ).toHaveText("2");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
     await page.getByRole("button", { name: "Close Sets", exact: true }).click();
     await openNote(page);
     await expect(bar).toHaveAttribute("value", "2");
@@ -414,7 +455,7 @@ test("note tab shows saved progress, survives closing the tab, and offers additi
         await expect(generate).toBeVisible();
         await expect(bar).toBeVisible();
         const overflow = await page
-            .getByRole("tabpanel", { name: "Sets", exact: true })
+            .getByRole("dialog", { name: "Manage questions", exact: true })
             .evaluate((panel) => panel.scrollWidth > panel.clientWidth);
         expect(overflow).toBe(false);
     }
@@ -606,6 +647,9 @@ test("signed-in integration without a model opens its editor and generation work
         page.getByText("Integration saved.", { exact: false }),
     ).toBeVisible();
     await page.getByRole("tab", { name: "Sets", exact: true }).click();
+    await page
+        .getByRole("button", { name: "Manage questions", exact: true })
+        .click();
     await page
         .getByRole("button", { name: "Generate questions", exact: true })
         .click();
