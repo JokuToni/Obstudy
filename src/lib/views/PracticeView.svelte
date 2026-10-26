@@ -413,15 +413,17 @@
                     }}
                 />
             {:else if question}
-                <div class="mx-auto w-full max-w-3xl space-y-6 py-6">
+                <div
+                    class="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-6 py-4 sm:py-6"
+                >
                     {#if gradingErrors[question.id]}<p
                             role="alert"
-                            class="rounded-md border border-border bg-surface p-3 text-sm/5 text-danger"
+                            class="shrink-0 rounded-md border border-border bg-surface p-3 text-sm/5 text-danger"
                         >
                             {gradingErrors[question.id]}
                         </p>{/if}
                     {#if session.warnings.length}<details
-                            class="rounded-md border border-border bg-surface px-3 py-2 text-xs/5 text-text-secondary"
+                            class="shrink-0 rounded-md border border-border bg-surface px-3 py-2 text-xs/5 text-text-secondary"
                         >
                             <summary class="cursor-pointer"
                                 >Session notices ({session.warnings
@@ -434,7 +436,7 @@
                             </ul>
                         </details>{/if}
                     <div
-                        class="flex flex-wrap items-center justify-between gap-2 text-xs/5 text-text-muted"
+                        class="flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs/5 text-text-muted"
                     >
                         <span
                             >Question {questionIndex + 1} of {session.questions
@@ -448,7 +450,7 @@
                     </div>
                     {#if material}
                         <section
-                            class="overflow-hidden rounded-lg border border-border bg-surface"
+                            class="shrink-0 overflow-hidden rounded-lg border border-border bg-surface"
                             aria-label="Question material"
                         >
                             <div class="min-w-0 p-4 sm:p-6">
@@ -502,14 +504,17 @@
                         </section>
                     {/if}
                     <section
-                        class="space-y-4"
+                        class="flex min-h-0 flex-1 flex-col gap-4"
                         aria-labelledby="practice-question"
                     >
                         <h2
                             id="practice-question"
                             bind:this={questionHeading}
                             tabindex="-1"
-                            class={["text-base/7 font-medium", focusRing]}
+                            class={[
+                                "shrink-0 text-base/7 font-medium",
+                                focusRing,
+                            ]}
                         >
                             <StudyText text={question.text} />
                         </h2>
@@ -552,9 +557,11 @@
                                     >{/each}
                             </fieldset>
                         {:else}
-                            <div class="space-y-2">
+                            <div
+                                class="flex min-h-[124px] flex-1 flex-col gap-2"
+                            >
                                 <div
-                                    class="flex items-center justify-between gap-3"
+                                    class="flex shrink-0 items-center justify-between gap-3"
                                 >
                                     <label
                                         for="practice-answer"
@@ -579,7 +586,7 @@
                         {/if}
                     </section>
                     {#if draft.revealed}<section
-                            class="space-y-3 rounded-lg border border-border bg-surface p-4 sm:p-6"
+                            class="shrink-0 space-y-3 rounded-lg border border-border bg-surface p-4 sm:p-6"
                             aria-label="Example answer"
                         >
                             <div

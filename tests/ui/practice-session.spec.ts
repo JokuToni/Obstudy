@@ -1166,10 +1166,21 @@ test("practice body stays stable while long answers scroll inside a capped edito
                 ),
             )
             .toBe(true);
-        const editor = (await page.locator(".cm-editor").boundingBox())!;
-        expect(editor.height).toBeLessThanOrEqual(
-            Math.max(160, Math.min(viewport.height * 0.32, 320)) + 1,
-        );
+        const editor = (await page
+            .locator("[data-answer-editor]")
+            .boundingBox())!;
+        const footer = (await page.locator("footer").boundingBox())!;
+        const sidePadding = await page
+            .getByRole("region", { name: "Practice session", exact: true })
+            .getByRole("main")
+            .evaluate((element) =>
+                Number.parseFloat(getComputedStyle(element).paddingLeft),
+            );
+        expect(
+            Math.abs(footer.y - (editor.y + editor.height) - sidePadding),
+        ).toBeLessThan(1);
+        if (viewport.height >= 780)
+            expect(editor.height).toBeGreaterThan(viewport.height * 0.32);
         expect((await body.boundingBox())!.height).toBe(before.height);
         await scroller.scrollIntoViewIfNeeded();
         await scroller.evaluate((element) => {

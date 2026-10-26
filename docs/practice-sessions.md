@@ -126,5 +126,7 @@ The MathQuill dependency uses the same jQuery 3 version via an npm override.
 
 The question-and-answer body keeps a stable height between the header and footer.
 Grading controls share the footer navigation row, and grading errors appear in
-the scrolling body. The editor grows up to `clamp(160px, 32dvh, 320px)` and then
-scrolls internally; its toolbar stays outside the editor’s scroll area.
+the scrolling body. The editor grows into the remaining space below the question.
+At its maximum height the gap above the footer matches horizontal content padding:
+16px in compact windows, 24px otherwise. Further text scrolls inside the editor;
+its toolbar stays outside the editor’s scroll area.
