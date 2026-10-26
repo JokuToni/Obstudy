@@ -215,8 +215,12 @@
             ) {
                 event.preventDefault();
                 mainContent?.scrollBy({
-                    top: event.key === "ArrowDown" ? 48 : -48,
-                    behavior: "instant",
+                    top: event.key === "ArrowDown" ? 64 : -64,
+                    behavior: window.matchMedia(
+                        "(prefers-reduced-motion: reduce)",
+                    ).matches
+                        ? "instant"
+                        : "smooth",
                 });
             }
             return;
