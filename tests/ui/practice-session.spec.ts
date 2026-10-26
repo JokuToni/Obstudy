@@ -883,15 +883,31 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
     await page.keyboard.press("ArrowUp");
     await expect(radios.first()).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(radios.first()).toBeChecked();
-    await page.keyboard.press("ArrowRight");
+    await expect(radios.first()).not.toBeChecked();
     await expect(
-        page.getByRole("region", { name: "Example answer", exact: true }),
+        page.getByText("Question 1 of 3", { exact: true }),
     ).toBeVisible();
     await page.keyboard.press("ArrowRight");
     await expect(
         page.getByText("Question 2 of 3", { exact: true }),
     ).toBeVisible();
+    await expect
+        .poll(async () =>
+            page.evaluate(() => {
+                const state = JSON.parse(
+                    sessionStorage.getItem("practice-session-test")!,
+                ) as ExerciseSession;
+                const answer = state.draftAnswers.find(
+                    (answer) => answer.questionId === "q0",
+                );
+                return {
+                    index: answer?.selectedChoiceIndex,
+                    revealed: answer?.revealed,
+                    points: answer?.grade?.points,
+                };
+            }),
+        )
+        .toEqual({ index: 0, revealed: true, points: 1 });
     const input = page.getByLabel("Your answer", { exact: true });
     await expect(input).toBeFocused();
     await page.keyboard.type("An endpoint explanation");

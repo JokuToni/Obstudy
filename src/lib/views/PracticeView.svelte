@@ -213,6 +213,31 @@
             if (event.repeat) return;
             if (event.key === "ArrowLeft") {
                 if (questionIndex > 0) void navigate(questionIndex - 1);
+            } else if (
+                question?.format === 0 &&
+                !draft.revealed &&
+                !session.closedAt
+            ) {
+                const choices = Array.from(
+                    document.querySelectorAll<HTMLInputElement>(
+                        "input[data-practice-choice]:not(:disabled)",
+                    ),
+                );
+                const focusedIndex = choices.indexOf(
+                    document.activeElement as HTMLInputElement,
+                );
+                const index =
+                    focusedIndex >= 0
+                        ? focusedIndex
+                        : draft.selectedChoiceIndex;
+                if (index === null) return;
+                onChange({
+                    ...draft,
+                    text: question.choices[index],
+                    selectedChoiceIndex: index,
+                    revealed: true,
+                });
+                void tick().then(advance);
             } else forward();
         } else if (
             question?.format === 0 &&
@@ -247,8 +272,6 @@
             ) {
                 event.preventDefault();
                 event.stopPropagation();
-                if (!event.repeat)
-                    selectChoice(choices.indexOf(document.activeElement));
             }
         }
     }
