@@ -103,3 +103,8 @@ Verification: `npm run check`, `npm run build`, `npm run test:unit`,
 Browser tests mock Tauri IPC and AI responses; they do not launch a real native
 window or call paid providers. Rust tests cover transactions, due selection,
 snapshots, draft validation, and unchanged FSRS state after self-review.
+
+Early exit also supports sessions with no graded answers, including empty sessions
+and sessions containing only discarded drafts or ungraded submissions. The closing
+score query explicitly returns SQLite REAL so its zero total decodes as Rust f64.
+These sessions close without creating an empty performance.

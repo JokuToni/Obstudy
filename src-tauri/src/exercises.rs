@@ -624,7 +624,7 @@ async fn close_session(
         .await?;
     }
     let total: f64 = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(points),0) FROM submittedAnswers WHERE exerciseId=?",
+        "SELECT CAST(COALESCE(SUM(points),0) AS REAL) FROM submittedAnswers WHERE exerciseId=?",
     )
     .bind(exerciseId)
     .fetch_one(&mut *connection)
@@ -1025,6 +1025,63 @@ mod tests {
             );
             connection.close().await.unwrap();
             std::fs::remove_dir_all(folder).unwrap();
+        });
+    }
+
+    #[test]
+    fn closing_without_graded_answers_handles_empty_sessions_and_discarded_work() {
+        tauri::async_runtime::block_on(async {
+            for scenario in ["empty", "draft", "ungraded"] {
+                let (folder, mut connection) = fixture().await;
+                let session =
+                    persist_exercise(&mut connection, &request("practice", &["q0", "q1"]))
+                        .await
+                        .unwrap();
+                let exerciseId = session["id"].as_str().unwrap();
+                let mut revision = 0;
+                if scenario != "empty" {
+                    let mut response =
+                        answer("q0", "Discard this text", None, scenario == "ungraded");
+                    response.grade = None;
+                    let saved =
+                        save_draft(&mut connection, exerciseId, revision, &[response], false)
+                            .await
+                            .unwrap();
+                    revision = saved["revision"].as_i64().unwrap();
+                    assert!(
+                        close_session(&mut connection, exerciseId, revision, false)
+                            .await
+                            .is_err()
+                    );
+                }
+                let mut transaction = connection.begin().await.unwrap();
+                let closed =
+                    close_session(&mut transaction, exerciseId, revision, scenario != "empty")
+                        .await
+                        .unwrap();
+                transaction.commit().await.unwrap();
+                assert!(!closed["closedAt"].is_null(), "{scenario}");
+                assert_eq!(closed["draftAnswers"], json!([]), "{scenario}");
+                assert_eq!(closed["maxPoints"], 0.0, "{scenario}");
+                let submitted: i64 =
+                    sqlx::query_scalar("SELECT COUNT(*) FROM submittedAnswers WHERE exerciseId=?")
+                        .bind(exerciseId)
+                        .fetch_one(&mut connection)
+                        .await
+                        .unwrap();
+                assert_eq!(submitted, 0, "{scenario}");
+                connection.close().await.unwrap();
+                let (mut reopened, _) = crate::database::openDatabase(folder.to_str().unwrap())
+                    .await
+                    .unwrap();
+                let restored = load_session(&mut reopened, exerciseId).await.unwrap();
+                assert_eq!(restored, closed, "{scenario}");
+                let note = snapshot::load_note(&mut reopened, "note").await.unwrap();
+                assert_eq!(note["answers"], json!([]), "{scenario}");
+                assert_eq!(note["performances"], json!([]), "{scenario}");
+                reopened.close().await.unwrap();
+                std::fs::remove_dir_all(folder).unwrap();
+            }
         });
     }
 
