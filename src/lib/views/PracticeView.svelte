@@ -6,12 +6,12 @@
         AnswerGrade,
     } from "$lib/types/exercises";
     import StudyText from "$lib/components/practice/StudyText.svelte";
+    import AnswerEditor from "$lib/components/practice/AnswerEditor.svelte";
     import ResultsView from "./ResultsView.svelte";
     import GradingMenu from "$lib/components/practice/GradingMenu.svelte";
     import {
         button,
         focusRing,
-        input,
         primaryButton,
     } from "$lib/components/ui/styles";
 
@@ -249,6 +249,11 @@
             event.shiftKey ||
             closing ||
             document.querySelector("dialog[open]")
+        )
+            return;
+        if (
+            event.target instanceof Element &&
+            event.target.closest("[data-answer-editor-control]")
         )
             return;
         if (showReview) {
@@ -553,20 +558,15 @@
                                         >{draft.text.length} / {question.maxCharacters}</span
                                     >
                                 </div>
-                                <textarea
-                                    id="practice-answer"
-                                    value={draft.text}
-                                    oninput={(event) =>
-                                        changeText(event.currentTarget.value)}
-                                    disabled={draft.revealed ||
-                                        !!session.closedAt}
-                                    maxlength={question.maxCharacters}
-                                    rows="6"
-                                    placeholder="Write your answer in your own words…"
-                                    class={[
-                                        input,
-                                        "min-h-40 resize-y text-base/7",
-                                    ]}></textarea>
+                                {#key question.id}
+                                    <AnswerEditor
+                                        value={draft.text}
+                                        onChange={changeText}
+                                        disabled={draft.revealed ||
+                                            !!session.closedAt}
+                                        maxCharacters={question.maxCharacters}
+                                    />
+                                {/key}
                             </div>
                         {/if}
                     </section>

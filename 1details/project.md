@@ -4,7 +4,7 @@
 
 **Yleinen kuvaus:**
 
-**STACK:** Tauri2, svelte, sqlite, openAI api, CodeMirror, Katex, tailwindcss, ts-fsrs
+**STACK:** Tauri2, svelte, sqlite, openAI api, CodeMirror, Katex, MathQuill (jQuery), tailwindcss, ts-fsrs
 
 Obsidianin kanssa käyttöön suunniteltu sovellus, joka auttaa käyttäjää opiskelemaan ja kertaamaan muistiinpanojen pohjalta.
 
@@ -291,6 +291,11 @@ Existing questions to avoid duplicating (JSON reference data):
 
 
 - Jos muistiinpano joka syötetään funktiolle ei sisällä tälläistä rakennetta tai rakennetta on hyvin pieni määrä kokonaisuudessaan teksista palautetaan: virhe jos ei ollenkaan, varoitus jos on vain pieni osa.
+
+**Harjoitusnäkymän vastauseditori:**
+- Vapaatekstieditorin yläreunassa on pieni työkalupalkki: yhtälö, murtoluku, potenssi, neliöjuuri, matemaattiset symbolit ja esikatselu.
+- MathQuill muokkaa yhtälöitä visuaalisesti. Insert equation / Enter lisää yhtälön LaTeX-muodossa `$...$` kohdistimen paikalle tai valitun tekstin tilalle. Cancel / Escape peruu lisäämisen. Tallennus ja arvostelu käyttävät edelleen tekstiä ja LaTeXia.
+- Yhtälöeditorin nuolet liikuttavat matemaattista kohdistinta eivätkä vaihda kysymystä. Kysymyksen vaihtaminen nollaa keskeneräisen yhtälöeditorin. Vastauksen merkkiraja koskee myös lisättyä LaTeXia.
 
 **arvosteleVastaus():**
 - Monivalinta arvostellaan automaattisesti oikein (1) tai väärin (0).

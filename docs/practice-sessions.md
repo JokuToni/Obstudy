@@ -110,3 +110,12 @@ Early exit also supports sessions with no graded answers, including empty sessio
 and sessions containing only discarded drafts or ungraded submissions. The closing
 score query explicitly returns SQLite REAL so its zero total decodes as Rust f64.
 These sessions close without creating an empty performance.
+
+Freeform answers use a compact toolbar above the textarea: Equation, fraction,
+exponent, square root, Symbols, and Preview. MathQuill opens as an inline visual
+composer; Insert equation or Enter inserts `$...$` at the captured cursor/selection.
+Cancel or Escape leaves the answer unchanged. Equation arrows never navigate
+questions. Inserting restores text focus and respects the answer character limit.
+Answers remain plain text with LaTeX for autosave, grading, and KaTeX rendering.
+MathQuill and jQuery 3 are bundled locally with their required vendor CSS/fonts.
+The MathQuill dependency uses the same jQuery 3 version via an npm override.

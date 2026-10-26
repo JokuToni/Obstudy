@@ -890,6 +890,177 @@ for (const gradingMode of [
     });
 }
 
+test("MathQuill inserts a fraction at the answer cursor, previews it, and persists the LaTeX", async ({
+    page,
+}) => {
+    await setup(page, true, false, false, true);
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    const answer = page.getByLabel("Your answer", { exact: true });
+    await answer.fill("Before  after");
+    await answer.evaluate((element: HTMLTextAreaElement) =>
+        element.setSelectionRange(7, 7),
+    );
+    await page
+        .getByRole("button", { name: "Insert fraction", exact: true })
+        .click();
+    const equation = page.getByLabel("Equation", { exact: true });
+    await expect(equation).toBeFocused();
+    await page.keyboard.type("1");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.type("2");
+    await page.keyboard.press("ArrowRight");
+    await expect(
+        page.getByText("Question 2 of 3", { exact: true }),
+    ).toBeVisible();
+    await expect(answer).toHaveValue("Before  after");
+    await expect(page.locator(".mq-fraction")).toBeVisible();
+    for (const colorScheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme });
+        const colors = await page
+            .locator(".mq-denominator")
+            .evaluate((element) => {
+                const style = getComputedStyle(element);
+                return { line: style.borderTopColor, text: style.color };
+            });
+        expect(colors.line).toBe(colors.text);
+        await page.screenshot({
+            path: `/tmp/obstudy-math-editor-${colorScheme}-${test.info().project.name}.png`,
+        });
+    }
+    await page
+        .getByRole("button", { name: "Insert equation", exact: true })
+        .click();
+    await expect(answer).toHaveValue(String.raw`Before $\frac{1}{2}$ after`);
+    await expect(answer).toBeFocused();
+    expect(
+        await answer.evaluate(
+            (element: HTMLTextAreaElement) => element.selectionStart,
+        ),
+    ).toBe(String.raw`Before $\frac{1}{2}$`.length);
+    await page
+        .getByRole("button", { name: "Show answer preview", exact: true })
+        .click();
+    await expect(
+        page
+            .getByRole("region", { name: "Answer preview", exact: true })
+            .locator(".katex"),
+    ).toBeVisible();
+    await expect
+        .poll(() =>
+            page.evaluate(() => {
+                const session = JSON.parse(
+                    sessionStorage.getItem("practice-session-test") ?? "null",
+                ) as ExerciseSession | null;
+                return session?.draftAnswers.find(
+                    (item) => item.questionId === "q1",
+                )?.text;
+            }),
+        )
+        .toBe(String.raw`Before $\frac{1}{2}$ after`);
+    await page.reload();
+    await expect(answer).toHaveValue(String.raw`Before $\frac{1}{2}$ after`);
+    await answer.focus();
+    await answer.evaluate((element: HTMLTextAreaElement) =>
+        element.setSelectionRange(element.value.length, element.value.length),
+    );
+    await page.keyboard.press("ArrowRight");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(
+        page.getByRole("button", { name: "Insert fraction", exact: true }),
+    ).toBeDisabled();
+});
+
+test("MathQuill replaces selected math and supports exponent, root, and cancel actions", async ({
+    page,
+}) => {
+    await setup(page, true);
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    const answer = page.getByLabel("Your answer", { exact: true });
+    await answer.fill("Value $x$ only");
+    await answer.evaluate((element: HTMLTextAreaElement) =>
+        element.setSelectionRange(6, 9),
+    );
+    await page
+        .getByRole("button", { name: "Open equation editor", exact: true })
+        .click();
+    await expect(page.getByLabel("Equation", { exact: true })).toBeFocused();
+    await page.keyboard.type("y");
+    await page
+        .getByRole("button", { name: "Insert exponent", exact: true })
+        .click();
+    await page.keyboard.type("2");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    await expect(answer).toHaveValue(/Value \$y\^\{?2\}?\$ only/);
+    await expect(answer).toBeFocused();
+    const saved = await answer.inputValue();
+    await page
+        .getByRole("button", { name: "Insert square root", exact: true })
+        .click();
+    await expect(page.getByLabel("Equation", { exact: true })).toBeFocused();
+    await page.keyboard.type("9");
+    await expect(page.locator(".mq-sqrt-prefix")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(
+        page.getByRole("region", { name: "Equation editor", exact: true }),
+    ).toHaveCount(0);
+    await expect(answer).toBeFocused();
+    await expect(answer).toHaveValue(saved);
+    await page
+        .getByRole("button", { name: "Open equation editor", exact: true })
+        .click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(answer).toHaveValue(saved);
+    await expect(answer).toBeFocused();
+    await answer.fill("Real numbers: ");
+    await page.getByRole("button", { name: "Symbols", exact: true }).click();
+    await page
+        .getByRole("button", { name: "ℝ · Real numbers", exact: true })
+        .click();
+    await expect(page.getByLabel("Equation", { exact: true })).toBeFocused();
+    await page
+        .getByRole("button", { name: "Insert equation", exact: true })
+        .click();
+    await expect(answer).toHaveValue(String.raw`Real numbers: $\mathbb{R}$`);
+    await answer.evaluate((element: HTMLTextAreaElement) =>
+        element.setSelectionRange(
+            "Real numbers: ".length,
+            element.value.length,
+        ),
+    );
+    await page
+        .getByRole("button", { name: "Open equation editor", exact: true })
+        .click();
+    await expect(page.getByLabel("Equation", { exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(answer).toHaveValue(String.raw`Real numbers: $\mathbb{R}$`);
+});
+
+test("equation symbols respect the answer length limit without losing prose", async ({
+    page,
+}) => {
+    await setup(page, true);
+    await page.setViewportSize({ width: 580, height: 550 });
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    const answer = page.getByLabel("Your answer", { exact: true });
+    await answer.fill("a".repeat(499));
+    await page.getByRole("button", { name: "Symbols", exact: true }).click();
+    await page.getByRole("button", { name: "π · Pi", exact: true }).click();
+    await expect(page.getByLabel("Equation", { exact: true })).toBeFocused();
+    await page
+        .getByRole("button", { name: "Insert equation", exact: true })
+        .click();
+    await expect(page.getByRole("alert")).toContainText(
+        "exceed the 500-character answer limit",
+    );
+    await expect(answer).toHaveValue("a".repeat(499));
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(answer).toBeFocused();
+});
+
 test("results focus the scrolling pane on entry, return from a question, and reload", async ({
     page,
 }) => {
