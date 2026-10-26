@@ -726,7 +726,7 @@ test("practice window supports materials, answering, reload recovery, and a save
     await expect(
         page.getByText("Question 2 of 2", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByLabel("Your answer", { exact: true })).toHaveValue(
+    await expect(page.getByLabel("Your answer", { exact: true })).toHaveText(
         "Closed intervals include both endpoints. Open intervals exclude them.",
     );
     await page
@@ -890,7 +890,45 @@ for (const gradingMode of [
     });
 }
 
-test("MathQuill inserts a fraction at the answer cursor, previews it, and persists the LaTeX", async ({
+async function selectAnswer(
+    page: Page,
+    from: number,
+    to = from,
+): Promise<void> {
+    await page.getByLabel("Your answer", { exact: true }).focus();
+    await page.keyboard.press("ControlOrMeta+Home");
+    for (let index = 0; index < from; index++)
+        await page.keyboard.press("ArrowRight");
+    for (let index = from; index < to; index++)
+        await page.keyboard.press("Shift+ArrowRight");
+}
+
+async function answerSource(page: Page): Promise<string> {
+    return page.evaluate(() => {
+        const session = JSON.parse(
+            sessionStorage.getItem("practice-session-test") ?? "null",
+        ) as ExerciseSession | null;
+        return (
+            session?.draftAnswers.find((answer) => answer.questionId === "q1")
+                ?.text ?? ""
+        );
+    });
+}
+
+async function answerCursor(page: Page): Promise<number> {
+    return page
+        .getByLabel("Your answer", { exact: true })
+        .evaluate((element) => {
+            const selection = window.getSelection();
+            if (!selection?.focusNode) return -1;
+            const range = document.createRange();
+            range.selectNodeContents(element);
+            range.setEnd(selection.focusNode, selection.focusOffset);
+            return range.toString().length;
+        });
+}
+
+test("MathQuill inserts inline KaTeX at the answer cursor and persists the LaTeX", async ({
     page,
 }) => {
     await setup(page, true, false, false, true);
@@ -898,9 +936,7 @@ test("MathQuill inserts a fraction at the answer cursor, previews it, and persis
     await page.keyboard.press("ArrowRight");
     const answer = page.getByLabel("Your answer", { exact: true });
     await answer.fill("Before  after");
-    await answer.evaluate((element: HTMLTextAreaElement) =>
-        element.setSelectionRange(7, 7),
-    );
+    await selectAnswer(page, 7);
     await page
         .getByRole("button", { name: "Insert fraction", exact: true })
         .click();
@@ -913,7 +949,7 @@ test("MathQuill inserts a fraction at the answer cursor, previews it, and persis
     await expect(
         page.getByText("Question 2 of 3", { exact: true }),
     ).toBeVisible();
-    await expect(answer).toHaveValue("Before  after");
+    await expect(answer).toHaveText("Before after");
     await expect(page.locator(".mq-fraction")).toBeVisible();
     for (const colorScheme of ["dark", "light"] as const) {
         await page.emulateMedia({ colorScheme });
@@ -931,21 +967,35 @@ test("MathQuill inserts a fraction at the answer cursor, previews it, and persis
     await page
         .getByRole("button", { name: "Insert equation", exact: true })
         .click();
-    await expect(answer).toHaveValue(String.raw`Before $\frac{1}{2}$ after`);
+    await expect
+        .poll(() => answerSource(page))
+        .toBe(String.raw`Before $\frac{1}{2}$ after`);
+    await expect(answer.locator("[data-answer-equation] .katex")).toBeVisible();
     await expect(answer).toBeFocused();
     expect(
         await answer.evaluate(
-            (element: HTMLTextAreaElement) => element.selectionStart,
+            (element) => getComputedStyle(element).fontFamily,
         ),
-    ).toBe(String.raw`Before $\frac{1}{2}$`.length);
-    await page
-        .getByRole("button", { name: "Show answer preview", exact: true })
-        .click();
-    await expect(
-        page
-            .getByRole("region", { name: "Answer preview", exact: true })
-            .locator(".katex"),
-    ).toBeVisible();
+    ).toContain("sans-serif");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.screenshot({
+        path: `/tmp/obstudy-inline-answer-dark-${test.info().project.name}.png`,
+    });
+    await page.keyboard.type("!");
+    await expect
+        .poll(() => answerSource(page))
+        .toBe(String.raw`Before $\frac{1}{2}$! after`);
+    await page.keyboard.press("Backspace");
+    expect(
+        await answer.evaluate(
+            (element) => getComputedStyle(element).outlineStyle,
+        ),
+    ).toBe("none");
+    expect(
+        await answer
+            .locator("..")
+            .evaluate((element) => getComputedStyle(element).outlineStyle),
+    ).toBe("none");
     await expect
         .poll(() =>
             page.evaluate(() => {
@@ -959,11 +1009,12 @@ test("MathQuill inserts a fraction at the answer cursor, previews it, and persis
         )
         .toBe(String.raw`Before $\frac{1}{2}$ after`);
     await page.reload();
-    await expect(answer).toHaveValue(String.raw`Before $\frac{1}{2}$ after`);
+    await expect
+        .poll(() => answerSource(page))
+        .toBe(String.raw`Before $\frac{1}{2}$ after`);
+    await expect(answer.locator("[data-answer-equation] .katex")).toBeVisible();
     await answer.focus();
-    await answer.evaluate((element: HTMLTextAreaElement) =>
-        element.setSelectionRange(element.value.length, element.value.length),
-    );
+    await page.keyboard.press("ControlOrMeta+End");
     await page.keyboard.press("ArrowRight");
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(
@@ -979,12 +1030,8 @@ test("MathQuill replaces selected math and supports exponent, root, and cancel a
     await page.keyboard.press("ArrowRight");
     const answer = page.getByLabel("Your answer", { exact: true });
     await answer.fill("Value $x$ only");
-    await answer.evaluate((element: HTMLTextAreaElement) =>
-        element.setSelectionRange(6, 9),
-    );
-    await page
-        .getByRole("button", { name: "Open equation editor", exact: true })
-        .click();
+    await answer.locator("[data-answer-equation]").focus();
+    await page.keyboard.press("Enter");
     await expect(page.getByLabel("Equation", { exact: true })).toBeFocused();
     await page.keyboard.type("y");
     await page
@@ -993,9 +1040,11 @@ test("MathQuill replaces selected math and supports exponent, root, and cancel a
     await page.keyboard.type("2");
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("Enter");
-    await expect(answer).toHaveValue(/Value \$y\^\{?2\}?\$ only/);
+    await expect
+        .poll(() => answerSource(page))
+        .toMatch(/Value \$y\^\{?2\}?\$ only/);
     await expect(answer).toBeFocused();
-    const saved = await answer.inputValue();
+    const saved = await answerSource(page);
     await page
         .getByRole("button", { name: "Insert square root", exact: true })
         .click();
@@ -1007,12 +1056,12 @@ test("MathQuill replaces selected math and supports exponent, root, and cancel a
         page.getByRole("region", { name: "Equation editor", exact: true }),
     ).toHaveCount(0);
     await expect(answer).toBeFocused();
-    await expect(answer).toHaveValue(saved);
+    await expect.poll(() => answerSource(page)).toBe(saved);
     await page
         .getByRole("button", { name: "Open equation editor", exact: true })
         .click();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(answer).toHaveValue(saved);
+    await expect.poll(() => answerSource(page)).toBe(saved);
     await expect(answer).toBeFocused();
     await answer.fill("Real numbers: ");
     await page.getByRole("button", { name: "Symbols", exact: true }).click();
@@ -1023,19 +1072,46 @@ test("MathQuill replaces selected math and supports exponent, root, and cancel a
     await page
         .getByRole("button", { name: "Insert equation", exact: true })
         .click();
-    await expect(answer).toHaveValue(String.raw`Real numbers: $\mathbb{R}$`);
-    await answer.evaluate((element: HTMLTextAreaElement) =>
-        element.setSelectionRange(
-            "Real numbers: ".length,
-            element.value.length,
-        ),
-    );
-    await page
-        .getByRole("button", { name: "Open equation editor", exact: true })
-        .click();
+    await expect
+        .poll(() => answerSource(page))
+        .toBe(String.raw`Real numbers: $\mathbb{R}$`);
+    await answer.locator("[data-answer-equation]").click();
     await expect(page.getByLabel("Equation", { exact: true })).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(answer).toHaveValue(String.raw`Real numbers: $\mathbb{R}$`);
+    await expect
+        .poll(() => answerSource(page))
+        .toBe(String.raw`Real numbers: $\mathbb{R}$`);
+});
+
+test("inline equations support atomic deletion and undo while answer limits and literal code remain intact", async ({
+    page,
+}) => {
+    await setup(page, true);
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    const answer = page.getByLabel("Your answer", { exact: true });
+    await answer.fill("Before $x^2$ after");
+    await expect(answer.locator("[data-answer-equation] .katex")).toBeVisible();
+    await answer.press("ControlOrMeta+End");
+    for (let index = 0; index < " after".length; index++)
+        await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Backspace");
+    await expect(answer.locator("[data-answer-equation]")).toHaveCount(0);
+    await expect.poll(() => answerSource(page)).toBe("Before  after");
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect(answer.locator("[data-answer-equation] .katex")).toBeVisible();
+    await expect.poll(() => answerSource(page)).toBe("Before $x^2$ after");
+    await page.screenshot({
+        path: `/tmp/obstudy-inline-answer-${test.info().project.name}.png`,
+    });
+    await answer.fill("a".repeat(501));
+    await expect(page.getByRole("alert")).toContainText(
+        "at most 500 characters",
+    );
+    await expect.poll(() => answerSource(page)).toBe("Before $x^2$ after");
+    await answer.fill("Code: `$x$` and real math: $y$.");
+    await expect(answer.locator("[data-answer-equation]")).toHaveCount(1);
+    await expect(answer).toContainText("Code: `$x$`");
 });
 
 test("equation symbols respect the answer length limit without losing prose", async ({
@@ -1056,7 +1132,7 @@ test("equation symbols respect the answer length limit without losing prose", as
     await expect(page.getByRole("alert")).toContainText(
         "exceed the 500-character answer limit",
     );
-    await expect(answer).toHaveValue("a".repeat(499));
+    await expect(answer).toHaveText("a".repeat(499));
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(answer).toBeFocused();
 });
@@ -1162,35 +1238,17 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
     await expect(
         page.getByText("Question 2 of 3", { exact: true }),
     ).toBeVisible();
-    await input.evaluate((element: HTMLTextAreaElement) =>
-        element.setSelectionRange(0, 0),
-    );
+    await selectAnswer(page, 0);
     await page.keyboard.press("ArrowLeft");
     await expect(input).toBeFocused();
-    expect(
-        await input.evaluate(
-            (element: HTMLTextAreaElement) => element.selectionStart,
-        ),
-    ).toBe(0);
+    expect(await answerCursor(page)).toBe(0);
     await page.keyboard.press("ArrowRight");
-    expect(
-        await input.evaluate(
-            (element: HTMLTextAreaElement) => element.selectionStart,
-        ),
-    ).toBe(1);
+    expect(await answerCursor(page)).toBe(1);
     await page.keyboard.press("ArrowLeft");
-    expect(
-        await input.evaluate(
-            (element: HTMLTextAreaElement) => element.selectionStart,
-        ),
-    ).toBe(0);
-    await input.evaluate((element: HTMLTextAreaElement) => element.select());
+    expect(await answerCursor(page)).toBe(0);
+    await input.press("ControlOrMeta+a");
     await page.keyboard.press("ArrowRight");
-    expect(
-        await input.evaluate(
-            (element: HTMLTextAreaElement) => element.selectionStart,
-        ),
-    ).toBe("An endpoint explanation".length);
+    expect(await answerCursor(page)).toBe("An endpoint explanation".length);
     await expect(
         page.getByRole("dialog", { name: "Grade your answer", exact: true }),
     ).toHaveCount(0);
@@ -1201,7 +1259,7 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
     ).toBeVisible();
     await page.keyboard.press("ArrowRight");
     await expect(input).toBeFocused();
-    await expect(input).toHaveValue("An endpoint explanation");
+    await expect(input).toHaveText("An endpoint explanation");
     await page.keyboard.press("ArrowRight");
     const menu = page.getByRole("dialog", {
         name: "Grade your answer",
@@ -1246,7 +1304,7 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
         page.getByText("Question 3 of 3", { exact: true }),
     ).toBeVisible();
     await expect(input).toBeFocused();
-    await expect(input).toHaveValue("");
+    await expect(input).toContainText("Write your answer in your own words…");
     await page.locator("#practice-question").focus();
     await page.keyboard.press("ArrowLeft");
     await expect(
@@ -1401,7 +1459,7 @@ test("AI selection advances and focuses the next input before grading completes;
             )?.grade?.source;
         })
         .toBe("ai");
-    await expect(page.getByLabel("Your answer", { exact: true })).toHaveValue(
+    await expect(page.getByLabel("Your answer", { exact: true })).toHaveText(
         "Continue while AI grades",
     );
     await expect(page.getByLabel("Your answer", { exact: true })).toBeFocused();
@@ -1548,7 +1606,7 @@ test("save errors keep the answer editable and can be retried", async ({
         .getByLabel("Your answer", { exact: true })
         .fill("My answer stays here.");
     await expect(page.getByRole("alert")).toContainText("Unable to save");
-    await expect(page.getByLabel("Your answer", { exact: true })).toHaveValue(
+    await expect(page.getByLabel("Your answer", { exact: true })).toHaveText(
         "My answer stays here.",
     );
     await page.evaluate(() => {

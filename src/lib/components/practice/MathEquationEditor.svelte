@@ -117,7 +117,7 @@
             Loading equation editor…
         </p>{/if}
     <div
-        class="min-h-16 overflow-x-auto rounded-md border border-control-border bg-surface px-3 py-3 text-xl text-text-primary focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent"
+        class="min-h-16 overflow-x-auto rounded-md border border-control-border bg-surface px-3 py-3 text-xl text-text-primary"
     >
         <span
             bind:this={host}

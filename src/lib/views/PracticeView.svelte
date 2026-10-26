@@ -52,6 +52,7 @@
     let viewingQuestion = $state(false);
     let questionHeading = $state<HTMLHeadingElement>();
     let mainContent = $state<HTMLElement>();
+    let answerEditor = $state<AnswerEditor>();
     let gradingQuestionId = $state<string | null>(null);
     let gradeButton = $state<HTMLButtonElement>();
     let scrollFrame: number | null = null;
@@ -154,18 +155,14 @@
     function focusAnswer(): void {
         if (showReview || closing || document.querySelector("dialog[open]"))
             return;
-        const input = document.querySelector<HTMLTextAreaElement>(
-            "#practice-answer:not(:disabled)",
-        );
         const choices = Array.from(
             document.querySelectorAll<HTMLInputElement>(
                 "input[data-practice-choice]:not(:disabled)",
             ),
         );
-        if (input) {
-            input.focus();
-            input.setSelectionRange(input.value.length, input.value.length);
-        } else if (choices.length)
+        if (question?.format === 1 && !draft.revealed && !session.closedAt)
+            answerEditor?.focusToEnd();
+        else if (choices.length)
             (choices.find((choice) => choice.checked) ?? choices[0]).focus();
         else questionHeading?.focus();
     }
@@ -268,11 +265,12 @@
         }
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
             const target = event.target;
-            if (target instanceof HTMLTextAreaElement && !target.disabled) {
-                const atEnd =
-                    target.selectionStart === target.value.length &&
-                    target.selectionEnd === target.value.length;
-                if (event.key !== "ArrowRight" || !atEnd) return;
+            if (
+                target instanceof Element &&
+                target.closest("[data-answer-input]")
+            ) {
+                if (event.key !== "ArrowRight" || !answerEditor?.isAtEnd())
+                    return;
             }
             event.preventDefault();
             event.stopPropagation();
@@ -560,6 +558,7 @@
                                 </div>
                                 {#key question.id}
                                     <AnswerEditor
+                                        bind:this={answerEditor}
                                         value={draft.text}
                                         onChange={changeText}
                                         disabled={draft.revealed ||

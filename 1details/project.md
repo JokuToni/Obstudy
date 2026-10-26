@@ -293,8 +293,9 @@ Existing questions to avoid duplicating (JSON reference data):
 - Jos muistiinpano joka syötetään funktiolle ei sisällä tälläistä rakennetta tai rakennetta on hyvin pieni määrä kokonaisuudessaan teksista palautetaan: virhe jos ei ollenkaan, varoitus jos on vain pieni osa.
 
 **Harjoitusnäkymän vastauseditori:**
-- Vapaatekstieditorin yläreunassa on pieni työkalupalkki: yhtälö, murtoluku, potenssi, neliöjuuri, matemaattiset symbolit ja esikatselu.
-- MathQuill muokkaa yhtälöitä visuaalisesti. Insert equation / Enter lisää yhtälön LaTeX-muodossa `$...$` kohdistimen paikalle tai valitun tekstin tilalle. Cancel / Escape peruu lisäämisen. Tallennus ja arvostelu käyttävät edelleen tekstiä ja LaTeXia.
+- Vapaatekstieditorin yläreunassa on pieni työkalupalkki: yhtälö, murtoluku, potenssi, neliöjuuri, matemaattiset symbolit. CodeMirror näyttää tekstin ja KaTeX-yhtälöt samassa muokattavassa kentässä.
+- MathQuill muokkaa yhtälöitä visuaalisesti. Insert equation / Enter lisää kohdistimen paikalle tai valitun tekstin tilalle KaTeXilla renderöidyn yhtälön; taustalla säilyy LaTeX-muoto `$...$`. Yhtälön klikkaaminen avaa sen uudelleen MathQuilliin. Yhtälöt ovat yksittäisiä kohteita nuolinavigaatiossa ja poistossa, ja muutokset voi perua undo-toiminnolla. Cancel / Escape peruu lisäämisen. Tallennus ja arvostelu käyttävät edelleen tekstiä ja LaTeXia.
+- Syötekentissä ja editoreissa ei näytetä fokusoinnin ääriviivaa tai rengasta. Painikkeiden ja välilehtien näppäimistöfokus säilyy näkyvänä.
 - Yhtälöeditorin nuolet liikuttavat matemaattista kohdistinta eivätkä vaihda kysymystä. Kysymyksen vaihtaminen nollaa keskeneräisen yhtälöeditorin. Vastauksen merkkiraja koskee myös lisättyä LaTeXia.
 
 **arvosteleVastaus():**

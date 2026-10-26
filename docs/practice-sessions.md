@@ -111,11 +111,15 @@ and sessions containing only discarded drafts or ungraded submissions. The closi
 score query explicitly returns SQLite REAL so its zero total decodes as Rust f64.
 These sessions close without creating an empty performance.
 
-Freeform answers use a compact toolbar above the textarea: Equation, fraction,
-exponent, square root, Symbols, and Preview. MathQuill opens as an inline visual
-composer; Insert equation or Enter inserts `$...$` at the captured cursor/selection.
+Freeform answers use CodeMirror with a compact toolbar: Equation, fraction,
+exponent, square root, and Symbols. KaTeX renders equations directly inside the
+editable answer, while the document retains its original text and LaTeX. Clicking
+a rendered equation reopens it in MathQuill. Cursor movement and deletion treat
+equations as atomic units; undo and copy/paste operate on the underlying document.
+MathQuill opens as an inline visual composer; Insert equation or Enter inserts `$...$` at the captured cursor/selection.
 Cancel or Escape leaves the answer unchanged. Equation arrows never navigate
 questions. Inserting restores text focus and respects the answer character limit.
 Answers remain plain text with LaTeX for autosave, grading, and KaTeX rendering.
+Inputs and editors have no focus outline; buttons and tabs retain theirs.
 MathQuill and jQuery 3 are bundled locally with their required vendor CSS/fonts.
 The MathQuill dependency uses the same jQuery 3 version via an npm override.
