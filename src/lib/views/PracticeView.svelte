@@ -278,237 +278,246 @@
             >
         </div>
     </header>
-    <main
-        inert={closing}
-        class={[
-            "min-h-0 flex-1 overflow-y-auto px-4 sm:px-6",
-            gradingQuestionId ? "pb-48" : "",
-        ]}
-    >
-        {#if errorMessage}<div
-                role="alert"
-                class="mx-auto mt-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 text-sm/5 text-danger"
-            >
-                <p class="min-w-0 flex-1 break-words">{errorMessage}</p>
-                <button type="button" class={button} onclick={onRetrySave}
-                    >Retry save</button
+    <div class="relative isolate min-h-0 flex-1" data-practice-body>
+        <main inert={closing} class="h-full overflow-y-auto px-4 sm:px-6">
+            {#if errorMessage}<div
+                    role="alert"
+                    class="mx-auto mt-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 text-sm/5 text-danger"
                 >
-            </div>{/if}
-        {#if showReview}<ResultsView
-                {session}
-                {answers}
-                {onClose}
-                {grading}
-                {gradingErrors}
-                {onGrade}
-                {onAiGrade}
-                onReview={(index) => {
-                    viewingQuestion = true;
-                    void navigate(index);
-                }}
-            />
-        {:else if question}
-            <div class="mx-auto w-full max-w-3xl space-y-6 py-6">
-                {#if session.warnings.length}<details
-                        class="rounded-md border border-border bg-surface px-3 py-2 text-xs/5 text-text-secondary"
+                    <p class="min-w-0 flex-1 break-words">{errorMessage}</p>
+                    <button type="button" class={button} onclick={onRetrySave}
+                        >Retry save</button
                     >
-                        <summary class="cursor-pointer"
-                            >Session notices ({session.warnings
-                                .length})</summary
+                </div>{/if}
+            {#if showReview}<ResultsView
+                    {session}
+                    {answers}
+                    {onClose}
+                    {grading}
+                    {gradingErrors}
+                    {onGrade}
+                    {onAiGrade}
+                    onReview={(index) => {
+                        viewingQuestion = true;
+                        void navigate(index);
+                    }}
+                />
+            {:else if question}
+                <div class="mx-auto w-full max-w-3xl space-y-6 py-6">
+                    {#if session.warnings.length}<details
+                            class="rounded-md border border-border bg-surface px-3 py-2 text-xs/5 text-text-secondary"
                         >
-                        <ul class="mt-2 list-disc space-y-1 pl-4">
-                            {#each session.warnings as warning}<li>
-                                    {warning}
-                                </li>{/each}
-                        </ul>
-                    </details>{/if}
-                <div
-                    class="flex flex-wrap items-center justify-between gap-2 text-xs/5 text-text-muted"
-                >
-                    <span
-                        >Question {questionIndex + 1} of {session.questions
-                            .length}</span
-                    ><span
-                        >{["Easy", "Medium", "Hard"][question.difficulty]} · {question.format ===
-                        0
-                            ? "Multiple choice"
-                            : "Free text"}</span
-                    >
-                </div>
-                {#if material}
-                    <section
-                        class="overflow-hidden rounded-lg border border-border bg-surface"
-                        aria-label="Question material"
-                    >
-                        <div class="min-w-0 p-4 sm:p-6">
-                            {#if material.type === "image"}{#if imageFailed}<p
-                                        class="py-8 text-center text-sm text-text-muted"
-                                    >
-                                        This image could not be loaded.
-                                    </p>{:else}<img
-                                        src={material.source}
-                                        alt={material.alt}
-                                        class="mx-auto max-h-80 max-w-full object-contain"
-                                        onerror={() => {
-                                            imageFailed = true;
-                                        }}
-                                    />{/if}
-                            {:else if material.type === "latex"}<StudyText
-                                    text={material.content}
-                                    mathOnly
-                                />
-                            {:else}<pre
-                                    class="max-h-80 overflow-auto font-mono text-[13px]/6"><code
-                                        >{material.content}</code
-                                    ></pre>{/if}
-                        </div>
-                        {#if question.materials.length > 1}<div
-                                class="flex items-center justify-between border-t border-border px-4 py-2"
+                            <summary class="cursor-pointer"
+                                >Session notices ({session.warnings
+                                    .length})</summary
                             >
-                                <button
-                                    type="button"
-                                    class={button}
-                                    aria-label="Previous material"
-                                    disabled={materialIndex === 0}
-                                    onclick={() => {
-                                        materialIndex--;
-                                    }}>←</button
-                                ><span
-                                    class="text-xs tabular-nums text-text-muted"
-                                    >Material {materialIndex + 1} of {question
-                                        .materials.length}</span
-                                ><button
-                                    type="button"
-                                    class={button}
-                                    aria-label="Next material"
-                                    disabled={materialIndex ===
-                                        question.materials.length - 1}
-                                    onclick={() => {
-                                        materialIndex++;
-                                    }}>→</button
-                                >
-                            </div>{/if}
-                    </section>
-                {/if}
-                <section class="space-y-4" aria-labelledby="practice-question">
-                    <h2
-                        id="practice-question"
-                        bind:this={questionHeading}
-                        tabindex="-1"
-                        class={["text-base/7 font-medium", focusRing]}
+                            <ul class="mt-2 list-disc space-y-1 pl-4">
+                                {#each session.warnings as warning}<li>
+                                        {warning}
+                                    </li>{/each}
+                            </ul>
+                        </details>{/if}
+                    <div
+                        class="flex flex-wrap items-center justify-between gap-2 text-xs/5 text-text-muted"
                     >
-                        <StudyText text={question.text} />
-                    </h2>
-                    {#if question.format === 0}
-                        <fieldset
-                            class="space-y-2"
-                            disabled={draft.revealed || !!session.closedAt}
+                        <span
+                            >Question {questionIndex + 1} of {session.questions
+                                .length}</span
+                        ><span
+                            >{["Easy", "Medium", "Hard"][question.difficulty]} · {question.format ===
+                            0
+                                ? "Multiple choice"
+                                : "Free text"}</span
                         >
-                            <legend
-                                class="mb-3 text-[13px]/5 text-text-secondary"
-                                >Choose one answer</legend
-                            >
-                            {#each question.choices as choice, index}<label
-                                    class={[
-                                        "flex min-h-12 items-start gap-3 rounded-md border px-4 py-3 text-sm/6",
-                                        draft.selectedChoiceIndex === index
-                                            ? "border-control-border bg-selected"
-                                            : "border-border bg-surface",
-                                        !draft.revealed
-                                            ? "cursor-pointer hover:bg-hover"
-                                            : "",
-                                    ]}
-                                    ><input
-                                        type="radio"
-                                        data-practice-choice
-                                        name={`answer-${question.id}`}
-                                        checked={draft.selectedChoiceIndex ===
-                                            index}
-                                        onchange={() => selectChoice(index)}
-                                        class={[
-                                            "mt-1 size-4 shrink-0 accent-accent-solid",
-                                            focusRing,
-                                        ]}
-                                    /><span class="min-w-0 flex-1"
-                                        ><StudyText
-                                            text={choice}
-                                            standaloneMath
-                                        /></span
-                                    ></label
-                                >{/each}
-                        </fieldset>
-                    {:else}
-                        <div class="space-y-2">
-                            <div
-                                class="flex items-center justify-between gap-3"
-                            >
-                                <label
-                                    for="practice-answer"
-                                    class="text-[13px]/5 text-text-secondary"
-                                    >Your answer</label
-                                ><span
-                                    class="text-xs tabular-nums text-text-muted"
-                                    >{draft.text.length} / {question.maxCharacters}</span
-                                >
+                    </div>
+                    {#if material}
+                        <section
+                            class="overflow-hidden rounded-lg border border-border bg-surface"
+                            aria-label="Question material"
+                        >
+                            <div class="min-w-0 p-4 sm:p-6">
+                                {#if material.type === "image"}{#if imageFailed}<p
+                                            class="py-8 text-center text-sm text-text-muted"
+                                        >
+                                            This image could not be loaded.
+                                        </p>{:else}<img
+                                            src={material.source}
+                                            alt={material.alt}
+                                            class="mx-auto max-h-80 max-w-full object-contain"
+                                            onerror={() => {
+                                                imageFailed = true;
+                                            }}
+                                        />{/if}
+                                {:else if material.type === "latex"}<StudyText
+                                        text={material.content}
+                                        mathOnly
+                                    />
+                                {:else}<pre
+                                        class="max-h-80 overflow-auto font-mono text-[13px]/6"><code
+                                            >{material.content}</code
+                                        ></pre>{/if}
                             </div>
-                            <textarea
-                                id="practice-answer"
-                                value={draft.text}
-                                oninput={(event) =>
-                                    changeText(event.currentTarget.value)}
-                                disabled={draft.revealed || !!session.closedAt}
-                                maxlength={question.maxCharacters}
-                                rows="6"
-                                placeholder="Write your answer in your own words…"
-                                class={[input, "min-h-40 resize-y text-base/7"]}
-                            ></textarea>
-                        </div>
-                    {/if}
-                </section>
-                {#if draft.revealed}<section
-                        class="space-y-3 rounded-lg border border-border bg-surface p-4 sm:p-6"
-                        aria-label="Example answer"
-                    >
-                        <div
-                            class="flex flex-wrap items-center justify-between gap-2"
-                        >
-                            <h3 class="text-sm font-semibold">
-                                Example answer
-                            </h3>
-                            {#if question.format === 0}<span
-                                    class="text-xs/5 text-text-secondary"
-                                    >{draft.selectedChoiceIndex ===
-                                    question.correctChoiceIndex
-                                        ? "Correct · 1 / 1"
-                                        : "Incorrect · 0 / 1"}</span
-                                >{/if}
-                        </div>
-                        {#if question.format === 0}<div class="text-sm/6">
-                                <StudyText
-                                    text={question.choices[
-                                        question.correctChoiceIndex
-                                    ]}
-                                    standaloneMath
-                                />
-                            </div>{/if}
-                        <div class="text-sm/6 text-text-secondary">
-                            <StudyText text={question.exampleAnswer} />
-                        </div>
-                        {#if question.format === 1}<details
-                                class="text-xs/5 text-text-muted"
-                            >
-                                <summary class="cursor-pointer"
-                                    >What a good answer includes</summary
+                            {#if question.materials.length > 1}<div
+                                    class="flex items-center justify-between border-t border-border px-4 py-2"
                                 >
-                                <div class="mt-2">
-                                    <StudyText text={question.answerCriteria} />
+                                    <button
+                                        type="button"
+                                        class={button}
+                                        aria-label="Previous material"
+                                        disabled={materialIndex === 0}
+                                        onclick={() => {
+                                            materialIndex--;
+                                        }}>←</button
+                                    ><span
+                                        class="text-xs tabular-nums text-text-muted"
+                                        >Material {materialIndex + 1} of {question
+                                            .materials.length}</span
+                                    ><button
+                                        type="button"
+                                        class={button}
+                                        aria-label="Next material"
+                                        disabled={materialIndex ===
+                                            question.materials.length - 1}
+                                        onclick={() => {
+                                            materialIndex++;
+                                        }}>→</button
+                                    >
+                                </div>{/if}
+                        </section>
+                    {/if}
+                    <section
+                        class="space-y-4"
+                        aria-labelledby="practice-question"
+                    >
+                        <h2
+                            id="practice-question"
+                            bind:this={questionHeading}
+                            tabindex="-1"
+                            class={["text-base/7 font-medium", focusRing]}
+                        >
+                            <StudyText text={question.text} />
+                        </h2>
+                        {#if question.format === 0}
+                            <fieldset
+                                class="space-y-2"
+                                disabled={draft.revealed || !!session.closedAt}
+                            >
+                                <legend
+                                    class="mb-3 text-[13px]/5 text-text-secondary"
+                                    >Choose one answer</legend
+                                >
+                                {#each question.choices as choice, index}<label
+                                        class={[
+                                            "flex min-h-12 items-start gap-3 rounded-md border px-4 py-3 text-sm/6",
+                                            draft.selectedChoiceIndex === index
+                                                ? "border-control-border bg-selected"
+                                                : "border-border bg-surface",
+                                            !draft.revealed
+                                                ? "cursor-pointer hover:bg-hover"
+                                                : "",
+                                        ]}
+                                        ><input
+                                            type="radio"
+                                            data-practice-choice
+                                            name={`answer-${question.id}`}
+                                            checked={draft.selectedChoiceIndex ===
+                                                index}
+                                            onchange={() => selectChoice(index)}
+                                            class={[
+                                                "mt-1 size-4 shrink-0 accent-accent-solid",
+                                                focusRing,
+                                            ]}
+                                        /><span class="min-w-0 flex-1"
+                                            ><StudyText
+                                                text={choice}
+                                                standaloneMath
+                                            /></span
+                                        ></label
+                                    >{/each}
+                            </fieldset>
+                        {:else}
+                            <div class="space-y-2">
+                                <div
+                                    class="flex items-center justify-between gap-3"
+                                >
+                                    <label
+                                        for="practice-answer"
+                                        class="text-[13px]/5 text-text-secondary"
+                                        >Your answer</label
+                                    ><span
+                                        class="text-xs tabular-nums text-text-muted"
+                                        >{draft.text.length} / {question.maxCharacters}</span
+                                    >
                                 </div>
-                            </details>{/if}
+                                <textarea
+                                    id="practice-answer"
+                                    value={draft.text}
+                                    oninput={(event) =>
+                                        changeText(event.currentTarget.value)}
+                                    disabled={draft.revealed ||
+                                        !!session.closedAt}
+                                    maxlength={question.maxCharacters}
+                                    rows="6"
+                                    placeholder="Write your answer in your own words…"
+                                    class={[
+                                        input,
+                                        "min-h-40 resize-y text-base/7",
+                                    ]}></textarea>
+                            </div>
+                        {/if}
                     </section>
-                {/if}
-            </div>
-        {/if}
-    </main>
+                    {#if draft.revealed}<section
+                            class="space-y-3 rounded-lg border border-border bg-surface p-4 sm:p-6"
+                            aria-label="Example answer"
+                        >
+                            <div
+                                class="flex flex-wrap items-center justify-between gap-2"
+                            >
+                                <h3 class="text-sm font-semibold">
+                                    Example answer
+                                </h3>
+                                {#if question.format === 0}<span
+                                        class="text-xs/5 text-text-secondary"
+                                        >{draft.selectedChoiceIndex ===
+                                        question.correctChoiceIndex
+                                            ? "Correct · 1 / 1"
+                                            : "Incorrect · 0 / 1"}</span
+                                    >{/if}
+                            </div>
+                            {#if question.format === 0}<div class="text-sm/6">
+                                    <StudyText
+                                        text={question.choices[
+                                            question.correctChoiceIndex
+                                        ]}
+                                        standaloneMath
+                                    />
+                                </div>{/if}
+                            <div class="text-sm/6 text-text-secondary">
+                                <StudyText text={question.exampleAnswer} />
+                            </div>
+                            {#if question.format === 1}<details
+                                    class="text-xs/5 text-text-muted"
+                                >
+                                    <summary class="cursor-pointer"
+                                        >What a good answer includes</summary
+                                    >
+                                    <div class="mt-2">
+                                        <StudyText
+                                            text={question.answerCriteria}
+                                        />
+                                    </div>
+                                </details>{/if}
+                        </section>
+                    {/if}
+                </div>
+            {/if}
+        </main>
+        {#if gradingQuestionId}<GradingMenu
+                onGrade={(grade) => chooseGrade(grade)}
+                onAi={() => chooseGrade(undefined, true)}
+                onSkip={() => chooseGrade()}
+            />{/if}
+    </div>
     {#if !showReview}<footer
             inert={closing}
             class="shrink-0 border-t border-border bg-sidebar px-4 py-3 sm:px-6"
@@ -588,9 +597,3 @@
             </div>
         </footer>{/if}
 </section>
-
-{#if gradingQuestionId}<GradingMenu
-        onGrade={(grade) => chooseGrade(grade)}
-        onAi={() => chooseGrade(undefined, true)}
-        onSkip={() => chooseGrade()}
-    />{/if}

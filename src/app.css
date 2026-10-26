@@ -20,6 +20,7 @@
             var(--color-overview-gradient-middle) 40%,
             transparent 100%
         );
+    --color-scrim: #000000;
     --color-canvas: #141414;
     --color-tab-content: #0b0b0b;
     --color-sidebar: #101010;

@@ -78,43 +78,48 @@
     }
 </script>
 
-<dialog
-    bind:this={dialog}
-    aria-labelledby="grading-menu-title"
-    oncancel={(event) => {
-        event.preventDefault();
-        onSkip();
-    }}
-    class="fixed inset-auto bottom-24 left-1/2 m-0 w-[calc(100%_-_32px)] max-w-lg -translate-x-1/2 space-y-3 rounded-lg border border-control-border bg-surface p-4 text-text-primary shadow-lg backdrop:bg-transparent"
+<div
+    data-grading-backdrop
+    class="pointer-events-none absolute inset-0 z-10 grid place-items-center overflow-hidden bg-scrim/50 p-4 backdrop-blur-sm"
 >
-    <div class="flex items-center justify-between gap-3">
-        <h2 id="grading-menu-title" class="text-sm font-medium">
-            Grade your answer
-        </h2>
-        <span class="text-xs text-text-muted">← → · Enter</span>
-    </div>
-    <div class="flex flex-wrap gap-2">
-        {#each levels as level}<button
+    <dialog
+        bind:this={dialog}
+        aria-labelledby="grading-menu-title"
+        oncancel={(event) => {
+            event.preventDefault();
+            onSkip();
+        }}
+        class="pointer-events-auto relative inset-auto m-0 max-h-full w-full max-w-lg space-y-3 overflow-y-auto rounded-lg border border-control-border bg-surface p-4 text-text-primary shadow-lg"
+    >
+        <div class="flex items-center justify-between gap-3">
+            <h2 id="grading-menu-title" class="text-sm font-medium">
+                Grade your answer
+            </h2>
+            <span class="text-xs text-text-muted">← → · Enter</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {#each levels as level}<button
+                    type="button"
+                    class={button}
+                    onclick={() =>
+                        onGrade({
+                            points: level.points,
+                            source: "self",
+                            feedback: "",
+                        })}>{level.label} · {level.points}</button
+                >{/each}
+            <button type="button" class={button} onclick={onAi}
+                >Grade with AI</button
+            >
+            <button
+                bind:this={skipButton}
                 type="button"
                 class={button}
-                onclick={() =>
-                    onGrade({
-                        points: level.points,
-                        source: "self",
-                        feedback: "",
-                    })}>{level.label} · {level.points}</button
-            >{/each}
-        <button type="button" class={button} onclick={onAi}
-            >Grade with AI</button
-        >
-        <button
-            bind:this={skipButton}
-            type="button"
-            class={button}
-            onclick={onSkip}>Skip</button
-        >
-    </div>
-    <p class="text-xs/5 text-text-muted">
-        Continue now; skipped answers can be graded in results.
-    </p>
-</dialog>
+                onclick={onSkip}>Skip</button
+            >
+        </div>
+        <p class="text-xs/5 text-text-muted">
+            Continue now; skipped answers can be graded in results.
+        </p>
+    </dialog>
+</div>

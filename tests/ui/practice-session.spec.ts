@@ -986,6 +986,56 @@ test("AI selection advances and focuses the next input before grading completes;
     await expect(
         menu.getByRole("button", { name: "Skip", exact: true }),
     ).toBeFocused();
+    for (const colorScheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme });
+        for (const viewport of [
+            { width: 580, height: 550 },
+            { width: 1200, height: 900 },
+        ]) {
+            await page.setViewportSize(viewport);
+            const body = (await page
+                .locator("[data-practice-body]")
+                .boundingBox())!;
+            const backdrop = (await page
+                .locator("[data-grading-backdrop]")
+                .boundingBox())!;
+            const popup = (await menu.boundingBox())!;
+            const topBar = (await header.boundingBox())!;
+            const bottomBar = (await page.locator("footer").boundingBox())!;
+            expect(backdrop).toEqual(body);
+            expect(
+                Math.abs(popup.x + popup.width / 2 - (body.x + body.width / 2)),
+            ).toBeLessThan(1);
+            expect(
+                Math.abs(
+                    popup.y + popup.height / 2 - (body.y + body.height / 2),
+                ),
+            ).toBeLessThan(1);
+            expect(popup.y).toBeGreaterThanOrEqual(body.y);
+            expect(popup.y + popup.height).toBeLessThanOrEqual(
+                body.y + body.height,
+            );
+            expect(topBar.y + topBar.height).toBeLessThanOrEqual(backdrop.y);
+            expect(bottomBar.y).toBeGreaterThanOrEqual(
+                backdrop.y + backdrop.height,
+            );
+            const glass = await page
+                .locator("[data-grading-backdrop]")
+                .evaluate((element) => {
+                    const style = getComputedStyle(element);
+                    return {
+                        background: style.backgroundColor,
+                        blur: style.backdropFilter,
+                    };
+                });
+            expect(["rgba(0, 0, 0, 0.5)", "oklab(0 0 0 / 0.5)"]).toContain(
+                glass.background,
+            );
+            expect(glass.blur).toBe("blur(8px)");
+        }
+    }
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.setViewportSize({ width: 580, height: 550 });
     await page.screenshot({
         path: `/tmp/obstudy-grading-menu-${test.info().project.name}.png`,
     });

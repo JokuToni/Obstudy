@@ -297,6 +297,7 @@ Existing questions to avoid duplicating (JSON reference data):
 - Vapaakirjoituksen arvostelee käyttäjä itse tai tekoäly: väärin 0, osittain oikein 0.5, oikein 1.
 - Arvostelun voi antaa heti esimerkkivastauksen yhteydessä tai myöhemmin tulosnäkymässä.
 - Harjoitusnäkymässä arvostelu avautuu pieneen kelluvaan valikkoon, jossa Skip saa oletusfokuksen. Valinta jatkaa seuraavaan kysymykseen; AI-arvostelu jatkuu taustalla. Yläpalkki on kapea, ja harjoitustilan teksti on muistiinpanon nimen oikealla puolella.
+- Arvosteluvalikko keskitetään kysymys- ja vastausalueen keskelle. Taustalle tulee tumma lasiefekti vain tällä alueella; ylä- ja alapalkkiin efekti ei vaikuta.
 - Uuden kysymyksen vastauskenttä saa automaattisesti fokuksen. Vasen/oikea nuoli toimii Edellinen/Jatka-toimintona. Monivalinnassa ylös/alas siirtää fokusta ja Enter valitsee. Arvosteluvalikossa vasen/oikea siirtää fokusta ja Enter valitsee.
 - Suljettaessa vahvistetaan arvostelemattomien vastausten hylkääminen. Vahvistuksen jälkeen niiden teksti poistetaan myös tallennetuista luonnoksista. Arvostellut vastaukset säilyvät.
 **askAi(prompt):**

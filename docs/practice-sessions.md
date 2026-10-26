@@ -37,7 +37,9 @@ are graded automatically as correct (1) or incorrect (0), using the immutable
 question snapshot in native code. Freeform answers can be self graded as Incorrect
 (0), Partly correct (0.5), or Correct (1), or graded on request through the active
 AI integration. Submitting a freeform answer opens a small floating grading prompt
-with Skip initially focused. The example and criteria remain scrollable behind it.
+centered within the question-and-answer body, with Skip initially focused. A dark,
+blurred glass backdrop covers only that body, leaving the header and footer clear.
+The example and criteria remain scrollable behind it.
 Skip, self grading, and AI grading advance automatically to the next question or
 results; AI runs in the background and never steals the next input's focus.
 Skipped answers and AI errors can be handled with the grading controls in results.
