@@ -52,6 +52,7 @@
     let viewingQuestion = $state(false);
     let questionHeading = $state<HTMLHeadingElement>();
     let gradingQuestionId = $state<string | null>(null);
+    let gradeButton = $state<HTMLButtonElement>();
     const question = $derived(session.questions[questionIndex]);
     const draft = $derived(
         answers.find((answer) => answer.questionId === question?.id) ?? {
@@ -181,6 +182,11 @@
         if (ai) void onAiGrade(questionId);
         void tick().then(advance);
     }
+    async function cancelGrading(): Promise<void> {
+        gradingQuestionId = null;
+        await tick();
+        gradeButton?.focus();
+    }
     function hotkey(event: KeyboardEvent): void {
         if (
             event.defaultPrevented ||
@@ -195,6 +201,13 @@
         )
             return;
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+            const target = event.target;
+            if (target instanceof HTMLTextAreaElement && !target.disabled) {
+                const atEnd =
+                    target.selectionStart === target.value.length &&
+                    target.selectionEnd === target.value.length;
+                if (event.key !== "ArrowRight" || !atEnd) return;
+            }
             event.preventDefault();
             event.stopPropagation();
             if (event.repeat) return;
@@ -516,6 +529,7 @@
                 onGrade={(grade) => chooseGrade(grade)}
                 onAi={() => chooseGrade(undefined, true)}
                 onSkip={() => chooseGrade()}
+                onCancel={cancelGrading}
             />{/if}
     </div>
     {#if !showReview}<footer
@@ -551,6 +565,7 @@
                             type="button"
                             class={button}
                             disabled={grading[question.id]}
+                            bind:this={gradeButton}
                             onclick={() => {
                                 gradingQuestionId = question.id;
                             }}>Grade answer</button

@@ -901,6 +901,43 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
     ).toBeVisible();
     await page.keyboard.press("ArrowLeft");
     await expect(
+        page.getByText("Question 2 of 3", { exact: true }),
+    ).toBeVisible();
+    await input.evaluate((element: HTMLTextAreaElement) =>
+        element.setSelectionRange(0, 0),
+    );
+    await page.keyboard.press("ArrowLeft");
+    await expect(input).toBeFocused();
+    expect(
+        await input.evaluate(
+            (element: HTMLTextAreaElement) => element.selectionStart,
+        ),
+    ).toBe(0);
+    await page.keyboard.press("ArrowRight");
+    expect(
+        await input.evaluate(
+            (element: HTMLTextAreaElement) => element.selectionStart,
+        ),
+    ).toBe(1);
+    await page.keyboard.press("ArrowLeft");
+    expect(
+        await input.evaluate(
+            (element: HTMLTextAreaElement) => element.selectionStart,
+        ),
+    ).toBe(0);
+    await input.evaluate((element: HTMLTextAreaElement) => element.select());
+    await page.keyboard.press("ArrowRight");
+    expect(
+        await input.evaluate(
+            (element: HTMLTextAreaElement) => element.selectionStart,
+        ),
+    ).toBe("An endpoint explanation".length);
+    await expect(
+        page.getByRole("dialog", { name: "Grade your answer", exact: true }),
+    ).toHaveCount(0);
+    await page.locator("#practice-question").focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(
         page.getByText("Question 1 of 3", { exact: true }),
     ).toBeVisible();
     await page.keyboard.press("ArrowRight");
@@ -912,6 +949,28 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
         exact: true,
     });
     await expect(menu).toBeVisible();
+    await menu.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(menu).toHaveCount(0);
+    await expect(page.locator("[data-grading-backdrop]")).toHaveCount(0);
+    await expect(
+        page.getByText("Question 2 of 3", { exact: true }),
+    ).toBeVisible();
+    const reopen = page.getByRole("button", {
+        name: "Grade answer",
+        exact: true,
+    });
+    await expect(reopen).toBeFocused();
+    await expect(
+        page.getByText("Not graded yet", { exact: true }),
+    ).toBeVisible();
+    await reopen.click();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(reopen).toBeFocused();
+    await expect(
+        page.getByText("Question 2 of 3", { exact: true }),
+    ).toBeVisible();
+    await reopen.click();
     await expect(
         menu.getByRole("button", { name: "Skip", exact: true }),
     ).toBeFocused();
@@ -929,6 +988,7 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
     ).toBeVisible();
     await expect(input).toBeFocused();
     await expect(input).toHaveValue("");
+    await page.locator("#practice-question").focus();
     await page.keyboard.press("ArrowLeft");
     await expect(
         page.getByText("Question 2 of 3", { exact: true }),
@@ -939,6 +999,10 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
     await page
         .getByRole("button", { name: "Grade answer", exact: true })
         .click();
+    await page.keyboard.press("ArrowRight");
+    await expect(
+        menu.getByRole("button", { name: "Cancel", exact: true }),
+    ).toBeFocused();
     await page.keyboard.press("ArrowRight");
     await expect(
         menu.getByRole("button", { name: "Incorrect · 0", exact: true }),

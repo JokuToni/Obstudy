@@ -6,10 +6,12 @@
         onGrade,
         onAi,
         onSkip,
+        onCancel,
     }: {
         onGrade: (grade: AnswerGrade) => void;
         onAi: () => void;
         onSkip: () => void;
+        onCancel: () => void;
     } = $props();
     let dialog: HTMLDialogElement;
     let skipButton: HTMLButtonElement;
@@ -54,7 +56,7 @@
             const focused = buttons.indexOf(
                 document.activeElement as HTMLButtonElement,
             );
-            const current = focused < 0 ? buttons.length - 1 : focused;
+            const current = focused < 0 ? buttons.indexOf(skipButton) : focused;
             buttons[
                 (current +
                     (event.key === "ArrowRight" ? 1 : -1) +
@@ -64,7 +66,7 @@
         } else if (event.key === "Escape") {
             event.preventDefault();
             event.stopPropagation();
-            onSkip();
+            onCancel();
         } else if (
             event.key === "Enter" &&
             event.target instanceof HTMLButtonElement &&
@@ -87,7 +89,7 @@
         aria-labelledby="grading-menu-title"
         oncancel={(event) => {
             event.preventDefault();
-            onSkip();
+            onCancel();
         }}
         class="pointer-events-auto relative inset-auto m-0 max-h-full w-full max-w-lg space-y-3 overflow-y-auto rounded-lg border border-control-border bg-surface p-4 text-text-primary shadow-lg"
     >
@@ -117,9 +119,13 @@
                 class={button}
                 onclick={onSkip}>Skip</button
             >
+            <button type="button" class={button} onclick={onCancel}
+                >Cancel</button
+            >
         </div>
         <p class="text-xs/5 text-text-muted">
-            Continue now; skipped answers can be graded in results.
+            Continue now; skipped answers can be graded in results. Cancel stays
+            on this question.
         </p>
     </dialog>
 </div>
