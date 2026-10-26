@@ -5,12 +5,18 @@
     "windows": ["main"],
     "permissions": [
         "core:default",
+        "core:window:allow-show",
+        "core:window:allow-set-background-color",
+        "core:webview:allow-set-webview-background-color",
         "opener:default",
         "dialog:allow-open",
         "fs:allow-read-dir",
         "fs:allow-read-text-file",
         "fs:allow-stat",
         "sql:default",
-        "sql:allow-execute"
+        "sql:allow-execute",
+        "store:default",
+        "core:window:allow-set-size",
+        "core:window:allow-center"
     ]
 }
