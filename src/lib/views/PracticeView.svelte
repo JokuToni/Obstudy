@@ -54,6 +54,8 @@
     let mainContent = $state<HTMLElement>();
     let gradingQuestionId = $state<string | null>(null);
     let gradeButton = $state<HTMLButtonElement>();
+    let scrollFrame: number | null = null;
+    let scrollTarget: number | null = null;
     const question = $derived(session.questions[questionIndex]);
     const draft = $derived(
         answers.find((answer) => answer.questionId === question?.id) ?? {
@@ -95,12 +97,14 @@
         document.addEventListener("keydown", hotkey, true);
         return () => {
             document.removeEventListener("keydown", hotkey, true);
+            cancelResultsScroll();
         };
     });
     $effect(() => {
         if (showReview || closing) gradingQuestionId = null;
     });
     $effect(() => {
+        cancelResultsScroll();
         if (showReview)
             void tick().then(() => {
                 if (!showReview || closing) return;
@@ -196,6 +200,45 @@
         await tick();
         gradeButton?.focus();
     }
+    function cancelResultsScroll(): void {
+        if (scrollFrame !== null) cancelAnimationFrame(scrollFrame);
+        scrollFrame = null;
+        scrollTarget = null;
+    }
+    function scrollResults(distance: number): void {
+        const pane = mainContent;
+        if (!pane) return;
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            cancelResultsScroll();
+            pane.scrollBy({ top: distance, behavior: "instant" });
+            return;
+        }
+        const start = pane.scrollTop;
+        const destination = Math.max(
+            0,
+            Math.min(
+                pane.scrollHeight - pane.clientHeight,
+                (scrollTarget ?? start) + distance,
+            ),
+        );
+        if (scrollFrame !== null) cancelAnimationFrame(scrollFrame);
+        scrollTarget = destination;
+        const startedAt = performance.now();
+        function animate(now: number): void {
+            const progress = Math.min(1, Math.max(0, (now - startedAt) / 240));
+            const eased = 1 - Math.pow(1 - progress, 3);
+            pane!.scrollTo({
+                top: start + (destination - start) * eased,
+                behavior: "instant",
+            });
+            if (progress < 1) scrollFrame = requestAnimationFrame(animate);
+            else {
+                scrollFrame = null;
+                scrollTarget = null;
+            }
+        }
+        scrollFrame = requestAnimationFrame(animate);
+    }
     function hotkey(event: KeyboardEvent): void {
         if (
             event.defaultPrevented ||
@@ -214,14 +257,7 @@
                 (event.key === "ArrowUp" || event.key === "ArrowDown")
             ) {
                 event.preventDefault();
-                mainContent?.scrollBy({
-                    top: event.key === "ArrowDown" ? 64 : -64,
-                    behavior: window.matchMedia(
-                        "(prefers-reduced-motion: reduce)",
-                    ).matches
-                        ? "instant"
-                        : "smooth",
-                });
+                scrollResults(event.key === "ArrowDown" ? 120 : -120);
             }
             return;
         }
@@ -342,6 +378,8 @@
     <div class="relative isolate min-h-0 flex-1" data-practice-body>
         <main
             bind:this={mainContent}
+            onwheel={cancelResultsScroll}
+            onpointerdown={cancelResultsScroll}
             tabindex="-1"
             inert={closing}
             class={["h-full overflow-y-auto px-4 sm:px-6", focusRing]}

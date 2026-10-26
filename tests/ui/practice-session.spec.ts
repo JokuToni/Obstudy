@@ -906,13 +906,23 @@ test("results focus the scrolling pane on entry, return from a question, and rel
     await expect(main).toBeFocused();
     expect(await main.evaluate((element) => element.scrollTop)).toBe(0);
     await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
     await expect
         .poll(() => main.evaluate((element) => element.scrollTop))
-        .toBeGreaterThan(0);
+        .toBe(360);
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("ArrowUp");
     await page.keyboard.press("ArrowUp");
     await expect
         .poll(() => main.evaluate((element) => element.scrollTop))
         .toBe(0);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.keyboard.press("ArrowDown");
+    expect(await main.evaluate((element) => element.scrollTop)).toBe(120);
+    await page.keyboard.press("ArrowUp");
+    expect(await main.evaluate((element) => element.scrollTop)).toBe(0);
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     await page
         .getByRole("region", { name: "Question 2 review", exact: true })
         .getByRole("button", { name: "View question", exact: true })
