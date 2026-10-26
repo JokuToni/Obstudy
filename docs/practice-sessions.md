@@ -43,6 +43,8 @@ The example and criteria remain scrollable behind it.
 Skip, self grading, and AI grading advance automatically to the next question or
 results; AI runs in the background and never steals the next input's focus.
 Skipped answers and AI errors can be handled with the grading controls in results.
+Once an answer is graded, results show Graded and its score, source, and feedback,
+and remove the self and AI grading controls. Zero-point grades are completed grades.
 Cancel and Escape dismiss the prompt without grading or advancing and return focus
 to Grade answer in the footer, which reopens the prompt on a submitted answer.
 AI requests include the question, example answer, criteria, and student answer as

@@ -829,6 +829,25 @@ for (const gradingMode of [
                 exact: false,
             }),
         ).toBeVisible();
+        const freeformReview = page.getByRole("region", {
+            name: "Question 2 review",
+            exact: true,
+        });
+        await expect(
+            freeformReview.getByRole("heading", {
+                name:
+                    gradingMode === "self immediately"
+                        ? "Graded · 1 / 1"
+                        : "Graded · 0.5 / 1",
+                exact: true,
+            }),
+        ).toBeVisible();
+        await expect(
+            page.getByRole("group", { name: "Self grading", exact: true }),
+        ).toHaveCount(0);
+        await expect(
+            page.getByRole("button", { name: "Grade with AI", exact: true }),
+        ).toHaveCount(0);
         await page
             .getByRole("button", { name: "Save and exit", exact: true })
             .click();
@@ -1184,6 +1203,15 @@ test("invalid AI grading can be retried or replaced with self grading", async ({
         .getByRole("button", { name: "Incorrect · 0", exact: true })
         .click();
     await expect(page.getByText("Self graded", { exact: true })).toBeVisible();
+    await expect(
+        page.getByRole("heading", { name: "Graded · 0 / 1", exact: true }),
+    ).toHaveCount(2);
+    await expect(
+        page.getByRole("group", { name: "Self grading", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+        page.getByRole("button", { name: "Grade with AI", exact: true }),
+    ).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
     await page
         .getByRole("button", { name: "Save and exit", exact: true })

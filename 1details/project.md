@@ -295,7 +295,7 @@ Existing questions to avoid duplicating (JSON reference data):
 **arvosteleVastaus():**
 - Monivalinta arvostellaan automaattisesti oikein (1) tai väärin (0).
 - Vapaakirjoituksen arvostelee käyttäjä itse tai tekoäly: väärin 0, osittain oikein 0.5, oikein 1.
-- Arvostelun voi antaa heti esimerkkivastauksen yhteydessä tai myöhemmin tulosnäkymässä.
+- Arvostelun voi antaa heti esimerkkivastauksen yhteydessä tai myöhemmin tulosnäkymässä. Kun vastaus on arvosteltu, tulosnäkymä näyttää Graded-tilan ja pisteet sekä poistaa arvostelupainikkeet. Epäonnistuneen AI-arvostelun voi yrittää uudelleen tai arvostella itse.
 - Harjoitusnäkymässä arvostelu avautuu pieneen kelluvaan valikkoon, jossa Skip saa oletusfokuksen. Valinta jatkaa seuraavaan kysymykseen; AI-arvostelu jatkuu taustalla. Yläpalkki on kapea, ja harjoitustilan teksti on muistiinpanon nimen oikealla puolella.
 - Arvosteluvalikko keskitetään kysymys- ja vastausalueen keskelle. Taustalle tulee tumma lasiefekti vain tällä alueella; ylä- ja alapalkkiin efekti ei vaikuta.
 - Uuden kysymyksen vastauskenttä saa automaattisesti fokuksen. Vastauskentässä nuolet siirtävät tekstikohdistinta. Oikea nuoli käynnistää Jatka-toiminnon vain, kun kohdistin on tekstin lopussa eikä tekstiä ole valittuna. Vastauskentän ulkopuolella vasen/oikea nuoli toimii Edellinen/Jatka-toimintona. Monivalinnassa ylös/alas siirtää fokusta. Oikea nuoli valitsee fokusoidun vaihtoehdon, tallentaa vastauksen ja siirtyy suoraan seuraavaan kysymykseen tai lopuksi tuloksiin. Enter ei valitse vaihtoehtoa. Arvosteluvalikossa vasen/oikea siirtää fokusta ja Enter valitsee.
