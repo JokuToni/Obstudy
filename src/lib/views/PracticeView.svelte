@@ -378,7 +378,10 @@
             >
         </div>
     </header>
-    <div class="relative isolate min-h-0 flex-1" data-practice-body>
+    <div
+        class="relative isolate h-0 min-h-0 flex-1 overflow-hidden"
+        data-practice-body
+    >
         <main
             bind:this={mainContent}
             onwheel={cancelResultsScroll}
@@ -411,6 +414,12 @@
                 />
             {:else if question}
                 <div class="mx-auto w-full max-w-3xl space-y-6 py-6">
+                    {#if gradingErrors[question.id]}<p
+                            role="alert"
+                            class="rounded-md border border-border bg-surface p-3 text-sm/5 text-danger"
+                        >
+                            {gradingErrors[question.id]}
+                        </p>{/if}
                     {#if session.warnings.length}<details
                             class="rounded-md border border-border bg-surface px-3 py-2 text-xs/5 text-text-secondary"
                         >
@@ -640,34 +649,6 @@
                     max={session.questions.length}
                     class="block h-1 w-full appearance-none overflow-hidden rounded-full bg-surface accent-accent-solid [&::-moz-progress-bar]:bg-accent-solid [&::-webkit-progress-bar]:bg-surface [&::-webkit-progress-value]:bg-accent-solid"
                 ></progress>
-                {#if draft.revealed && question.format === 1 && !session.closedAt}
-                    <div
-                        class="flex flex-wrap items-center justify-between gap-2 text-xs/5 text-text-muted"
-                    >
-                        <span role="status"
-                            >{grading[question.id]
-                                ? "Grading with AI…"
-                                : draft.grade
-                                  ? `Grade: ${draft.grade.points} / 1`
-                                  : "Not graded yet"}</span
-                        >
-                        <button
-                            type="button"
-                            class={button}
-                            disabled={grading[question.id]}
-                            bind:this={gradeButton}
-                            onclick={() => {
-                                gradingQuestionId = question.id;
-                            }}>Grade answer</button
-                        >
-                    </div>
-                    {#if gradingErrors[question.id]}<p
-                            role="alert"
-                            class="text-xs/5 text-danger"
-                        >
-                            {gradingErrors[question.id]}
-                        </p>{/if}
-                {/if}
                 <div class="flex items-center justify-between gap-3">
                     <button
                         type="button"
@@ -676,6 +657,28 @@
                         onclick={() => navigate(questionIndex - 1)}
                         >Previous</button
                     >
+                    {#if draft.revealed && question.format === 1 && !session.closedAt}
+                        <div
+                            class="flex min-w-0 flex-1 items-center justify-end gap-2 text-xs/5 text-text-muted"
+                        >
+                            <span role="status" class="truncate"
+                                >{grading[question.id]
+                                    ? "Grading with AI…"
+                                    : draft.grade
+                                      ? `Grade: ${draft.grade.points} / 1`
+                                      : "Not graded yet"}</span
+                            >
+                            <button
+                                type="button"
+                                class={[button, "shrink-0"]}
+                                disabled={grading[question.id]}
+                                bind:this={gradeButton}
+                                onclick={() => {
+                                    gradingQuestionId = question.id;
+                                }}>Grade answer</button
+                            >
+                        </div>
+                    {/if}
                     {#if session.closedAt || ((session.reviewedAt || reviewRequest > 0) && draft.revealed)}<button
                             type="button"
                             class={primaryButton}

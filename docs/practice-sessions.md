@@ -123,3 +123,8 @@ Answers remain plain text with LaTeX for autosave, grading, and KaTeX rendering.
 Inputs and editors have no focus outline; buttons and tabs retain theirs.
 MathQuill and jQuery 3 are bundled locally with their required vendor CSS/fonts.
 The MathQuill dependency uses the same jQuery 3 version via an npm override.
+
+The question-and-answer body keeps a stable height between the header and footer.
+Grading controls share the footer navigation row, and grading errors appear in
+the scrolling body. The editor grows up to `clamp(160px, 32dvh, 320px)` and then
+scrolls internally; its toolbar stays outside the editor’s scroll area.

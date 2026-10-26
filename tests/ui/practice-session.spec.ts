@@ -1137,6 +1137,77 @@ test("equation symbols respect the answer length limit without losing prose", as
     await expect(answer).toBeFocused();
 });
 
+test("practice body stays stable while long answers scroll inside a capped editor", async ({
+    page,
+}) => {
+    await setup(page, true);
+    await page.setViewportSize({ width: 580, height: 550 });
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    const body = page.locator("[data-practice-body]");
+    const originalBody = (await body.boundingBox())!;
+    await page.keyboard.press("ArrowRight");
+    const answer = page.getByLabel("Your answer", { exact: true });
+    await expect(answer).toBeFocused();
+    expect((await body.boundingBox())!.height).toBe(originalBody.height);
+    const scroller = page.locator(".cm-scroller");
+    for (const viewport of [
+        { width: 580, height: 550 },
+        { width: 860, height: 780 },
+        { width: 1200, height: 900 },
+    ]) {
+        await page.setViewportSize(viewport);
+        await answer.fill("Short answer");
+        const before = (await body.boundingBox())!;
+        await answer.fill("Line\n".repeat(80));
+        await expect
+            .poll(() =>
+                scroller.evaluate(
+                    (element) => element.scrollHeight > element.clientHeight,
+                ),
+            )
+            .toBe(true);
+        const editor = (await page.locator(".cm-editor").boundingBox())!;
+        expect(editor.height).toBeLessThanOrEqual(
+            Math.max(160, Math.min(viewport.height * 0.32, 320)) + 1,
+        );
+        expect((await body.boundingBox())!.height).toBe(before.height);
+        await scroller.scrollIntoViewIfNeeded();
+        await scroller.evaluate((element) => {
+            element.scrollTop = 0;
+        });
+        await scroller.hover();
+        await page.mouse.wheel(0, 180);
+        await expect
+            .poll(() => scroller.evaluate((element) => element.scrollTop))
+            .toBeGreaterThan(0);
+        await expect(
+            page.getByRole("group", {
+                name: "Answer editor actions",
+                exact: true,
+            }),
+        ).toBeInViewport();
+        await expect(
+            page.getByRole("button", { name: "Reveal answer", exact: true }),
+        ).toBeInViewport();
+    }
+    const beforeReveal = (await body.boundingBox())!;
+    await page
+        .getByRole("button", { name: "Reveal answer", exact: true })
+        .click();
+    await expect(
+        page.getByRole("dialog", { name: "Grade your answer", exact: true }),
+    ).toBeVisible();
+    expect((await body.boundingBox())!.height).toBe(beforeReveal.height);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect((await body.boundingBox())!.height).toBe(beforeReveal.height);
+    await expect(
+        page.getByRole("button", { name: "Grade answer", exact: true }),
+    ).toBeInViewport();
+    await page.screenshot({
+        path: `/tmp/obstudy-capped-editor-${test.info().project.name}.png`,
+    });
+});
+
 test("results focus the scrolling pane on entry, return from a question, and reload", async ({
     page,
 }) => {

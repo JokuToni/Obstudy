@@ -293,7 +293,7 @@
     {/if}
     <div
         bind:this={host}
-        class="min-h-40 [&_.cm-editor]:min-h-40 [&_.cm-editor]:bg-transparent [&_.cm-editor]:text-text-primary [&_.cm-focused]:outline-none! [&_.cm-scroller]:font-sans! [&_.cm-content]:min-h-40 [&_.cm-content]:px-3! [&_.cm-content]:py-2! [&_.cm-content]:text-base/7! [&_.cm-content]:outline-none! [&_.cm-line]:px-0! [&_.cm-cursor]:border-text-primary! [&_.cm-selectionBackground]:bg-selected! [&_.cm-placeholder]:text-text-muted"
+        class="min-h-40 [&_.cm-editor]:min-h-40 [&_.cm-editor]:max-h-[clamp(10rem,32dvh,20rem)] [&_.cm-editor]:overflow-hidden [&_.cm-editor]:bg-transparent [&_.cm-editor]:text-text-primary [&_.cm-focused]:outline-none! [&_.cm-scroller]:min-h-0 [&_.cm-scroller]:max-h-[clamp(10rem,32dvh,20rem)] [&_.cm-scroller]:overflow-auto! [&_.cm-scroller]:font-sans! [&_.cm-content]:min-h-40 [&_.cm-content]:px-3! [&_.cm-content]:py-2! [&_.cm-content]:text-base/7! [&_.cm-content]:outline-none! [&_.cm-line]:px-0! [&_.cm-cursor]:border-text-primary! [&_.cm-selectionBackground]:bg-selected! [&_.cm-placeholder]:text-text-muted"
     ></div>
     {#if limitError}<p
             role="alert"
