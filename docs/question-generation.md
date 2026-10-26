@@ -2,11 +2,14 @@
 
 The `luoKysymyksiä` function is exported as `generateQuestions` from
 `src/lib/services/questions.ts`. It uses the active integration through `promptAi`.
-The note tab’s Manage questions button, beside its title, opens a modal containing
+The note tab’s Manage questions button, aligned to the right of its title row,
+opens a popup centered within the tab content body. Its backdrop covers only that
+body, leaving the tab bar, notes sidebar, and bottom controls unaffected. Switching
+tabs closes the popup. It contains
 generation settings, Generate questions, Remove questions, Reset study schedule,
 confirmations, and generation feedback. Close or Escape dismisses it and returns
 focus to the trigger; closing it does not interrupt generation. AI setup actions
-close the modal before navigating to integrations. The Generate questions button
+close the popup before navigating to integrations. The Generate questions button
 calls this service. Generation progress
 is kept in the workspace so switching or closing tabs does not interrupt it.
 The UI updates the saved question count after each batch and displays partial

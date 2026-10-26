@@ -334,7 +334,7 @@ async function releaseGeneration(page: Page): Promise<void> {
     );
 }
 
-test("note question management opens beside the title and closes with focus restored", async ({
+test("note question management aligns right, stays within the tab body, and restores focus", async ({
     page,
 }) => {
     await mockGeneration(page, { showNote: true, configured: true });
@@ -356,8 +356,47 @@ test("note question management opens beside the title and closes with focus rest
     const triggerBox = (await trigger.boundingBox())!;
     expect(triggerBox.x).toBeGreaterThan(titleBox.x + titleBox.width);
     expect(Math.abs(triggerBox.y - titleBox.y)).toBeLessThan(4);
+    const row = (await title.locator("..").boundingBox())!;
+    expect(
+        Math.abs(triggerBox.x + triggerBox.width - row.x - row.width),
+    ).toBeLessThan(1);
     await trigger.click();
     await expect(dialog).toBeVisible();
+    for (const colorScheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme });
+        for (const viewport of [
+            { width: 580, height: 550 },
+            { width: 1200, height: 900 },
+        ]) {
+            await page.setViewportSize(viewport);
+            const body = (await page.locator("[data-tab-body]").boundingBox())!;
+            const backdrop = (await page
+                .locator("[data-question-management-backdrop]")
+                .boundingBox())!;
+            const popup = (await dialog.boundingBox())!;
+            const tabbar = (await page
+                .getByRole("tablist", { name: "Workspace tabs" })
+                .boundingBox())!;
+            const footer = (await page.locator("footer").boundingBox())!;
+            expect(backdrop).toEqual(body);
+            expect(
+                Math.abs(popup.x + popup.width / 2 - (body.x + body.width / 2)),
+            ).toBeLessThan(1);
+            expect(
+                Math.abs(
+                    popup.y + popup.height / 2 - (body.y + body.height / 2),
+                ),
+            ).toBeLessThan(1);
+            expect(popup.y).toBeGreaterThanOrEqual(body.y);
+            expect(popup.y + popup.height).toBeLessThanOrEqual(
+                body.y + body.height,
+            );
+            expect(tabbar.y + tabbar.height).toBeLessThanOrEqual(backdrop.y);
+            expect(footer.y).toBeGreaterThanOrEqual(
+                backdrop.y + backdrop.height,
+            );
+        }
+    }
     await expect(
         dialog.getByRole("button", { name: "Close", exact: true }),
     ).toBeFocused();
@@ -368,6 +407,11 @@ test("note question management opens beside the title and closes with focus rest
     await dialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
+    await trigger.click();
+    await page.getByRole("tab", { name: "Overview", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.getByRole("tab", { name: "Sets", exact: true }).click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
 });
 
 test("note tab shows saved progress, survives closing the tab, and offers additional question settings", async ({
@@ -420,6 +464,14 @@ test("note tab shows saved progress, survives closing the tab, and offers additi
     ).toHaveText("7");
     await page.getByLabel("Number of questions", { exact: true }).fill("3");
     await page.getByRole("button", { name: "Difficulty", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await expect(
+        page.getByRole("dialog", { name: "Manage questions", exact: true }),
+    ).toBeVisible();
+    await expect(
+        page.getByRole("button", { name: "Difficulty", exact: true }),
+    ).toBeFocused();
+    await page.getByRole("button", { name: "Difficulty", exact: true }).click();
     await page.getByRole("button", { name: "Hard", exact: true }).click();
     await page
         .getByRole("button", { name: "Question format", exact: true })
@@ -458,6 +510,17 @@ test("note tab shows saved progress, survives closing the tab, and offers additi
             .getByRole("dialog", { name: "Manage questions", exact: true })
             .evaluate((panel) => panel.scrollWidth > panel.clientWidth);
         expect(overflow).toBe(false);
+        const body = (await page.locator("[data-tab-body]").boundingBox())!;
+        const popup = (await page
+            .getByRole("dialog", { name: "Manage questions", exact: true })
+            .boundingBox())!;
+        expect(popup.y).toBeGreaterThanOrEqual(body.y);
+        expect(popup.y + popup.height).toBeLessThanOrEqual(
+            body.y + body.height,
+        );
+        expect(
+            Math.abs(popup.y + popup.height / 2 - (body.y + body.height / 2)),
+        ).toBeLessThan(1);
     }
     await page.screenshot({
         path: `/tmp/obstudy-generation-${test.info().project.name}.png`,

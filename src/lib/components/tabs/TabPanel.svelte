@@ -224,7 +224,7 @@
             </Dropdown>
         </div>
     </div>
-    <div class="relative flex min-h-0 flex-1 flex-col">
+    <div data-tab-body class="relative flex min-h-0 flex-1 flex-col">
         <div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
             {#if noteWarning}<p
                     role="status"
@@ -248,6 +248,7 @@
                         )}
                         {#if note}<NoteTab
                                 {note}
+                                isActive={activeTab === tab}
                                 generation={noteGenerations[note.id]}
                                 {generationDisabledReason}
                                 onGenerate={onGenerateQuestions}

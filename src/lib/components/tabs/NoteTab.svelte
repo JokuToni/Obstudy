@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     import type { SyncedNote } from "$lib/types/notes";
     import { noteTitle } from "$lib/types/workspace";
     import {
@@ -25,15 +25,18 @@
         onGenerate,
         onConfigureAi,
         onManage,
+        isActive = true,
     }: {
         note: SyncedNote;
+        isActive?: boolean;
         generation?: NoteGenerationState;
         generationDisabledReason: string | null;
         onGenerate: (request: QuestionGenerationRequest) => Promise<void>;
         onConfigureAi: () => void;
         onManage: (request: NoteQuestionActionRequest) => Promise<void>;
     } = $props();
-    let managementDialog: HTMLDialogElement;
+    let managementOpen = $state(false);
+    let managementButton: HTMLButtonElement;
     let questionCount = $state<number | undefined>(10);
     let difficulty = $state<Difficulty>(0);
     let questionFormat = $state<QuestionFormatSelection>(2);
@@ -104,8 +107,39 @@
             questionFormat = request.questionFormat ?? 2;
         }
     });
+    $effect(() => {
+        if (!isActive) closeManagement();
+    });
+    function showManagement(dialog: HTMLDialogElement) {
+        const trigger = managementButton;
+        dialog.show();
+        dialog.querySelector<HTMLButtonElement>("button")?.focus();
+        function escape(event: KeyboardEvent): void {
+            if (event.key !== "Escape") return;
+            // Let nested dropdowns consume Escape before closing the popup.
+            setTimeout(() => {
+                if (dialog.isConnected && !event.defaultPrevented)
+                    closeManagement();
+            }, 0);
+        }
+        window.addEventListener("keydown", escape);
+        return {
+            destroy() {
+                window.removeEventListener("keydown", escape);
+                dialog.close();
+                void tick().then(() => {
+                    if (
+                        !managementOpen &&
+                        trigger.isConnected &&
+                        !trigger.closest("[hidden]")
+                    )
+                        trigger.focus({ preventScroll: true });
+                });
+            },
+        };
+    }
     function closeManagement(): void {
-        managementDialog.close();
+        managementOpen = false;
         pendingAction = null;
     }
     function configureAi(): void {
@@ -169,21 +203,29 @@
     );
 </script>
 
-<section class="space-y-6" aria-label={`${noteTitle(note)} progress`}>
+<section
+    inert={managementOpen}
+    class="space-y-6"
+    aria-label={`${noteTitle(note)} progress`}
+>
     <div>
-        <div class="flex flex-wrap items-center gap-3">
-            <h2 class="min-w-0 break-words text-[22px]/[30px] font-semibold">
+        <div class="flex items-start justify-between gap-3">
+            <h2
+                class="min-w-0 flex-1 break-words text-[22px]/[30px] font-semibold"
+            >
                 {noteTitle(note)}
             </h2>
             <button
                 type="button"
                 class={[button, "shrink-0"]}
+                bind:this={managementButton}
                 aria-haspopup="dialog"
+                aria-expanded={managementOpen}
                 aria-controls={`manage-questions-${note.id}`}
                 onclick={(event) => {
                     // WebKit does not focus buttons on pointer clicks by default.
                     event.currentTarget.focus();
-                    managementDialog.showModal();
+                    managementOpen = true;
                 }}>Manage questions</button
             >
         </div>
@@ -212,274 +254,290 @@
     {#if !note.questions.length}<p class="text-sm text-text-muted">
             No questions have been generated for this note yet.
         </p>{/if}
-    <dialog
-        bind:this={managementDialog}
-        id={`manage-questions-${note.id}`}
-        aria-labelledby={`manage-questions-title-${note.id}`}
-        onclose={() => {
-            pendingAction = null;
-        }}
-        class="m-auto max-h-[calc(100dvh_-_32px)] w-[calc(100%_-_32px)] max-w-3xl space-y-4 overflow-y-auto rounded-lg border border-border bg-canvas p-4 text-text-primary shadow-xl backdrop:bg-scrim/60 sm:p-6"
-    >
-        <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0 space-y-1">
-                <h2
-                    id={`manage-questions-title-${note.id}`}
-                    class="text-base font-semibold"
-                >
-                    Manage questions
-                </h2>
-                <p class="break-words text-sm/5 text-text-secondary">
-                    {noteTitle(note)}
-                </p>
-            </div>
-            <button
-                type="button"
-                class={[button, "shrink-0"]}
-                onclick={closeManagement}>Close</button
-            >
-        </div>
-        {#if showAdditionalOptions}
-            <p class="text-xs/5 text-text-secondary">
-                Generate additional practice questions from all topics in this
-                note. Additional questions do not get study cards.
-            </p>
-            <div class="grid min-w-0 gap-4 lg:grid-cols-3">
-                <div class="min-w-0 space-y-2">
-                    <label
-                        for={`generation-count-${note.id}`}
-                        class="block text-[13px]/5 font-medium"
-                        >Number of questions</label
-                    >
-                    <input
-                        id={`generation-count-${note.id}`}
-                        type="number"
-                        min="1"
-                        max="1000"
-                        step="1"
-                        bind:value={questionCount}
-                        disabled={busy}
-                        aria-invalid={invalidCount}
-                        aria-describedby={invalidCount
-                            ? `generation-count-error-${note.id}`
-                            : undefined}
-                        class={input}
-                    />
-                    {#if invalidCount}<p
-                            id={`generation-count-error-${note.id}`}
-                            class="text-xs/4 text-danger"
-                        >
-                            Enter a whole number from 1 to 1000.
-                        </p>{/if}
-                </div>
-                <div class="min-w-0 space-y-2">
-                    <span
-                        id={`generation-difficulty-label-${note.id}`}
-                        class="block text-[13px]/5 font-medium">Difficulty</span
-                    >
-                    <Dropdown
-                        id={`generation-difficulty-${note.id}`}
-                        label={difficulties.find(
-                            (option) => option.value === difficulty,
-                        )!.label}
-                        labelledBy={`generation-difficulty-label-${note.id}`}
-                        disabled={busy}
-                        fullWidth
-                    >
-                        {#snippet children(close)}
-                            {#each difficulties as option}<button
-                                    type="button"
-                                    class={menuItem}
-                                    aria-pressed={difficulty === option.value}
-                                    onclick={() => {
-                                        difficulty = option.value;
-                                        close();
-                                    }}>{option.label}</button
-                                >{/each}
-                        {/snippet}
-                    </Dropdown>
-                </div>
-                <div class="min-w-0 space-y-2">
-                    <span
-                        id={`generation-format-label-${note.id}`}
-                        class="block text-[13px]/5 font-medium"
-                        >Question format</span
-                    >
-                    <Dropdown
-                        id={`generation-format-${note.id}`}
-                        label={formats.find(
-                            (option) => option.value === questionFormat,
-                        )!.label}
-                        labelledBy={`generation-format-label-${note.id}`}
-                        disabled={busy}
-                        fullWidth
-                    >
-                        {#snippet children(close)}
-                            {#each formats as option}<button
-                                    type="button"
-                                    class={menuItem}
-                                    aria-pressed={questionFormat ===
-                                        option.value}
-                                    onclick={() => {
-                                        questionFormat = option.value;
-                                        close();
-                                    }}>{option.label}</button
-                                >{/each}
-                        {/snippet}
-                    </Dropdown>
-                </div>
-            </div>
-        {:else}
-            <p class="text-xs/5 text-text-secondary">
-                {basicRemaining} basic questions remain across this note. Basic questions
-                include study cards.
-            </p>
-        {/if}
-        <div class="flex flex-wrap gap-2">
-            <button
-                type="button"
-                class={primaryButton}
-                disabled={busy ||
-                    !!pendingAction ||
-                    !!disabledReason ||
-                    invalidCount ||
-                    generationDisabledReason === "Loading AI integrations…"}
-                onclick={generate}
-                >{busy ? "Generating…" : "Generate questions"}</button
-            >
-            <button
-                type="button"
-                class={button}
-                disabled={busy || !!pendingAction || !note.questions.length}
-                onclick={() => requestAction("remove")}>Remove questions</button
-            >
-            <button
-                type="button"
-                class={button}
-                disabled={busy || !!pendingAction || !basicQuestionCount}
-                onclick={() => requestAction("reset")}
-                >Reset study schedule</button
-            >
-        </div>
-        {#if pendingAction}
-            <div
-                class="space-y-3 rounded-md border border-border bg-surface p-4"
-                role="group"
-                aria-label={pendingAction === "remove"
-                    ? "Confirm question removal"
-                    : "Confirm schedule reset"}
-            >
-                <p class="text-sm/5 text-text-primary">
-                    {pendingAction === "remove"
-                        ? `Remove all ${confirmationQuestionIds.length} questions from this note? Past answers and exercise results will be kept.`
-                        : `Reset the study schedule for ${basicQuestionCount} basic questions? Their learning progress will restart; questions, answers, and results will be kept.`}
-                </p>
-                <div class="flex flex-wrap gap-2">
-                    <button
-                        type="button"
-                        class={[button, "text-danger"]}
-                        onclick={confirmAction}
-                        disabled={busy}
-                        >{pendingAction === "remove"
-                            ? "Remove all questions"
-                            : "Reset schedule"}</button
-                    >
-                    <button
-                        type="button"
-                        class={button}
-                        onclick={() => {
-                            pendingAction = null;
-                        }}
-                        disabled={busy}>Cancel</button
-                    >
-                </div>
-            </div>
-        {/if}
-        {#if disabledReason || generationDisabledReason}<div class="space-y-2">
-                <p class="text-xs/5 text-text-muted">
-                    {disabledReason ?? generationDisabledReason}
-                </p>
-                {#if generationDisabledReason && generationDisabledReason !== "Loading AI integrations…"}<button
-                        type="button"
-                        class={button}
-                        onclick={configureAi}>Open AI integrations</button
-                    >{/if}
-            </div>{/if}
-        {#if generation}
-            <div class="space-y-2" aria-busy={busy}>
-                {#if generation.isGenerating || progress}
-                    <div
-                        class="flex flex-wrap items-center justify-between gap-2 text-xs/5 text-text-secondary"
-                    >
-                        <span
-                            >{busy
-                                ? progress
-                                    ? `Generating ${progress.mode} questions…`
-                                    : "Preparing question generation…"
-                                : "Generation progress"}</span
-                        >
-                        {#if progress}<span class="tabular-nums"
-                                >{progress.generatedCount} of {progress.requestedCount}
-                                saved · {percent}%</span
-                            >{/if}
-                    </div>
-                    <progress
-                        aria-label="Question generation progress"
-                        max={progress?.requestedCount || 1}
-                        value={progress ? progress.generatedCount : undefined}
-                        class="block h-2 w-full appearance-none overflow-hidden rounded-full border border-border bg-surface accent-accent-solid [&::-moz-progress-bar]:bg-accent-solid [&::-webkit-progress-bar]:bg-surface [&::-webkit-progress-value]:bg-accent-solid"
-                    ></progress>
-                {/if}
-                <p role="status" class="text-xs/5 text-text-secondary">
-                    {generation.isGenerating
-                        ? "Questions are saved after each batch. You can switch tabs while generation continues."
-                        : generation.maintenanceAction
-                          ? generation.maintenanceAction === "remove"
-                              ? "Removing questions…"
-                              : "Resetting study schedule…"
-                          : (generation.message ?? "")}
-                </p>
-                {#if generation.error}<p
-                        role="alert"
-                        class="break-words text-sm/5 text-danger"
-                    >
-                        {generation.error}
-                        {progress
-                            ? "Saved questions are preserved. Try generating again to continue."
-                            : "Please try again."}
-                    </p>{/if}
-                {#if generation.errorDetails}<details
-                        class="text-xs/5 text-text-muted"
-                    >
-                        <summary class="cursor-pointer"
-                            >Technical details</summary
-                        >
-                        <pre
-                            class="mt-2 whitespace-pre-wrap break-words font-mono">{generation.errorDetails}</pre>
-                    </details>{/if}
-                {#if generation.warnings.length}<details
-                        class="text-xs/5 text-warning"
-                    >
-                        <summary class="cursor-pointer"
-                            >Generation notices ({generation.warnings
-                                .length})</summary
-                        >
-                        <ul class="mt-2 list-disc space-y-1 pl-4">
-                            {#each generation.warnings as warning}<li
-                                    class="break-words"
-                                >
-                                    {warning}
-                                </li>{/each}
-                        </ul>
-                    </details>{/if}
-            </div>
-        {/if}
-        {#if !note.questions.length}<p class="text-xs text-text-muted">
-                Generate questions before removing them or resetting their study
-                schedule.
-            </p>
-        {:else if !basicQuestionCount}<p class="text-xs text-text-muted">
-                Only basic questions have a study schedule to reset.
-            </p>{/if}
-    </dialog>
 </section>
+
+{#if managementOpen}
+    <div
+        data-question-management-backdrop
+        class="absolute inset-0 z-20 grid grid-rows-[minmax(0,1fr)] place-items-center overflow-hidden bg-scrim/60 p-4"
+    >
+        <dialog
+            use:showManagement
+            id={`manage-questions-${note.id}`}
+            aria-labelledby={`manage-questions-title-${note.id}`}
+            oncancel={(event) => {
+                event.preventDefault();
+                closeManagement();
+            }}
+            class="relative inset-auto m-0 max-h-full w-full max-w-3xl space-y-4 overflow-y-auto rounded-lg border border-border bg-canvas p-4 text-text-primary shadow-xl sm:p-6"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0 space-y-1">
+                    <h2
+                        id={`manage-questions-title-${note.id}`}
+                        class="text-base font-semibold"
+                    >
+                        Manage questions
+                    </h2>
+                    <p class="break-words text-sm/5 text-text-secondary">
+                        {noteTitle(note)}
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    class={[button, "shrink-0"]}
+                    onclick={closeManagement}>Close</button
+                >
+            </div>
+            {#if showAdditionalOptions}
+                <p class="text-xs/5 text-text-secondary">
+                    Generate additional practice questions from all topics in
+                    this note. Additional questions do not get study cards.
+                </p>
+                <div class="grid min-w-0 gap-4 lg:grid-cols-3">
+                    <div class="min-w-0 space-y-2">
+                        <label
+                            for={`generation-count-${note.id}`}
+                            class="block text-[13px]/5 font-medium"
+                            >Number of questions</label
+                        >
+                        <input
+                            id={`generation-count-${note.id}`}
+                            type="number"
+                            min="1"
+                            max="1000"
+                            step="1"
+                            bind:value={questionCount}
+                            disabled={busy}
+                            aria-invalid={invalidCount}
+                            aria-describedby={invalidCount
+                                ? `generation-count-error-${note.id}`
+                                : undefined}
+                            class={input}
+                        />
+                        {#if invalidCount}<p
+                                id={`generation-count-error-${note.id}`}
+                                class="text-xs/4 text-danger"
+                            >
+                                Enter a whole number from 1 to 1000.
+                            </p>{/if}
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <span
+                            id={`generation-difficulty-label-${note.id}`}
+                            class="block text-[13px]/5 font-medium"
+                            >Difficulty</span
+                        >
+                        <Dropdown
+                            id={`generation-difficulty-${note.id}`}
+                            label={difficulties.find(
+                                (option) => option.value === difficulty,
+                            )!.label}
+                            labelledBy={`generation-difficulty-label-${note.id}`}
+                            disabled={busy}
+                            fullWidth
+                        >
+                            {#snippet children(close)}
+                                {#each difficulties as option}<button
+                                        type="button"
+                                        class={menuItem}
+                                        aria-pressed={difficulty ===
+                                            option.value}
+                                        onclick={() => {
+                                            difficulty = option.value;
+                                            close();
+                                        }}>{option.label}</button
+                                    >{/each}
+                            {/snippet}
+                        </Dropdown>
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <span
+                            id={`generation-format-label-${note.id}`}
+                            class="block text-[13px]/5 font-medium"
+                            >Question format</span
+                        >
+                        <Dropdown
+                            id={`generation-format-${note.id}`}
+                            label={formats.find(
+                                (option) => option.value === questionFormat,
+                            )!.label}
+                            labelledBy={`generation-format-label-${note.id}`}
+                            disabled={busy}
+                            fullWidth
+                        >
+                            {#snippet children(close)}
+                                {#each formats as option}<button
+                                        type="button"
+                                        class={menuItem}
+                                        aria-pressed={questionFormat ===
+                                            option.value}
+                                        onclick={() => {
+                                            questionFormat = option.value;
+                                            close();
+                                        }}>{option.label}</button
+                                    >{/each}
+                            {/snippet}
+                        </Dropdown>
+                    </div>
+                </div>
+            {:else}
+                <p class="text-xs/5 text-text-secondary">
+                    {basicRemaining} basic questions remain across this note. Basic
+                    questions include study cards.
+                </p>
+            {/if}
+            <div class="flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    class={primaryButton}
+                    disabled={busy ||
+                        !!pendingAction ||
+                        !!disabledReason ||
+                        invalidCount ||
+                        generationDisabledReason === "Loading AI integrations…"}
+                    onclick={generate}
+                    >{busy ? "Generating…" : "Generate questions"}</button
+                >
+                <button
+                    type="button"
+                    class={button}
+                    disabled={busy || !!pendingAction || !note.questions.length}
+                    onclick={() => requestAction("remove")}
+                    >Remove questions</button
+                >
+                <button
+                    type="button"
+                    class={button}
+                    disabled={busy || !!pendingAction || !basicQuestionCount}
+                    onclick={() => requestAction("reset")}
+                    >Reset study schedule</button
+                >
+            </div>
+            {#if pendingAction}
+                <div
+                    class="space-y-3 rounded-md border border-border bg-surface p-4"
+                    role="group"
+                    aria-label={pendingAction === "remove"
+                        ? "Confirm question removal"
+                        : "Confirm schedule reset"}
+                >
+                    <p class="text-sm/5 text-text-primary">
+                        {pendingAction === "remove"
+                            ? `Remove all ${confirmationQuestionIds.length} questions from this note? Past answers and exercise results will be kept.`
+                            : `Reset the study schedule for ${basicQuestionCount} basic questions? Their learning progress will restart; questions, answers, and results will be kept.`}
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            class={[button, "text-danger"]}
+                            onclick={confirmAction}
+                            disabled={busy}
+                            >{pendingAction === "remove"
+                                ? "Remove all questions"
+                                : "Reset schedule"}</button
+                        >
+                        <button
+                            type="button"
+                            class={button}
+                            onclick={() => {
+                                pendingAction = null;
+                            }}
+                            disabled={busy}>Cancel</button
+                        >
+                    </div>
+                </div>
+            {/if}
+            {#if disabledReason || generationDisabledReason}<div
+                    class="space-y-2"
+                >
+                    <p class="text-xs/5 text-text-muted">
+                        {disabledReason ?? generationDisabledReason}
+                    </p>
+                    {#if generationDisabledReason && generationDisabledReason !== "Loading AI integrations…"}<button
+                            type="button"
+                            class={button}
+                            onclick={configureAi}>Open AI integrations</button
+                        >{/if}
+                </div>{/if}
+            {#if generation}
+                <div class="space-y-2" aria-busy={busy}>
+                    {#if generation.isGenerating || progress}
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-2 text-xs/5 text-text-secondary"
+                        >
+                            <span
+                                >{busy
+                                    ? progress
+                                        ? `Generating ${progress.mode} questions…`
+                                        : "Preparing question generation…"
+                                    : "Generation progress"}</span
+                            >
+                            {#if progress}<span class="tabular-nums"
+                                    >{progress.generatedCount} of {progress.requestedCount}
+                                    saved · {percent}%</span
+                                >{/if}
+                        </div>
+                        <progress
+                            aria-label="Question generation progress"
+                            max={progress?.requestedCount || 1}
+                            value={progress
+                                ? progress.generatedCount
+                                : undefined}
+                            class="block h-2 w-full appearance-none overflow-hidden rounded-full border border-border bg-surface accent-accent-solid [&::-moz-progress-bar]:bg-accent-solid [&::-webkit-progress-bar]:bg-surface [&::-webkit-progress-value]:bg-accent-solid"
+                        ></progress>
+                    {/if}
+                    <p role="status" class="text-xs/5 text-text-secondary">
+                        {generation.isGenerating
+                            ? "Questions are saved after each batch. You can switch tabs while generation continues."
+                            : generation.maintenanceAction
+                              ? generation.maintenanceAction === "remove"
+                                  ? "Removing questions…"
+                                  : "Resetting study schedule…"
+                              : (generation.message ?? "")}
+                    </p>
+                    {#if generation.error}<p
+                            role="alert"
+                            class="break-words text-sm/5 text-danger"
+                        >
+                            {generation.error}
+                            {progress
+                                ? "Saved questions are preserved. Try generating again to continue."
+                                : "Please try again."}
+                        </p>{/if}
+                    {#if generation.errorDetails}<details
+                            class="text-xs/5 text-text-muted"
+                        >
+                            <summary class="cursor-pointer"
+                                >Technical details</summary
+                            >
+                            <pre
+                                class="mt-2 whitespace-pre-wrap break-words font-mono">{generation.errorDetails}</pre>
+                        </details>{/if}
+                    {#if generation.warnings.length}<details
+                            class="text-xs/5 text-warning"
+                        >
+                            <summary class="cursor-pointer"
+                                >Generation notices ({generation.warnings
+                                    .length})</summary
+                            >
+                            <ul class="mt-2 list-disc space-y-1 pl-4">
+                                {#each generation.warnings as warning}<li
+                                        class="break-words"
+                                    >
+                                        {warning}
+                                    </li>{/each}
+                            </ul>
+                        </details>{/if}
+                </div>
+            {/if}
+            {#if !note.questions.length}<p class="text-xs text-text-muted">
+                    Generate questions before removing them or resetting their
+                    study schedule.
+                </p>
+            {:else if !basicQuestionCount}<p class="text-xs text-text-muted">
+                    Only basic questions have a study schedule to reset.
+                </p>{/if}
+        </dialog>
+    </div>
+{/if}
