@@ -51,6 +51,7 @@
     let imageFailed = $state(false);
     let viewingQuestion = $state(false);
     let questionHeading = $state<HTMLHeadingElement>();
+    let mainContent = $state<HTMLElement>();
     let gradingQuestionId = $state<string | null>(null);
     let gradeButton = $state<HTMLButtonElement>();
     const question = $derived(session.questions[questionIndex]);
@@ -98,6 +99,14 @@
     });
     $effect(() => {
         if (showReview || closing) gradingQuestionId = null;
+    });
+    $effect(() => {
+        if (showReview)
+            void tick().then(() => {
+                if (!showReview || closing) return;
+                mainContent?.scrollTo({ top: 0 });
+                mainContent?.focus({ preventScroll: true });
+            });
     });
     $effect(() => {
         question?.id;
@@ -196,10 +205,22 @@
             event.metaKey ||
             event.shiftKey ||
             closing ||
-            showReview ||
             document.querySelector("dialog[open]")
         )
             return;
+        if (showReview) {
+            if (
+                event.target === mainContent &&
+                (event.key === "ArrowUp" || event.key === "ArrowDown")
+            ) {
+                event.preventDefault();
+                mainContent?.scrollBy({
+                    top: event.key === "ArrowDown" ? 48 : -48,
+                    behavior: "instant",
+                });
+            }
+            return;
+        }
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
             const target = event.target;
             if (target instanceof HTMLTextAreaElement && !target.disabled) {
@@ -315,7 +336,12 @@
         </div>
     </header>
     <div class="relative isolate min-h-0 flex-1" data-practice-body>
-        <main inert={closing} class="h-full overflow-y-auto px-4 sm:px-6">
+        <main
+            bind:this={mainContent}
+            tabindex="-1"
+            inert={closing}
+            class={["h-full overflow-y-auto px-4 sm:px-6", focusRing]}
+        >
             {#if errorMessage}<div
                     role="alert"
                     class="mx-auto mt-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3 text-sm/5 text-danger"

@@ -61,6 +61,8 @@ Multiple-choice Up/Down moves focus without selecting; Right submits the focused
 choice and advances directly to the next question or results. Enter does not select. In the
 grading prompt Left/Right wraps through choices and Enter activates; Escape cancels.
 Question hotkeys pause while a grading prompt or exit confirmation is open.
+Opening results resets the scrolling content to the top and focuses that pane,
+so Up/Down immediately scrolls it. Grading updates do not reset scroll or focus.
 
 Drafts autosave for recovery, but newly submitted freeform answers enter durable
 answer history only after receiving a grade. Migration `0007_answer_grading.sql`

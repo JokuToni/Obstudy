@@ -890,6 +890,49 @@ for (const gradingMode of [
     });
 }
 
+test("results focus the scrolling pane on entry, return from a question, and reload", async ({
+    page,
+}) => {
+    await setup(page, true);
+    await page.setViewportSize({ width: 580, height: 550 });
+    await submitFreeform(page);
+    await page.getByRole("button", { name: "Skip", exact: true }).click();
+    const main = page
+        .getByRole("region", { name: "Practice session", exact: true })
+        .getByRole("main");
+    await expect(
+        page.getByRole("heading", { name: "Review your answers", exact: true }),
+    ).toBeVisible();
+    await expect(main).toBeFocused();
+    expect(await main.evaluate((element) => element.scrollTop)).toBe(0);
+    await page.keyboard.press("ArrowDown");
+    await expect
+        .poll(() => main.evaluate((element) => element.scrollTop))
+        .toBeGreaterThan(0);
+    await page.keyboard.press("ArrowUp");
+    await expect
+        .poll(() => main.evaluate((element) => element.scrollTop))
+        .toBe(0);
+    await page
+        .getByRole("region", { name: "Question 2 review", exact: true })
+        .getByRole("button", { name: "View question", exact: true })
+        .click();
+    await page
+        .getByRole("button", { name: "Back to review", exact: true })
+        .click();
+    await expect(main).toBeFocused();
+    expect(await main.evaluate((element) => element.scrollTop)).toBe(0);
+    const viewQuestion = page
+        .getByRole("button", { name: "View question", exact: true })
+        .first();
+    await viewQuestion.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(viewQuestion).toBeFocused();
+    await page.reload();
+    await expect(main).toBeFocused();
+    expect(await main.evaluate((element) => element.scrollTop)).toBe(0);
+});
+
 test("keyboard navigation focuses inputs, moves choice focus without selecting, and defaults the grading popup to Skip", async ({
     page,
 }) => {
@@ -914,9 +957,9 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
         .poll(async () =>
             page.evaluate(() => {
                 const state = JSON.parse(
-                    sessionStorage.getItem("practice-session-test")!,
-                ) as ExerciseSession;
-                const answer = state.draftAnswers.find(
+                    sessionStorage.getItem("practice-session-test") ?? "null",
+                ) as ExerciseSession | null;
+                const answer = state?.draftAnswers.find(
                     (answer) => answer.questionId === "q0",
                 );
                 return {
