@@ -111,22 +111,39 @@
     }
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col">
+<div
+    class={[
+        "relative isolate flex min-h-0 flex-1 flex-col",
+        activeTab === "overview"
+            ? "bg-overview-gradient-end bg-overview-glows"
+            : "bg-tab-content",
+    ]}
+>
+    {#if activeTab === "overview"}
+        <div
+            aria-hidden="true"
+            class="pointer-events-none absolute inset-0 -z-10 bg-[url('/textures/overview-grain.svg')] bg-repeat opacity-[0.70] mix-blend-overlay"
+        ></div>
+    {/if}
     <div
-        class="flex h-[26px] shrink-0 items-end gap-1 border-b border-border bg-sidebar px-2"
+        class="relative flex h-[26px] shrink-0 items-end before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[10%] before:bg-sidebar"
     >
+        <div
+            aria-hidden="true"
+            class="h-full w-2 shrink-0 border-b border-border bg-sidebar"
+        ></div>
         <div
             role="tablist"
             aria-label="Workspace tabs"
-            class="flex h-full min-w-0 flex-1 items-end overflow-x-auto"
+            class="flex h-full min-w-0 flex-1 items-end overflow-x-auto after:h-full after:min-w-0 after:flex-1 after:border-b after:border-border after:bg-sidebar"
         >
             {#each tabs as tab (tab)}
                 <div
                     class={[
                         "flex h-[90%] shrink-0 items-center rounded-t-md border-x border-t",
                         activeTab === tab
-                            ? "border-border bg-tab-content"
-                            : "border-transparent text-text-muted",
+                            ? "border-border"
+                            : "border-x-sidebar border-t-sidebar border-b border-b-border bg-sidebar text-text-muted",
                     ]}
                 >
                     <button
@@ -141,7 +158,8 @@
                         onclick={() => openTab(tab)}
                         onkeydown={(event) => navigateTabs(event, tab)}
                         class={[
-                            "h-full whitespace-nowrap rounded-t-md px-3 text-xs/4 hover:bg-hover",
+                            "h-full whitespace-nowrap rounded-t-md px-3 text-xs/4",
+                            activeTab !== tab ? "hover:bg-hover" : "",
                             focusRing,
                         ]}>{shortTabLabel(tabLabel(tab, notes))}</button
                     >
@@ -165,57 +183,48 @@
                 </div>
             {/each}
         </div>
-        <Dropdown id="add-tab-options" label="+" compact>
-            {#snippet children(close)}
-                <p class="px-3 py-2 text-xs text-text-muted">Open a tab</p>
-                {#each workspaceTabs as tab}
-                    <button
-                        type="button"
-                        class={menuItem}
-                        onclick={() => {
-                            openTab(tab.id);
-                            close();
-                        }}
-                        >{tab.label}{#if tabs.includes(tab.id)}<span
-                                class="ml-auto text-xs text-text-muted"
-                                >Open</span
-                            >{/if}</button
-                    >
-                {/each}
-                {#each notes.filter((note) => note.isAvailable && note.isStudying) as note (note.id)}
-                    <button
-                        type="button"
-                        class={[menuItem, "min-w-0"]}
-                        title={noteTitle(note)}
-                        onclick={() => {
-                            openTab(`note:${note.id}`);
-                            close();
-                        }}
-                    >
-                        <span class="truncate">{noteTitle(note)}</span>
-                        {#if tabs.includes(`note:${note.id}`)}<span
-                                class="ml-auto text-xs text-text-muted"
-                                >Open</span
-                            >{/if}
-                    </button>
-                {/each}
-            {/snippet}
-        </Dropdown>
+        <div
+            class="flex h-full shrink-0 items-end border-b border-border bg-sidebar pl-1 pr-2"
+        >
+            <Dropdown id="add-tab-options" label="+" compact>
+                {#snippet children(close)}
+                    <p class="px-3 py-2 text-xs text-text-muted">Open a tab</p>
+                    {#each workspaceTabs as tab}
+                        <button
+                            type="button"
+                            class={menuItem}
+                            onclick={() => {
+                                openTab(tab.id);
+                                close();
+                            }}
+                            >{tab.label}{#if tabs.includes(tab.id)}<span
+                                    class="ml-auto text-xs text-text-muted"
+                                    >Open</span
+                                >{/if}</button
+                        >
+                    {/each}
+                    {#each notes.filter((note) => note.isAvailable && note.isStudying) as note (note.id)}
+                        <button
+                            type="button"
+                            class={[menuItem, "min-w-0"]}
+                            title={noteTitle(note)}
+                            onclick={() => {
+                                openTab(`note:${note.id}`);
+                                close();
+                            }}
+                        >
+                            <span class="truncate">{noteTitle(note)}</span>
+                            {#if tabs.includes(`note:${note.id}`)}<span
+                                    class="ml-auto text-xs text-text-muted"
+                                    >Open</span
+                                >{/if}
+                        </button>
+                    {/each}
+                {/snippet}
+            </Dropdown>
+        </div>
     </div>
-    <div
-        class={[
-            "relative isolate flex min-h-0 flex-1 flex-col",
-            activeTab === "overview"
-                ? "bg-overview-gradient-end bg-overview-glows"
-                : "bg-tab-content",
-        ]}
-    >
-        {#if activeTab === "overview"}
-            <div
-                aria-hidden="true"
-                class="pointer-events-none absolute inset-0 -z-10 bg-[url('/textures/overview-grain.svg')] bg-repeat opacity-[0.70] mix-blend-overlay"
-            ></div>
-        {/if}
+    <div class="relative flex min-h-0 flex-1 flex-col">
         <div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
             {#if noteWarning}<p
                     role="status"
