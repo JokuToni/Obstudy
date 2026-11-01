@@ -57,7 +57,9 @@ choice. Within an editable answer, arrows move the text cursor; Right invokes th
 forward action only at the end of the text with no selection. Left stays within
 the answer even at the start. Outside the input, plain Left/Right invokes Previous
 or the current forward action (submit, next, or review); modified arrows and IME input keep their normal editing behavior.
-Multiple-choice Up/Down moves focus without selecting; Right submits the focused
+Multiple-choice Up/Down moves focus without selecting and scrolls the focused
+answer row into view. Its background and border show keyboard focus even though
+input outlines are disabled. Right submits the focused
 choice and advances directly to the next question or results. Enter does not select. In the
 grading prompt Left/Right wraps through choices and Enter activates; Escape cancels.
 Question hotkeys pause while a grading prompt or exit confirmation is open.

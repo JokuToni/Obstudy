@@ -1281,7 +1281,25 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
     await page.keyboard.press("ArrowDown");
     await expect(radios.nth(1)).toBeFocused();
     await expect(radios.nth(1)).not.toBeChecked();
+    const background = (index: number) =>
+        radios
+            .nth(index)
+            .locator("..")
+            .evaluate((row) => getComputedStyle(row).backgroundColor);
+    expect(await background(1)).not.toBe(await background(0));
+    expect(
+        await radios
+            .nth(1)
+            .evaluate((radio) => getComputedStyle(radio).outlineStyle),
+    ).toBe("none");
     await page.keyboard.press("ArrowUp");
+    await expect(radios.first()).toBeFocused();
+    expect(await background(0)).not.toBe(await background(1));
+    await page.keyboard.press("ArrowUp");
+    await expect(radios.last()).toBeFocused();
+    expect(await background(3)).not.toBe(await background(0));
+    await expect(radios.last()).not.toBeChecked();
+    await page.keyboard.press("ArrowDown");
     await expect(radios.first()).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(radios.first()).not.toBeChecked();
