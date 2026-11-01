@@ -51,6 +51,62 @@ pub struct DraftAnswer {
     selectedChoiceIndex: Option<usize>,
     revealed: bool,
     grade: Option<AnswerGrade>,
+    drawing: Option<Value>,
+    #[serde(default)]
+    editorMode: Option<String>,
+}
+
+fn validate_drawing(drawing: &Option<Value>) -> Result<Value, String> {
+    let Some(drawing) = drawing else {
+        return Ok(Value::Null);
+    };
+    let elements = drawing["elements"]
+        .as_array()
+        .ok_or("Invalid drawing elements.")?;
+    if drawing["version"] != 1
+        || drawing["width"] != 1200
+        || drawing["height"] != 800
+        || elements.len() > 2000
+        || drawing.to_string().len() > 2_000_000
+    {
+        return Err("Invalid drawing size or version.".into());
+    }
+    for element in elements {
+        if !matches!(
+            element["type"].as_str(),
+            Some("rectangle" | "diamond" | "ellipse" | "line" | "arrow" | "freedraw" | "text")
+        ) || !element["link"].is_null()
+            || !["x", "y", "width", "height", "angle"].iter().all(|key| {
+                element[*key]
+                    .as_f64()
+                    .is_some_and(|number| number.is_finite() && number.abs() <= 10000.0)
+            })
+        {
+            return Err("Invalid drawing element.".into());
+        }
+        if let Some(points) = element["points"].as_array() {
+            if points.len() > 50000
+                || points.iter().any(|point| {
+                    point.as_array().is_none_or(|pair| {
+                        pair.len() != 2
+                            || pair.iter().any(|value| {
+                                value.as_f64().is_none_or(|number| {
+                                    !number.is_finite() || number.abs() > 10000.0
+                                })
+                            })
+                    })
+                })
+            {
+                return Err("Invalid drawing points.".into());
+            }
+        }
+    }
+    Ok(drawing.clone())
+}
+fn has_drawing(drawing: &Value) -> bool {
+    drawing["elements"]
+        .as_array()
+        .is_some_and(|elements| elements.iter().any(|element| element["isDeleted"] != true))
 }
 fn db_error(error: sqlx::Error) -> String {
     format!("Unable to save the practice session: {error}")
@@ -434,6 +490,14 @@ async fn save_draft(
             .iter()
             .find(|question| question["id"].as_str() == Some(&answer.questionId))
             .ok_or("An answer does not belong to this session.")?;
+        let drawing = validate_drawing(&answer.drawing)?;
+        if question["format"] == 0 && !drawing.is_null() {
+            return Err("Multiple-choice answers cannot contain drawings.".into());
+        }
+        let editorMode = answer.editorMode.as_deref().unwrap_or("text");
+        if !matches!(editorMode, "text" | "draw") {
+            return Err("Invalid answer editor mode.".into());
+        }
         let text = if question["format"] == 0 {
             match answer.selectedChoiceIndex {
                 Some(index) => question["choices"]
@@ -455,7 +519,7 @@ async fn save_draft(
             }
             answer.text.clone()
         };
-        if answer.revealed && text.trim().is_empty() {
+        if answer.revealed && text.trim().is_empty() && !has_drawing(&drawing) {
             return Err("Enter an answer before revealing the example answer.".into());
         }
         let grade = if !answer.revealed {
@@ -477,12 +541,12 @@ async fn save_draft(
         } else {
             Value::Null
         };
-        let value = json!({"questionId":answer.questionId,"text":text,"selectedChoiceIndex":answer.selectedChoiceIndex,"revealed":answer.revealed,"grade":grade});
+        let value = json!({"questionId":answer.questionId,"text":text,"selectedChoiceIndex":answer.selectedChoiceIndex,"revealed":answer.revealed,"grade":grade,"drawing":drawing,"editorMode":editorMode});
         if let Some(saved) = previous
             .iter()
             .find(|saved| saved["questionId"] == answer.questionId && saved["revealed"] == true)
         {
-            if ["text", "selectedChoiceIndex", "revealed"]
+            if ["text", "selectedChoiceIndex", "revealed", "drawing"]
                 .iter()
                 .any(|key| saved[*key] != value[*key])
             {
@@ -518,9 +582,9 @@ async fn save_draft(
         {
             continue;
         }
-        sqlx::query("INSERT INTO submittedAnswers (id,exerciseId,questionId,answeredAt,text,selectedChoiceIndex,points,feedback,gradingSource,gradingModel,gradedAt) VALUES (?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?,?,?,?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(exerciseId,questionId) DO UPDATE SET points=excluded.points,feedback=excluded.feedback,gradingSource=excluded.gradingSource,gradingModel=excluded.gradingModel,gradedAt=excluded.gradedAt")
+        sqlx::query("INSERT INTO submittedAnswers (id,exerciseId,questionId,answeredAt,text,selectedChoiceIndex,points,feedback,gradingSource,gradingModel,gradedAt,drawing) VALUES (?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?,?,?,?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?) ON CONFLICT(exerciseId,questionId) DO UPDATE SET points=excluded.points,feedback=excluded.feedback,gradingSource=excluded.gradingSource,gradingModel=excluded.gradingModel,gradedAt=excluded.gradedAt")
             .bind(id()).bind(exerciseId).bind(answer["questionId"].as_str()).bind(answer["text"].as_str()).bind(answer["selectedChoiceIndex"].as_i64())
-            .bind(grade["points"].as_f64()).bind(grade["feedback"].as_str().unwrap_or("")).bind(grade["source"].as_str()).bind(grade["model"].as_str())
+            .bind(grade["points"].as_f64()).bind(grade["feedback"].as_str().unwrap_or("")).bind(grade["source"].as_str()).bind(grade["model"].as_str()).bind(if answer["drawing"].is_null() { None } else { Some(answer["drawing"].to_string()) })
             .execute(&mut *connection).await.map_err(db_error)?;
         newSubmissions += 1;
         refresh_question_statistics(connection, answer["questionId"].as_str().unwrap()).await?;
@@ -596,7 +660,9 @@ async fn close_session(
         .as_array()
         .ok_or("Invalid drafts.")?;
     let ungraded = drafts.iter().any(|answer| {
-        answer["grade"].is_null() && !answer["text"].as_str().unwrap_or("").trim().is_empty()
+        answer["grade"].is_null()
+            && (!answer["text"].as_str().unwrap_or("").trim().is_empty()
+                || has_drawing(&answer["drawing"]))
     });
     if ungraded && !voidUngraded {
         return Err(
@@ -718,6 +784,8 @@ mod tests {
             questionId: questionId.into(),
             text: text.into(),
             selectedChoiceIndex: selected,
+            drawing: None,
+            editorMode: None,
             revealed,
             grade: if revealed && selected.is_none() {
                 Some(AnswerGrade {
@@ -981,6 +1049,10 @@ mod tests {
                 .execute(&mut connection)
                 .await
                 .unwrap();
+            sqlx::raw_sql(include_str!("../migrations/0008_drawing_answers.sql"))
+                .execute(&mut connection)
+                .await
+                .unwrap();
             let history = snapshot::load_note(&mut connection, "note").await.unwrap();
             let answers = history["answers"].as_array().unwrap();
             assert_eq!(answers.len(), 1);
@@ -1023,6 +1095,112 @@ mod tests {
                     .await
                     .is_err()
             );
+            connection.close().await.unwrap();
+            std::fs::remove_dir_all(folder).unwrap();
+        });
+    }
+
+    #[test]
+    fn drawing_only_answers_survive_reopen_grading_and_close_without_allowing_edits_after_submission()
+     {
+        tauri::async_runtime::block_on(async {
+            let (folder, mut connection) = fixture().await;
+            let session = persist_exercise(&mut connection, &request("practice", &["q0"]))
+                .await
+                .unwrap();
+            let exerciseId = session["id"].as_str().unwrap();
+            let drawing = json!({"version":1,"width":1200,"height":800,"elements":[{"id":"stroke","type":"freedraw","x":20,"y":20,"width":10,"height":10,"angle":0,"points":[[0,0],[10,10]],"isDeleted":false,"link":null}]});
+            let mut response = answer("q0", "", None, false);
+            response.drawing = Some(drawing.clone());
+            response.editorMode = Some("draw".into());
+            save_draft(&mut connection, exerciseId, 0, &[response], false)
+                .await
+                .unwrap();
+            assert!(
+                close_session(&mut connection, exerciseId, 1, false)
+                    .await
+                    .is_err()
+            );
+            connection.close().await.unwrap();
+            let (mut reopened, _) = crate::database::openDatabase(folder.to_str().unwrap())
+                .await
+                .unwrap();
+            let restored = load_session(&mut reopened, exerciseId).await.unwrap();
+            assert_eq!(restored["draftAnswers"][0]["drawing"], drawing);
+            assert_eq!(restored["draftAnswers"][0]["editorMode"], "draw");
+            let mut submitted = answer("q0", "", None, true);
+            submitted.drawing = Some(drawing.clone());
+            submitted.grade = None;
+            save_draft(&mut reopened, exerciseId, 1, &[submitted], true)
+                .await
+                .unwrap();
+            let mut changed = answer("q0", "", None, true);
+            changed.drawing = Some(json!({"version":1,"width":1200,"height":800,"elements":[]}));
+            assert!(
+                save_draft(&mut reopened, exerciseId, 2, &[changed], false)
+                    .await
+                    .is_err()
+            );
+            let mut graded = answer("q0", "", None, true);
+            graded.drawing = Some(drawing.clone());
+            graded.grade.as_mut().unwrap().points = 0.5;
+            save_draft(&mut reopened, exerciseId, 2, &[graded], false)
+                .await
+                .unwrap();
+            let note = snapshot::load_note(&mut reopened, "note").await.unwrap();
+            assert_eq!(note["answers"][0]["drawing"], drawing);
+            assert_eq!(note["answers"][0]["points"], 0.5);
+            let closed = close_session(&mut reopened, exerciseId, 3, false)
+                .await
+                .unwrap();
+            assert_eq!(closed["draftAnswers"][0]["drawing"], drawing);
+            reopened.close().await.unwrap();
+            std::fs::remove_dir_all(folder).unwrap();
+        });
+    }
+
+    #[test]
+    fn ungraded_drawing_discard_and_drawing_validation_preserve_answer_rules() {
+        tauri::async_runtime::block_on(async {
+            let (folder, mut connection) = fixture().await;
+            let session = persist_exercise(&mut connection, &request("practice", &["q0", "q1"]))
+                .await
+                .unwrap();
+            let exerciseId = session["id"].as_str().unwrap();
+            let mut response = answer("q0", "", None, true);
+            response.grade = None;
+            response.drawing = Some(json!({"version":1,"width":1200,"height":800,"elements":[]}));
+            assert!(
+                save_draft(&mut connection, exerciseId, 0, &[response], false)
+                    .await
+                    .is_err()
+            );
+            let mut invalid = answer("q0", "", None, false);
+            invalid.drawing =
+                Some(json!({"version":1,"width":1200,"height":800,"elements":[{"type":"image"}]}));
+            assert!(
+                save_draft(&mut connection, exerciseId, 0, &[invalid], false)
+                    .await
+                    .is_err()
+            );
+            let mut draft = answer("q0", "", None, false);
+            draft.drawing = Some(
+                json!({"version":1,"width":1200,"height":800,"elements":[{"type":"rectangle","x":10,"y":10,"width":50,"height":50,"angle":0,"isDeleted":false}]}),
+            );
+            save_draft(&mut connection, exerciseId, 0, &[draft], false)
+                .await
+                .unwrap();
+            assert!(
+                close_session(&mut connection, exerciseId, 1, false)
+                    .await
+                    .is_err()
+            );
+            let closed = close_session(&mut connection, exerciseId, 1, true)
+                .await
+                .unwrap();
+            assert_eq!(closed["draftAnswers"], json!([]));
+            let note = snapshot::load_note(&mut connection, "note").await.unwrap();
+            assert_eq!(note["answers"], json!([]));
             connection.close().await.unwrap();
             std::fs::remove_dir_all(folder).unwrap();
         });

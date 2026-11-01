@@ -7,11 +7,20 @@ export interface AnswerGrade {
     model?: string | null;
 }
 
+export interface DrawingAnswer {
+    version: 1;
+    width: 1200;
+    height: 800;
+    elements: readonly import("@excalidraw/excalidraw/element/types").ExcalidrawElement[];
+}
+
 export interface ExerciseDraftAnswer {
     questionId: string;
     text: string;
     selectedChoiceIndex: number | null;
     revealed: boolean;
+    drawing?: DrawingAnswer | null;
+    editorMode?: "text" | "draw";
     grade?: AnswerGrade | null;
 }
 export interface ExerciseSession extends Exercise {

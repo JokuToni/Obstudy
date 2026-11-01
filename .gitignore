@@ -13,3 +13,6 @@ dist/
 /playwright-report/
 /test-results/
 /test-results-unit/
+
+# Excalidraw fonts copied from the installed package for offline use.
+/static/excalidraw/

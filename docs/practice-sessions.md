@@ -132,3 +132,15 @@ the scrolling body. The editor grows into the remaining space below the question
 At its maximum height the gap above the footer matches horizontal content padding:
 16px in compact windows, 24px otherwise. Further text scrolls inside the editor;
 its toolbar stays outside the editor’s scroll area.
+
+Freeform answers offer Text / Draw tabs and retain both kinds of content. Draw
+embeds Excalidraw through a lazy React root with only an application-owned top
+tool strip. A 1200 × 800 logical sheet fits the editor and remains fixed when
+panning or zoom shortcuts are attempted. Canvas backgrounds are transparent over
+the shared input surface. Fonts are copied locally by the prepare/dev/build asset
+script; no CDN is needed. Migration 0008 stores drawings with graded submissions
+and includes them in note answer history. Drafts retain drawings and editor mode;
+empty text with a non-empty drawing can be submitted. Drawings remain immutable
+after submission. Results render a saved SVG preview. Ungraded drawings participate
+in exit confirmation/discard, and drawing answers use self grading until visual
+AI grading is implemented. Text-only AI grading is explicitly disabled for them.

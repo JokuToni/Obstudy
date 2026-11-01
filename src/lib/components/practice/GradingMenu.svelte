@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { drawingAiReason } from "$lib/drawing/answers";
     import { onMount } from "svelte";
     import type { AnswerGrade } from "$lib/types/exercises";
     import { button } from "$lib/components/ui/styles";
@@ -7,11 +8,13 @@
         onAi,
         onSkip,
         onCancel,
+        hasDrawing = false,
     }: {
         onGrade: (grade: AnswerGrade) => void;
         onAi: () => void;
         onSkip: () => void;
         onCancel: () => void;
+        hasDrawing?: boolean;
     } = $props();
     let dialog: HTMLDialogElement;
     let skipButton: HTMLButtonElement;
@@ -110,8 +113,12 @@
                             feedback: "",
                         })}>{level.label} · {level.points}</button
                 >{/each}
-            <button type="button" class={button} onclick={onAi}
-                >Grade with AI</button
+            <button
+                type="button"
+                class={button}
+                disabled={hasDrawing}
+                title={hasDrawing ? drawingAiReason : undefined}
+                onclick={onAi}>Grade with AI</button
             >
             <button
                 bind:this={skipButton}
@@ -123,6 +130,9 @@
                 >Cancel</button
             >
         </div>
+        {#if hasDrawing}<p class="text-xs/5 text-text-muted">
+                {drawingAiReason}
+            </p>{/if}
         <p class="text-xs/5 text-text-muted">
             Continue now; skipped answers can be graded in results. Cancel stays
             on this question.

@@ -272,6 +272,7 @@ async function setup(
                                         questionId: answer.questionId,
                                         answeredAt,
                                         text: answer.text,
+                                        drawing: answer.drawing,
                                         points: answer.grade!.points,
                                         feedback: "",
                                     });
@@ -301,7 +302,12 @@ async function setup(
                                     !args.voidUngraded &&
                                     session.draftAnswers.some(
                                         (answer) =>
-                                            answer.text.trim() && !answer.grade,
+                                            (answer.text.trim() ||
+                                                answer.drawing?.elements.some(
+                                                    (element) =>
+                                                        !element.isDeleted,
+                                                )) &&
+                                            !answer.grade,
                                     )
                                 )
                                     throw "Ungraded answers need confirmation";
@@ -1135,6 +1141,284 @@ test("equation symbols respect the answer length limit without losing prose", as
     await expect(answer).toHaveText("a".repeat(499));
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(answer).toBeFocused();
+});
+
+async function drawRectangle(page: Page): Promise<void> {
+    await page.getByRole("tab", { name: "Draw", exact: true }).click();
+    const tools = page.getByRole("group", {
+        name: "Drawing tools",
+        exact: true,
+    });
+    await expect(
+        tools.getByRole("button", { name: "Rectangle", exact: true }),
+    ).toBeEnabled({ timeout: 20000 });
+    await tools.getByRole("button", { name: "Rectangle", exact: true }).click();
+    const canvas = page.locator("[data-drawing-editor] canvas.interactive");
+    await expect(canvas).toBeVisible();
+    const box = (await canvas.boundingBox())!;
+    const size = Math.min(box.width, box.height) / 4;
+    await page.mouse.move(
+        box.x + box.width / 2 - size,
+        box.y + box.height / 2 - size,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+        box.x + box.width / 2 + size,
+        box.y + box.height / 2 + size,
+        { steps: 8 },
+    );
+    await page.mouse.up();
+    await expect
+        .poll(async () =>
+            page.evaluate(() => {
+                const session = JSON.parse(
+                    sessionStorage.getItem("practice-session-test") ?? "null",
+                ) as ExerciseSession | null;
+                return (
+                    session?.draftAnswers.find(
+                        (answer) => answer.questionId === "q1",
+                    )?.drawing?.elements.length ?? 0
+                );
+            }),
+        )
+        .toBeGreaterThan(0);
+}
+
+test("drawing answers preserve text, stay on a bounded canvas, and survive grading and reload", async ({
+    page,
+}) => {
+    const externalRequests: string[] = [];
+    page.on("request", (request) => {
+        if (
+            request.url().startsWith("http") &&
+            !request.url().startsWith("http://127.0.0.1:1420")
+        )
+            externalRequests.push(request.url());
+    });
+    await setup(page, true);
+    await page.setViewportSize({ width: 860, height: 780 });
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    const answer = page.getByLabel("Your answer", { exact: true });
+    await answer.fill("A diagram explains this.");
+    await drawRectangle(page);
+    const staticCanvas = page.locator("[data-drawing-editor] canvas").first();
+    const beforePan = await staticCanvas.evaluate(
+        (element: HTMLCanvasElement) => element.toDataURL(),
+    );
+    await page.locator("[data-drawing-editor] canvas.interactive").hover();
+    await page.mouse.wheel(300, 200);
+    await page.evaluate(
+        () =>
+            new Promise<void>((resolve) =>
+                requestAnimationFrame(() =>
+                    requestAnimationFrame(() => resolve()),
+                ),
+            ),
+    );
+    await expect
+        .poll(() =>
+            staticCanvas.evaluate((element: HTMLCanvasElement) =>
+                element.toDataURL(),
+            ),
+        )
+        .toBe(beforePan);
+    await page.locator("[data-drawing-editor] .excalidraw").focus();
+    await page.keyboard.down("Space");
+    const panBox = (await page
+        .locator("[data-drawing-editor] canvas.interactive")
+        .boundingBox())!;
+    await page.mouse.move(
+        panBox.x + panBox.width / 2,
+        panBox.y + panBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+        panBox.x + panBox.width / 2 + 60,
+        panBox.y + panBox.height / 2 + 30,
+        { steps: 5 },
+    );
+    await page.mouse.up();
+    await page.keyboard.up("Space");
+    await page.evaluate(
+        () =>
+            new Promise<void>((resolve) =>
+                requestAnimationFrame(() =>
+                    requestAnimationFrame(() => resolve()),
+                ),
+            ),
+    );
+    await expect
+        .poll(() =>
+            staticCanvas.evaluate((element: HTMLCanvasElement) =>
+                element.toDataURL(),
+            ),
+        )
+        .toBe(beforePan);
+    const nativeToolbar = page
+        .locator(
+            "[data-drawing-editor] .App-toolbar, [data-drawing-editor] .App-toolbar-container, [data-drawing-editor] .App-toolbar--mobile",
+        )
+        .first();
+    await expect(nativeToolbar).toBeAttached();
+    await expect(nativeToolbar).toBeHidden();
+    await expect(
+        page.locator("[data-drawing-editor] .App-menu_bottom").first(),
+    ).toBeHidden();
+    expect(
+        await staticCanvas.evaluate(
+            (element: HTMLCanvasElement) =>
+                element.getContext("2d")!.getImageData(0, 0, 1, 1).data[3],
+        ),
+    ).toBe(0);
+    await page
+        .getByRole("group", { name: "Drawing tools", exact: true })
+        .getByRole("button", { name: "Text tool", exact: true })
+        .click();
+    const canvasBox = (await page
+        .locator("[data-drawing-editor] canvas.interactive")
+        .boundingBox())!;
+    await page.mouse.click(
+        canvasBox.x + canvasBox.width / 2,
+        canvasBox.y + canvasBox.height / 2,
+    );
+    const drawingText = page.locator(
+        "[data-drawing-editor] textarea.excalidraw-wysiwyg",
+    );
+    await expect(drawingText).toBeVisible();
+    await drawingText.fill("Diagram");
+    await page.keyboard.press("Escape");
+    for (const colorScheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme });
+        await page.screenshot({
+            path: `/tmp/obstudy-drawing-${colorScheme}-${test.info().project.name}.png`,
+        });
+    }
+    await page
+        .getByRole("group", { name: "Drawing tools", exact: true })
+        .getByRole("button", { name: "Clear", exact: true })
+        .click();
+    await expect
+        .poll(() =>
+            page.evaluate(() => {
+                const session = JSON.parse(
+                    sessionStorage.getItem("practice-session-test")!,
+                ) as ExerciseSession;
+                return session.draftAnswers.find(
+                    (answer) => answer.questionId === "q1",
+                )?.drawing?.elements.length;
+            }),
+        )
+        .toBe(0);
+    await page.locator("[data-drawing-editor] .excalidraw").focus();
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect
+        .poll(() =>
+            page.evaluate(() => {
+                const session = JSON.parse(
+                    sessionStorage.getItem("practice-session-test")!,
+                ) as ExerciseSession;
+                return (
+                    session.draftAnswers.find(
+                        (answer) => answer.questionId === "q1",
+                    )?.drawing?.elements.length ?? 0
+                );
+            }),
+        )
+        .toBeGreaterThan(0);
+    await page.getByRole("tab", { name: "Text", exact: true }).click();
+    await expect(answer).toHaveText("A diagram explains this.");
+    await answer.fill("");
+    await page.getByRole("tab", { name: "Draw", exact: true }).click();
+    await expect(
+        page
+            .getByRole("group", { name: "Drawing tools", exact: true })
+            .getByRole("button", { name: "Rectangle", exact: true }),
+    ).toBeEnabled({ timeout: 20000 });
+    await page.reload();
+    await expect(
+        page.getByRole("tab", { name: "Draw", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+        page.getByRole("button", { name: "Reveal answer", exact: true }),
+    ).toBeEnabled();
+    await page
+        .getByRole("button", { name: "Reveal answer", exact: true })
+        .click();
+    const grading = page.getByRole("dialog", {
+        name: "Grade your answer",
+        exact: true,
+    });
+    await expect(
+        grading.getByRole("button", { name: "Grade with AI", exact: true }),
+    ).toBeDisabled();
+    await grading
+        .getByRole("button", { name: "Correct · 1", exact: true })
+        .click();
+    await expect(
+        page.getByRole("heading", { name: "Review your answers", exact: true }),
+    ).toBeVisible();
+    await expect(
+        page
+            .getByRole("img", { name: "Drawing answer", exact: true })
+            .locator("svg"),
+    ).toBeVisible({ timeout: 20000 });
+    await page
+        .getByRole("button", { name: "Close session", exact: true })
+        .click();
+    await expect
+        .poll(
+            async () =>
+                (await calls(page)).filter(
+                    (call) => call.command === "test:window-close",
+                ).length,
+        )
+        .toBe(1);
+    await page.reload();
+    await expect(
+        page
+            .getByRole("img", { name: "Drawing answer", exact: true })
+            .locator("svg"),
+    ).toBeVisible({ timeout: 20000 });
+    expect(externalRequests).toEqual([]);
+});
+
+test("save and exit confirms and discards an ungraded drawing-only answer", async ({
+    page,
+}) => {
+    await setup(page, true);
+    await page.setViewportSize({ width: 860, height: 780 });
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await drawRectangle(page);
+    await page
+        .getByRole("button", { name: "Save and exit", exact: true })
+        .click();
+    const confirmation = page.getByRole("dialog", {
+        name: "Leave ungraded answers?",
+        exact: true,
+    });
+    await expect(confirmation).toContainText("1 answer has no grade");
+    await confirmation
+        .getByRole("button", { name: "Discard ungraded and exit", exact: true })
+        .click();
+    await expect
+        .poll(
+            async () =>
+                (await calls(page)).filter(
+                    (call) => call.command === "test:window-close",
+                ).length,
+        )
+        .toBe(1);
+    const saved = await page.evaluate(
+        () =>
+            JSON.parse(
+                sessionStorage.getItem("practice-session-test")!,
+            ) as ExerciseSession,
+    );
+    expect(
+        saved.draftAnswers.some((answer) => answer.questionId === "q1"),
+    ).toBe(false);
 });
 
 test("practice body stays stable while long answers scroll inside a capped editor", async ({

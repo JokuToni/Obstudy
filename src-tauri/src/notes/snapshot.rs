@@ -129,7 +129,7 @@ async fn load_filtered_notes(
         .await
         .map_err(db_error)?
         {
-            answers.push(json!({"id":answer.get::<String,_>("id"),"exerciseId":answer.get::<String,_>("exerciseId"),"mode":answer.get::<String,_>("mode"),"questionId":answer.get::<String,_>("questionId"),"answeredAt":answer.get::<String,_>("answeredAt"),"text":answer.get::<String,_>("text"),"points":answer.get::<Option<f64>,_>("points"),"feedback":answer.get::<String,_>("feedback")}));
+            answers.push(json!({"id":answer.get::<String,_>("id"),"exerciseId":answer.get::<String,_>("exerciseId"),"mode":answer.get::<String,_>("mode"),"questionId":answer.get::<String,_>("questionId"),"answeredAt":answer.get::<String,_>("answeredAt"),"text":answer.get::<String,_>("text"),"points":answer.get::<Option<f64>,_>("points"),"feedback":answer.get::<String,_>("feedback"),"drawing":answer.try_get::<Option<String>,_>("drawing").ok().flatten().map(|value| parse_json(&value)).transpose()?}));
         }
         let mut exercises = Vec::new();
         for exercise in sqlx::query("SELECT * FROM exercises WHERE noteId = ? ORDER BY rowid")

@@ -90,6 +90,7 @@ export interface Exercise {
 }
 
 export interface Answer {
+    drawing?: import("./exercises").DrawingAnswer | null;
     id: EntityId;
     answeredAt: Timestamp;
     questionId: EntityId;

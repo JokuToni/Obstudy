@@ -4,6 +4,8 @@
         ExerciseSession,
         AnswerGrade,
     } from "$lib/types/exercises";
+    import DrawingPreview from "$lib/components/practice/DrawingPreview.svelte";
+    import { hasDrawing, hasAnswer } from "$lib/drawing/answers";
     import StudyText from "$lib/components/practice/StudyText.svelte";
     import AnswerGrading from "$lib/components/practice/AnswerGrading.svelte";
     import { button, primaryButton } from "$lib/components/ui/styles";
@@ -79,12 +81,16 @@
                         Your answer
                     </h4>
                     <div
-                        class="rounded-md border border-border bg-surface p-4 text-sm/6"
+                        class="space-y-3 rounded-md border border-border bg-surface p-4 text-sm/6"
                     >
-                        <StudyText
-                            text={answer?.text ?? "No answer"}
-                            standaloneMath={question.format === 0}
-                        />
+                        {#if answer?.text}<StudyText
+                                text={answer.text}
+                                standaloneMath={question.format === 0}
+                            />{/if}
+                        {#if answer?.drawing && hasDrawing(answer.drawing)}<DrawingPreview
+                                drawing={answer.drawing}
+                            />{/if}
+                        {#if !answer || !hasAnswer(answer)}<p>No answer</p>{/if}
                     </div>
                     {#if answer?.revealed}<AnswerGrading
                             {answer}
@@ -97,7 +103,7 @@
                             }}
                         />
                     {:else}<p class="text-xs/5 text-text-muted">
-                            {answer?.text
+                            {answer && hasAnswer(answer)
                                 ? "Unsubmitted draft. Return to the question to submit and grade it."
                                 : "No answer submitted."}
                         </p>{/if}

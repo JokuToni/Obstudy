@@ -3,6 +3,7 @@
         ExerciseDraftAnswer,
         AnswerGrade,
     } from "$lib/types/exercises";
+    import { hasDrawing, drawingAiReason } from "$lib/drawing/answers";
     import { button } from "$lib/components/ui/styles";
     import StudyText from "./StudyText.svelte";
     let {
@@ -66,12 +67,18 @@
             <button
                 type="button"
                 class={button}
-                disabled={disabled || busy}
+                disabled={disabled || busy || hasDrawing(answer.drawing)}
+                title={hasDrawing(answer.drawing) ? drawingAiReason : undefined}
                 onclick={onAi}
                 >{busy ? "Grading with AI…" : "Grade with AI"}</button
             >
         </div>
     {/if}
+    {#if !answer.grade && hasDrawing(answer.drawing)}<p
+            class="text-xs/5 text-text-muted"
+        >
+            {drawingAiReason}
+        </p>{/if}
     {#if !answer.grade && !busy}<p class="text-xs/5 text-text-muted">
             You can leave this for the results view.
         </p>{/if}

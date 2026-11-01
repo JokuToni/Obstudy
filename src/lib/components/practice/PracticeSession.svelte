@@ -7,6 +7,7 @@
         saveExerciseDraft,
         closeExerciseSession,
     } from "$lib/services/exercises";
+    import { hasAnswer } from "$lib/drawing/answers";
     import { automaticGrade, gradeWithAi } from "$lib/grading/answers";
     import ExitConfirmation from "./ExitConfirmation.svelte";
     import PracticeView from "$lib/views/PracticeView.svelte";
@@ -31,7 +32,7 @@
     let gradingErrors = $state<Record<string, string | null>>({});
     let gradingEpoch = 0;
     const ungradedCount = $derived(
-        answers.filter((answer) => answer.text.trim() && !answer.grade).length,
+        answers.filter((answer) => hasAnswer(answer) && !answer.grade).length,
     );
     let revision = 0;
     let editVersion = 0;

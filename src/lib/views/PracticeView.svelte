@@ -1,11 +1,14 @@
 <script lang="ts">
-    import { onMount, tick } from "svelte";
+    import { onMount, tick, untrack } from "svelte";
     import type {
         ExerciseDraftAnswer,
         ExerciseSession,
         AnswerGrade,
     } from "$lib/types/exercises";
     import StudyText from "$lib/components/practice/StudyText.svelte";
+    import DrawingEditor from "$lib/components/practice/DrawingEditor.svelte";
+    import { hasAnswer, hasDrawing } from "$lib/drawing/answers";
+    import type { DrawingAnswer } from "$lib/types/exercises";
     import AnswerEditor from "$lib/components/practice/AnswerEditor.svelte";
     import ResultsView from "./ResultsView.svelte";
     import GradingMenu from "$lib/components/practice/GradingMenu.svelte";
@@ -53,12 +56,13 @@
     let questionHeading = $state<HTMLHeadingElement>();
     let mainContent = $state<HTMLElement>();
     let answerEditor = $state<AnswerEditor>();
+    let editorMode = $state<"text" | "draw">("text");
     let gradingQuestionId = $state<string | null>(null);
     let gradeButton = $state<HTMLButtonElement>();
     let scrollFrame: number | null = null;
     let scrollTarget: number | null = null;
     const question = $derived(session.questions[questionIndex]);
-    const draft = $derived(
+    const draft: ExerciseDraftAnswer = $derived(
         answers.find((answer) => answer.questionId === question?.id) ?? {
             questionId: question?.id ?? "",
             text: "",
@@ -66,6 +70,19 @@
             revealed: false,
         },
     );
+    $effect(() => {
+        question?.id;
+        editorMode = untrack(() => draft.editorMode ?? "text");
+    });
+    function changeEditorMode(mode: "text" | "draw"): void {
+        editorMode = mode;
+        if (!draft.revealed && !session.closedAt)
+            onChange({ ...draft, editorMode: mode });
+        if (mode === "text") void tick().then(focusAnswer);
+    }
+    function changeDrawing(drawing: DrawingAnswer): void {
+        onChange({ ...draft, drawing, editorMode: "draw" });
+    }
     const material = $derived(question?.materials[materialIndex]);
     const submittedCount = $derived(
         answers.filter((answer) => answer.revealed).length,
@@ -81,7 +98,7 @@
     const canReveal = $derived(
         question?.format === 0
             ? draft.selectedChoiceIndex !== null
-            : draft.text.trim().length > 0,
+            : hasAnswer(draft),
     );
     onMount(() => {
         const firstUnanswered = session.questions.findIndex(
@@ -572,19 +589,100 @@
                                         >Your answer</label
                                     ><span
                                         class="text-xs tabular-nums text-text-muted"
-                                        >{draft.text.length} / {question.maxCharacters}</span
+                                        >{editorMode === "draw"
+                                            ? "Drawing answer"
+                                            : `${draft.text.length} / ${question.maxCharacters}`}</span
                                     >
                                 </div>
-                                {#key question.id}
-                                    <AnswerEditor
-                                        bind:this={answerEditor}
-                                        value={draft.text}
-                                        onChange={changeText}
-                                        disabled={draft.revealed ||
-                                            !!session.closedAt}
-                                        maxCharacters={question.maxCharacters}
-                                    />
-                                {/key}
+                                <div
+                                    role="tablist"
+                                    aria-label="Answer format"
+                                    data-answer-editor-control
+                                    class="flex shrink-0 gap-1 border-b border-border"
+                                >
+                                    {#each ["text", "draw"] as mode}
+                                        <button
+                                            type="button"
+                                            role="tab"
+                                            id={`answer-${mode}-tab`}
+                                            aria-controls={`answer-${mode}-panel`}
+                                            aria-selected={editorMode === mode}
+                                            tabindex={editorMode === mode
+                                                ? 0
+                                                : -1}
+                                            class={[
+                                                button,
+                                                "rounded-b-none border-b-0",
+                                                editorMode === mode
+                                                    ? "bg-surface text-accent"
+                                                    : "border-transparent bg-transparent text-text-muted",
+                                            ]}
+                                            onclick={() =>
+                                                changeEditorMode(
+                                                    mode as "text" | "draw",
+                                                )}
+                                            onkeydown={(event) => {
+                                                if (
+                                                    [
+                                                        "ArrowLeft",
+                                                        "ArrowRight",
+                                                        "Home",
+                                                        "End",
+                                                    ].includes(event.key)
+                                                ) {
+                                                    event.preventDefault();
+                                                    const next =
+                                                        event.key === "Home"
+                                                            ? "text"
+                                                            : event.key ===
+                                                                "End"
+                                                              ? "draw"
+                                                              : editorMode ===
+                                                                  "text"
+                                                                ? "draw"
+                                                                : "text";
+                                                    changeEditorMode(next);
+                                                    void tick().then(() =>
+                                                        document
+                                                            .getElementById(
+                                                                `answer-${next}-tab`,
+                                                            )
+                                                            ?.focus(),
+                                                    );
+                                                }
+                                            }}
+                                            >{mode === "text"
+                                                ? "Text"
+                                                : "Draw"}</button
+                                        >
+                                    {/each}
+                                </div>
+                                <div
+                                    id={`answer-${editorMode}-panel`}
+                                    role="tabpanel"
+                                    aria-labelledby={`answer-${editorMode}-tab`}
+                                    class="flex min-h-0 flex-1 flex-col"
+                                >
+                                    {#key question.id}
+                                        {#if editorMode === "text"}
+                                            <AnswerEditor
+                                                bind:this={answerEditor}
+                                                value={draft.text}
+                                                onChange={changeText}
+                                                disabled={draft.revealed ||
+                                                    !!session.closedAt}
+                                                maxCharacters={question.maxCharacters}
+                                            />
+                                        {:else}
+                                            <DrawingEditor
+                                                drawing={draft.drawing}
+                                                onChange={changeDrawing}
+                                                disabled={draft.revealed ||
+                                                    !!session.closedAt}
+                                            />
+                                        {/if}
+                                    {/key}
+                                </div>
                             </div>
                         {/if}
                     </section>
@@ -639,6 +737,7 @@
                 onAi={() => chooseGrade(undefined, true)}
                 onSkip={() => chooseGrade()}
                 onCancel={cancelGrading}
+                hasDrawing={hasDrawing(draft.drawing)}
             />{/if}
     </div>
     {#if !showReview}<footer

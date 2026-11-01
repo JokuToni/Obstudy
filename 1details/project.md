@@ -4,7 +4,7 @@
 
 **Yleinen kuvaus:**
 
-**STACK:** Tauri2, svelte, sqlite, openAI api, CodeMirror, Katex, MathQuill (jQuery), tailwindcss, ts-fsrs
+**STACK:** Tauri2, svelte, sqlite, openAI api, CodeMirror, Katex, MathQuill (jQuery), Excalidraw (React), tailwindcss, ts-fsrs
 
 Obsidianin kanssa käyttöön suunniteltu sovellus, joka auttaa käyttäjää opiskelemaan ja kertaamaan muistiinpanojen pohjalta.
 
@@ -293,6 +293,9 @@ Existing questions to avoid duplicating (JSON reference data):
 - Jos muistiinpano joka syötetään funktiolle ei sisällä tälläistä rakennetta tai rakennetta on hyvin pieni määrä kokonaisuudessaan teksista palautetaan: virhe jos ei ollenkaan, varoitus jos on vain pieni osa.
 
 **Harjoitusnäkymän vastauseditori:**
+- Vapaamuotoisissa vastauksissa on Text- ja Draw-välilehdet. Niiden vaihtaminen säilyttää tekstin ja piirroksen, ja molemmat tallennetaan vastaukseen. Excalidraw-piirtoeditorissa on aluksi vain pieni työkalupalkki (valinta, kynä, muodot, nuoli, viiva, teksti ja pyyhekumi sekä Clear). Sivupaneelit ja alapalkki ovat piilotettuja.
+- Piirtoalue on rajattu 1200 × 800 loogiseen kokoon ja sovitetaan editorin näkyvään tilaan. Panorointi ja käyttäjän zoomaus on estetty; ikkunan koon muuttaminen sovittaa saman piirtoalueen uudelleen. Tausta on sama surface-väri kuin tekstikentässä. Fontit ladataan paikallisesti.
+- Pelkkä piirros riittää vastaukseksi. Piirrokset näkyvät tuloksissa, ja ne säilyvät tallennettaessa ja sovelluksen avaamisen jälkeen. Arvostelemattoman piirroksen hylkääminen varmistetaan kuten tekstivastauksissa. Tässä versiossa piirrokset arvostellaan itse: AI-arvostelu ei ole käytettävissä piirrokselliselle vastaukselle, koska nykyinen AI-pyyntö tukee vain tekstiä.
 - Kysymys- ja vastausalueen korkeus pysyy samana ylä- ja alapalkin välissä. Arvostelupainikkeet ovat alapalkin nykyisellä navigaatiorivillä eivätkä muuta alueen korkeutta. Vastauseditori kasvaa kysymyksen alapuolella jäljellä olevaan tilaan. Sen enimmäiskorkeudella alapalkin yläpuolelle jää sama väli kuin sisällön sivuille (16 px pienessä ikkunassa, muuten 24 px). Tämän jälkeen teksti vierittyy editorin sisällä ja työkalupalkki pysyy näkyvissä.
 - Vapaatekstieditorin yläreunassa on pieni työkalupalkki: yhtälö, murtoluku, potenssi, neliöjuuri, matemaattiset symbolit. CodeMirror näyttää tekstin ja KaTeX-yhtälöt samassa muokattavassa kentässä.
 - MathQuill muokkaa yhtälöitä visuaalisesti. Insert equation / Enter lisää kohdistimen paikalle tai valitun tekstin tilalle KaTeXilla renderöidyn yhtälön; taustalla säilyy LaTeX-muoto `$...$`. Yhtälön klikkaaminen avaa sen uudelleen MathQuilliin. Yhtälöt ovat yksittäisiä kohteita nuolinavigaatiossa ja poistossa, ja muutokset voi perua undo-toiminnolla. Cancel / Escape peruu lisäämisen. Tallennus ja arvostelu käyttävät edelleen tekstiä ja LaTeXia.
@@ -347,7 +350,9 @@ Existing questions to avoid duplicating (JSON reference data):
 6. Vastaus:
     - aika: date
     - kysymysId: id
-    - vastaus: teksti
+    - vastaus: teksti (voi olla tyhjä piirrosvastauksessa)
+    - drawing?: { version: 1, width: 1200, height: 800, elements: ExcalidrawElement[] }
+    - editorMode?: "text" | "draw" (luonnoksessa)
     - pisteet: number
     - palaute: teksti
 
