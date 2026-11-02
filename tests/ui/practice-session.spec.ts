@@ -738,6 +738,9 @@ test("practice window supports materials, answering, reload recovery, and a save
     await page
         .getByRole("button", { name: "Reveal answer", exact: true })
         .click();
+    await page
+        .getByRole("button", { name: "Grade answer", exact: true })
+        .click();
     await page.getByRole("button", { name: "Skip", exact: true }).click();
     await expect(
         page.getByRole("heading", { name: "Review your answers", exact: true }),
@@ -777,6 +780,8 @@ async function submitFreeform(page: Page): Promise<void> {
     await page
         .getByRole("button", { name: "Reveal answer", exact: true })
         .click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.keyboard.press("ArrowRight");
 }
 
 for (const gradingMode of [
@@ -791,7 +796,7 @@ for (const gradingMode of [
         await submitFreeform(page);
         if (gradingMode === "self immediately")
             await page
-                .getByRole("button", { name: "Correct · 1", exact: true })
+                .getByRole("button", { name: "Correct", exact: true })
                 .click();
         if (gradingMode !== "self immediately")
             await page
@@ -812,7 +817,7 @@ for (const gradingMode of [
             if (gradingMode === "self in results")
                 await page
                     .getByRole("button", {
-                        name: "Partly correct · 0.5",
+                        name: "Partly correct",
                         exact: true,
                     })
                     .click();
@@ -1021,6 +1026,8 @@ test("MathQuill inserts inline KaTeX at the answer cursor and persists the LaTeX
     await expect(answer.locator("[data-answer-equation] .katex")).toBeVisible();
     await answer.focus();
     await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.keyboard.press("ArrowRight");
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(
@@ -1345,6 +1352,8 @@ test("drawing answers preserve text, stay on a bounded canvas, and survive gradi
     await page
         .getByRole("button", { name: "Reveal answer", exact: true })
         .click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.keyboard.press("ArrowRight");
     const grading = page.getByRole("dialog", {
         name: "Grade your answer",
         exact: true,
@@ -1352,9 +1361,7 @@ test("drawing answers preserve text, stay on a bounded canvas, and survive gradi
     await expect(
         grading.getByRole("button", { name: "Grade with AI", exact: true }),
     ).toBeDisabled();
-    await grading
-        .getByRole("button", { name: "Correct · 1", exact: true })
-        .click();
+    await grading.getByRole("button", { name: "Correct", exact: true }).click();
     await expect(
         page.getByRole("heading", { name: "Review your answers", exact: true }),
     ).toBeVisible();
@@ -1489,6 +1496,10 @@ test("practice body stays stable while long answers scroll inside a capped edito
     await page
         .getByRole("button", { name: "Reveal answer", exact: true })
         .click();
+    await expect(
+        page.getByRole("dialog", { name: "Grade your answer", exact: true }),
+    ).toHaveCount(0);
+    await page.keyboard.press("ArrowRight");
     await expect(
         page.getByRole("dialog", { name: "Grade your answer", exact: true }),
     ).toBeVisible();
@@ -1649,6 +1660,11 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
         name: "Grade your answer",
         exact: true,
     });
+    await expect(menu).toHaveCount(0);
+    await expect(
+        page.getByRole("region", { name: "Example answer", exact: true }),
+    ).toBeInViewport();
+    await page.keyboard.press("ArrowRight");
     await expect(menu).toBeVisible();
     await menu.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(menu).toHaveCount(0);
@@ -1675,15 +1691,15 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
     await expect(
         menu.getByRole("button", { name: "Skip", exact: true }),
     ).toBeFocused();
-    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("ArrowUp");
     await expect(
         menu.getByRole("button", { name: "Grade with AI", exact: true }),
     ).toBeFocused();
-    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowDown");
     await expect(
         menu.getByRole("button", { name: "Skip", exact: true }),
     ).toBeFocused();
-    await page.keyboard.press("Enter");
+    await page.keyboard.press("ArrowRight");
     await expect(
         page.getByText("Question 3 of 3", { exact: true }),
     ).toBeVisible();
@@ -1700,13 +1716,13 @@ test("keyboard navigation focuses inputs, moves choice focus without selecting, 
     await page
         .getByRole("button", { name: "Grade answer", exact: true })
         .click();
-    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowDown");
     await expect(
         menu.getByRole("button", { name: "Cancel", exact: true }),
     ).toBeFocused();
-    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowDown");
     await expect(
-        menu.getByRole("button", { name: "Incorrect · 0", exact: true }),
+        menu.getByRole("button", { name: "Incorrect", exact: true }),
     ).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(
@@ -1744,6 +1760,18 @@ test("AI selection advances and focuses the next input before grading completes;
     expect(mode!.x).toBeGreaterThan(title!.x);
     expect(Math.abs(mode!.y - title!.y)).toBeLessThan(8);
     await submitFreeform(page);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page
+        .getByText("What a good answer includes", { exact: true })
+        .click();
+    await expect(
+        page.getByText("Explain whether endpoints belong to each interval.", {
+            exact: true,
+        }),
+    ).toBeVisible();
+    await page
+        .getByRole("button", { name: "Grade answer", exact: true })
+        .click();
     const menu = page.getByRole("dialog", {
         name: "Grade your answer",
         exact: true,
@@ -1767,6 +1795,25 @@ test("AI selection advances and focuses the next input before grading completes;
             const popup = (await menu.boundingBox())!;
             const topBar = (await header.boundingBox())!;
             const bottomBar = (await page.locator("footer").boundingBox())!;
+            const choices = await menu.getByRole("button").all();
+            const rows = await Promise.all(
+                choices.map(async (choice) => (await choice.boundingBox())!),
+            );
+            expect(await menu.getByRole("button").allTextContents()).toEqual([
+                "Incorrect",
+                "Partly correct",
+                "Correct",
+                "Grade with AI",
+                "Skip",
+                "Cancel",
+            ]);
+            for (let index = 1; index < rows.length; index++) {
+                expect(rows[index].x).toBe(rows[0].x);
+                expect(rows[index].y).toBeGreaterThanOrEqual(
+                    rows[index - 1].y + rows[index - 1].height,
+                );
+            }
+            expect(rows[3].y - (rows[2].y + rows[2].height)).toBeGreaterThan(8);
             expect(backdrop).toEqual(body);
             expect(
                 Math.abs(popup.x + popup.width / 2 - (body.x + body.width / 2)),
@@ -1804,21 +1851,13 @@ test("AI selection advances and focuses the next input before grading completes;
     await page.screenshot({
         path: `/tmp/obstudy-grading-menu-${test.info().project.name}.png`,
     });
-    await page
-        .getByText("What a good answer includes", { exact: true })
-        .click();
-    await expect(
-        page.getByText("Explain whether endpoints belong to each interval.", {
-            exact: true,
-        }),
-    ).toBeVisible();
     await page.evaluate(() => {
         (
             window as unknown as { practiceControls: { holdAiGrade: boolean } }
         ).practiceControls.holdAiGrade = true;
     });
-    await page.keyboard.press("ArrowLeft");
-    await page.keyboard.press("Enter");
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("ArrowRight");
     await page.waitForFunction(() => "releasePracticeAi" in window);
     await expect(
         page.getByText("Question 3 of 3", { exact: true }),
@@ -1865,9 +1904,7 @@ test("invalid AI grading can be retried or replaced with self grading", async ({
         .getByRole("button", { name: "Grade with AI", exact: true })
         .click();
     await expect(page.getByRole("alert")).toContainText("invalid grade");
-    await page
-        .getByRole("button", { name: "Incorrect · 0", exact: true })
-        .click();
+    await page.getByRole("button", { name: "Incorrect", exact: true }).click();
     await expect(page.getByText("Self graded", { exact: true })).toBeVisible();
     await expect(
         page.getByRole("heading", { name: "Graded · 0 / 1", exact: true }),

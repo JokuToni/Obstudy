@@ -19,9 +19,9 @@
     let dialog: HTMLDialogElement;
     let skipButton: HTMLButtonElement;
     const levels = [
-        { points: 0, label: "Incorrect" },
-        { points: 0.5, label: "Partly correct" },
-        { points: 1, label: "Correct" },
+        { points: 0, label: "Incorrect", color: "text-danger!" },
+        { points: 0.5, label: "Partly correct", color: "text-warning!" },
+        { points: 1, label: "Correct", color: "text-success!" },
     ] as const;
     onMount(() => {
         // Keep the example answer scrollable while the compact prompt is open.
@@ -48,7 +48,7 @@
             !dialog.contains(event.target)
         )
             return;
-        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
             event.preventDefault();
             event.stopPropagation();
             const buttons = Array.from(
@@ -62,7 +62,7 @@
             const current = focused < 0 ? buttons.indexOf(skipButton) : focused;
             buttons[
                 (current +
-                    (event.key === "ArrowRight" ? 1 : -1) +
+                    (event.key === "ArrowDown" ? 1 : -1) +
                     buttons.length) %
                     buttons.length
             ]?.focus();
@@ -71,7 +71,7 @@
             event.stopPropagation();
             onCancel();
         } else if (
-            event.key === "Enter" &&
+            (event.key === "ArrowRight" || event.key === "Enter") &&
             event.target instanceof HTMLButtonElement &&
             dialog.contains(event.target)
         ) {
@@ -85,7 +85,7 @@
 
 <div
     data-grading-backdrop
-    class="pointer-events-none absolute inset-0 z-10 grid place-items-center overflow-hidden bg-scrim/50 p-4 backdrop-blur-sm"
+    class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-scrim/50 p-4 backdrop-blur-sm"
 >
     <dialog
         bind:this={dialog}
@@ -94,25 +94,27 @@
             event.preventDefault();
             onCancel();
         }}
-        class="pointer-events-auto relative inset-auto m-0 max-h-full w-full max-w-lg space-y-3 overflow-y-auto rounded-lg border border-control-border bg-surface p-4 text-text-primary shadow-lg"
+        class="pointer-events-auto relative inset-auto m-0 min-h-0 max-h-full w-full max-w-xs space-y-3 overflow-y-auto rounded-lg border border-control-border bg-surface p-4 text-text-primary shadow-lg"
     >
         <div class="flex items-center justify-between gap-3">
             <h2 id="grading-menu-title" class="text-sm font-medium">
                 Grade your answer
             </h2>
-            <span class="text-xs text-text-muted">← → · Enter</span>
+            <span class="text-xs text-text-muted">↑ ↓ · → Select</span>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-col gap-2">
             {#each levels as level}<button
                     type="button"
-                    class={button}
+                    class={[button, level.color]}
                     onclick={() =>
                         onGrade({
                             points: level.points,
                             source: "self",
                             feedback: "",
-                        })}>{level.label} · {level.points}</button
+                        })}>{level.label}</button
                 >{/each}
+        </div>
+        <div class="flex flex-col gap-2 pt-3">
             <button
                 type="button"
                 class={button}

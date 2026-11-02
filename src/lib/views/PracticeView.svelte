@@ -161,12 +161,13 @@
     function reveal(): void {
         if (canReveal && !draft.revealed && !session.closedAt) {
             onChange({ ...draft, revealed: true });
-            if (question.format === 1) gradingQuestionId = question.id;
-            void tick().then(() =>
+            void tick().then(() => {
                 document
                     .querySelector('[aria-label="Example answer"]')
-                    ?.scrollIntoView({ block: "nearest" }),
-            );
+                    ?.scrollIntoView({ block: "nearest" });
+                if (question.format === 1)
+                    gradeButton?.focus({ preventScroll: true });
+            });
         }
     }
     function focusAnswer(): void {
@@ -196,6 +197,8 @@
         )
             viewingQuestion = false;
         else if (!draft.revealed) reveal();
+        else if (question.format === 1 && !draft.grade && !grading[question.id])
+            gradingQuestionId = question.id;
         else if (questionIndex + 1 < session.questions.length)
             void navigate(questionIndex + 1);
         else if (!saving && submittedCount === session.questions.length)

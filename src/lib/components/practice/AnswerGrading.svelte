@@ -22,9 +22,9 @@
         onAi: () => void;
     } = $props();
     const levels = [
-        { points: 0, label: "Incorrect" },
-        { points: 0.5, label: "Partly correct" },
-        { points: 1, label: "Correct" },
+        { points: 0, label: "Incorrect", color: "text-danger!" },
+        { points: 0.5, label: "Partly correct", color: "text-warning!" },
+        { points: 1, label: "Correct", color: "text-success!" },
     ] as const;
 </script>
 
@@ -55,14 +55,14 @@
         >
             {#each levels as level}<button
                     type="button"
-                    class={button}
+                    class={[button, level.color]}
                     disabled={disabled || busy}
                     onclick={() =>
                         onGrade({
                             points: level.points,
                             source: "self",
                             feedback: "",
-                        })}>{level.label} · {level.points}</button
+                        })}>{level.label}</button
                 >{/each}
             <button
                 type="button"

@@ -36,7 +36,8 @@ Users answer and submit by revealing the example answer. Multiple-choice answers
 are graded automatically as correct (1) or incorrect (0), using the immutable
 question snapshot in native code. Freeform answers can be self graded as Incorrect
 (0), Partly correct (0.5), or Correct (1), or graded on request through the active
-AI integration. Submitting a freeform answer opens a small floating grading prompt
+AI integration. Submitting a freeform answer reveals the example first. The next Right press or
+forward action opens a small floating grading prompt
 centered within the question-and-answer body, with Skip initially focused. A dark,
 blurred glass backdrop covers only that body, leaving the header and footer clear.
 The example and criteria remain scrollable behind it.
@@ -61,7 +62,10 @@ Multiple-choice Up/Down moves focus without selecting and scrolls the focused
 answer row into view. Its background and border show keyboard focus even though
 input outlines are disabled. Right submits the focused
 choice and advances directly to the next question or results. Enter does not select. In the
-grading prompt Left/Right wraps through choices and Enter activates; Escape cancels.
+grading prompt Up/Down wraps through a single column of choices and Right (or
+Enter) activates; Escape cancels. Self grades use color-coded labels without
+numeric scores. A spacing break separates the grades from Grade with AI, Skip,
+and Cancel, in that order.
 Question hotkeys pause while a grading prompt or exit confirmation is open.
 Opening results resets the scrolling content to the top and focuses that pane,
 so Up/Down scrolls it by 120px per press with a 240ms cubic ease-out animation.
