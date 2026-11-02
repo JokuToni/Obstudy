@@ -169,3 +169,18 @@ test("selection rejects unresolved notes and invalid counts before session persi
         selectExerciseQuestions(note, note.savedPracticeSettings!, "study"),
     ).toThrow("Resolve note errors");
 });
+
+test("an explicit empty topic selection blocks Practice while Study still ignores topic filters", () => {
+    const note = practiceNote();
+    const settings = {
+        ...note.savedPracticeSettings!,
+        topicIds: [],
+        excludeAllTopics: true,
+    };
+    expect(() => selectExerciseQuestions(note, settings, "practice")).toThrow(
+        "Include at least one topic",
+    );
+    expect(effectiveExerciseSettings(settings, "study").excludeAllTopics).toBe(
+        false,
+    );
+});

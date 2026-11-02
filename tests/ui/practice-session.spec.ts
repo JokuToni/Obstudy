@@ -2517,10 +2517,10 @@ test("Quick tweak edits next-session options and moves topics without opening se
     ).toBeFocused();
     await expect(
         included.getByRole("button", {
-            name: "Exclude Endpoints",
+            name: "Exclude Intervals",
             exact: true,
         }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await page.keyboard.press("Escape");
     await expect(popup).toHaveCount(0);
     await expect(trigger).toBeFocused();
@@ -2549,7 +2549,7 @@ test("Quick tweak edits next-session options and moves topics without opening se
         questionFormat: 1,
         reuseQuestions: true,
     });
-    expect(request.settings.topicIds.sort()).toEqual(["broad", "sub"]);
+    expect(request.settings.topicIds).toEqual(["broad"]);
     expect(request.questionIds.every((id) => ["q1", "q2"].includes(id))).toBe(
         true,
     );
@@ -2656,6 +2656,27 @@ test("Quick tweak fits the tab body with long topic lists in both themes", async
                     (element) => element.scrollHeight <= element.clientHeight,
                 ),
             ).toBe(true);
+            const difficultyBox = (await popup
+                .getByRole("group", { name: "Difficulties", exact: true })
+                .boundingBox())!;
+            const formatBox = (await popup
+                .getByRole("group", { name: "Format", exact: true })
+                .boundingBox())!;
+            expect(Math.abs(difficultyBox.y - formatBox.y)).toBeLessThan(1);
+            expect(formatBox.x).toBeGreaterThan(difficultyBox.x);
+            const startButton = popup.getByRole("button", {
+                name: "Start session",
+                exact: true,
+            });
+            expect(
+                (await startButton.boundingBox())!.height,
+            ).toBeLessThanOrEqual(32);
+            expect(
+                (await popup
+                    .locator("[data-topic-list]")
+                    .first()
+                    .boundingBox())!.height,
+            ).toBeGreaterThan(90);
             const included = popup.getByRole("region", {
                 name: "Included topics",
                 exact: true,
@@ -2697,7 +2718,7 @@ test("Quick tweak fits the tab body with long topic lists in both themes", async
     }
 });
 
-test("Quick tweak expands saved parent topics and excludes a child without including its siblings again", async ({
+test("Both settings selectors move broad topics with their subtopics and persist Exclude all", async ({
     page,
 }) => {
     await setup(page);
@@ -2714,7 +2735,7 @@ test("Quick tweak expands saved parent topics and excludes a child without inclu
         difficulty: 0,
         questionFormat: 2,
         reuseQuestions: true,
-        topicIds: ["broad"],
+        topicIds: ["sub"],
     };
     await page.evaluate(
         (note) =>
@@ -2731,25 +2752,87 @@ test("Quick tweak expands saved parent topics and excludes a child without inclu
         name: "Quick tweak",
         exact: true,
     });
-    await popup
-        .getByRole("button", { name: "Exclude Endpoints", exact: true })
-        .click();
     await expect(
-        popup.getByRole("button", { name: "Exclude Interior", exact: true }),
+        popup.getByRole("button", { name: "Exclude Intervals", exact: true }),
     ).toBeVisible();
     await expect(
-        popup.getByRole("button", { name: "Include Endpoints", exact: true }),
+        popup.getByRole("button", { name: /Endpoints|Interior/ }),
+    ).toHaveCount(0);
+    await popup
+        .getByRole("button", { name: "Include all", exact: true })
+        .click();
+    await popup
+        .getByRole("button", { name: "Exclude all", exact: true })
+        .click();
+    await expect(
+        popup.getByRole("button", { name: "Start session", exact: true }),
+    ).toBeDisabled();
+    await expect(
+        popup.getByRole("region", { name: "Included topics", exact: true }),
+    ).toContainText("None");
+    await expect(
+        popup
+            .getByRole("region", { name: "Excluded topics", exact: true })
+            .getByRole("button", { name: /^Include / }),
+    ).toHaveCount(2);
+    await popup
+        .getByRole("button", { name: "Include Intervals", exact: true })
+        .click();
+    await expect(
+        popup.getByRole("button", { name: "Exclude Intervals", exact: true }),
     ).toBeFocused();
     await page.getByRole("button", { name: "Open a tab", exact: true }).click();
     await page
         .getByRole("button", { name: "Practice settings", exact: true })
         .click();
     await expect(popup).toHaveCount(0);
-    await expect(page.getByLabel("Interior", { exact: true })).toBeChecked();
+    const panel = page.getByRole("tabpanel", {
+        name: "Practice settings",
+        exact: true,
+    });
     await expect(
-        page.getByLabel("Endpoints", { exact: true }),
-    ).not.toBeChecked();
+        panel.getByRole("button", { name: "Exclude Intervals", exact: true }),
+    ).toBeVisible();
     await expect(
-        page.getByRole("checkbox", { name: "Intervals", exact: true }),
-    ).not.toBeChecked();
+        panel.getByRole("button", { name: "Include Sets", exact: true }),
+    ).toBeVisible();
+    await panel
+        .getByRole("button", { name: "Include all", exact: true })
+        .click();
+    await panel
+        .getByRole("button", { name: "Save settings", exact: true })
+        .click();
+    await expect(panel.getByRole("status")).toContainText(
+        "Session settings saved",
+    );
+    const saved = (await calls(page))
+        .filter((call) => call.command === "save_practice_settings")
+        .at(-1)!.args.settings as PracticeSettings;
+    expect(saved.topicIds.sort()).toEqual(["broad", "other"]);
+    await panel
+        .getByRole("button", { name: "Exclude all", exact: true })
+        .click();
+    await panel
+        .getByRole("button", { name: "Save settings", exact: true })
+        .click();
+    await expect(panel.getByRole("status")).toContainText(
+        "Session settings saved",
+    );
+    await page.reload();
+    await selectNote(page);
+    await page.getByRole("button", { name: "Practice", exact: true }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect(
+        popup.getByRole("button", { name: "Start session", exact: true }),
+    ).toBeDisabled();
+    await expect(
+        popup.getByRole("region", { name: "Included topics", exact: true }),
+    ).toContainText("None");
+    expect(
+        (await calls(page)).some(
+            (call) =>
+                call.command === "prompt_ai" ||
+                call.command === "create_exercise",
+        ),
+    ).toBe(false);
 });

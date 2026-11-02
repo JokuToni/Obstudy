@@ -4,6 +4,7 @@
     import { savePracticeSettings } from "$lib/services/exercises";
     import { selectedDifficulties } from "$lib/exercises/selection";
     import { noteTitle } from "$lib/types/workspace";
+    import TopicSelector from "$lib/components/practice/TopicSelector.svelte";
     import Dropdown from "$lib/components/ui/Dropdown.svelte";
     import {
         focusRing,
@@ -51,14 +52,6 @@
     function change(updated: PracticeSettings): void {
         saved = false;
         onChange(updated);
-    }
-    function toggleTopic(topicId: string): void {
-        change({
-            ...settings,
-            topicIds: settings.topicIds.includes(topicId)
-                ? settings.topicIds.filter((id) => id !== topicId)
-                : [...settings.topicIds, topicId],
-        });
     }
     function toggleDifficulty(level: 0 | 1 | 2): void {
         const selected = selectedDifficulties(settings);
@@ -238,36 +231,14 @@
                         selected AI integration.
                     </p>
                 </div>
-                <fieldset
-                    disabled={ignored || busy}
-                    class="space-y-3 border-t border-border pt-4"
-                >
-                    <legend class="text-sm font-medium">Topics</legend>
-                    <p class="text-xs/5 text-text-muted">
-                        Leave all unchecked to use every topic.
-                    </p>
-                    <div class="max-h-64 space-y-2 overflow-y-auto">
-                        {#each note.topics as topic (topic.id)}<label
-                                class={[
-                                    "flex items-start gap-2 text-[13px]/5",
-                                    "text" in topic
-                                        ? "pl-4 text-text-secondary"
-                                        : "font-medium",
-                                ]}
-                                ><input
-                                    type="checkbox"
-                                    checked={settings.topicIds.includes(
-                                        topic.id,
-                                    )}
-                                    onchange={() => toggleTopic(topic.id)}
-                                    class={[
-                                        "mt-1 size-4 shrink-0 accent-accent-solid",
-                                        focusRing,
-                                    ]}
-                                /><span>{topic.title}</span></label
-                            >{/each}
-                    </div>
-                </fieldset>
+                <div class="flex h-72 min-h-0 flex-col">
+                    <TopicSelector
+                        {note}
+                        {settings}
+                        disabled={ignored || busy}
+                        onChange={change}
+                    />
+                </div>
             </fieldset>
             <button type="submit" class={primaryButton} disabled={busy}
                 >{busy ? "Saving…" : "Save settings"}</button

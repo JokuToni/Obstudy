@@ -52,6 +52,7 @@ export function effectiveExerciseSettings(
               questionFormat: 2,
               reuseQuestions: true,
               topicIds: [],
+              excludeAllTopics: false,
           }
         : {
               ...settings,
@@ -66,6 +67,10 @@ export function matchingPracticeQuestions(
     note: SyncedNote,
     settings: PracticeSettings,
 ): Question[] {
+    if (settings.excludeAllTopics)
+        throw new Error(
+            "Include at least one topic before starting a practice session.",
+        );
     const ids = new Set(settings.topicIds);
     if ([...ids].some((id) => !note.topics.some((topic) => topic.id === id)))
         throw new Error(

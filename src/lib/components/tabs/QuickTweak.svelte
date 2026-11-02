@@ -2,6 +2,7 @@
     import { onMount, tick } from "svelte";
     import type { PracticeSettings, StudyMode } from "$lib/types";
     import type { SyncedNote } from "$lib/types/notes";
+    import TopicSelector from "$lib/components/practice/TopicSelector.svelte";
     import { selectedDifficulties } from "$lib/exercises/selection";
     import {
         button,
@@ -40,34 +41,6 @@
         { value: 0, label: "Multiple choice" },
         { value: 1, label: "Freeform" },
     ] as const;
-    // Show subtopics and standalone broad topics. Selecting an entire group
-    // also includes its broad topic, preserving existing question filtering.
-    const topics = $derived(
-        note.topics.filter(
-            (topic) =>
-                "text" in topic ||
-                !note.topics.some(
-                    (child) =>
-                        "broadTopicId" in child &&
-                        child.broadTopicId === topic.id,
-                ),
-        ),
-    );
-    const included = $derived(
-        topics.filter(
-            (topic) =>
-                !settings.topicIds.length ||
-                settings.topicIds.includes(topic.id) ||
-                ("broadTopicId" in topic &&
-                    !!topic.broadTopicId &&
-                    settings.topicIds.includes(topic.broadTopicId)),
-        ),
-    );
-    const excluded = $derived(
-        topics.filter(
-            (topic) => !included.some((item) => item.id === topic.id),
-        ),
-    );
     const invalidCount = $derived(
         !Number.isInteger(settings.questionCount) ||
             settings.questionCount < 1 ||
@@ -84,35 +57,6 @@
                 difficulty: levels[0],
                 difficulties: levels,
             });
-    }
-    async function moveTopic(topicId: string, include: boolean): Promise<void> {
-        const ids = new Set(included.map((topic) => topic.id));
-        if (include) ids.add(topicId);
-        else ids.delete(topicId);
-        // Empty topicIds means all topics throughout the existing app.
-        if (!ids.size) return;
-        for (const parent of note.topics.filter(
-            (topic) => !("text" in topic),
-        )) {
-            const children = topics.filter(
-                (topic) =>
-                    "broadTopicId" in topic && topic.broadTopicId === parent.id,
-            );
-            if (children.length && children.every((topic) => ids.has(topic.id)))
-                ids.add(parent.id);
-        }
-        onChange({
-            ...settings,
-            topicIds: topics.every((topic) => ids.has(topic.id))
-                ? []
-                : [...ids],
-        });
-        await tick();
-        dialog
-            .querySelector<HTMLButtonElement>(
-                `[data-topic-id="${CSS.escape(topicId)}"]`,
-            )
-            ?.focus();
     }
     onMount(() => {
         const trigger =
@@ -166,7 +110,7 @@
             event.preventDefault();
             onClose();
         }}
-        class="relative inset-auto m-0 flex max-h-full w-full max-w-xl flex-col gap-3 overflow-hidden rounded-lg border border-border bg-canvas p-4 text-text-primary shadow-xl"
+        class="relative inset-auto m-0 flex h-[min(34rem,100%)] max-h-full w-full max-w-2xl flex-col gap-3 overflow-hidden rounded-lg border border-border bg-canvas p-4 text-text-primary shadow-xl"
     >
         <div class="flex shrink-0 items-center justify-between gap-3">
             <h2 id="quick-tweak-title" class="text-base font-semibold">
@@ -210,121 +154,84 @@
         {#if ignored}<p class="shrink-0 text-xs/4 text-text-muted">
                 Study mode uses only the question count.
             </p>{/if}
-        <fieldset
-            disabled={ignored}
-            class="shrink-0 space-y-1 disabled:opacity-60"
-        >
-            <legend class="text-[13px]/5 font-medium">Difficulties</legend>
-            <div class="flex gap-2">
-                {#each difficulties as item}
-                    <label
-                        class="flex min-h-8 items-center gap-2 text-[13px]/5"
-                    >
-                        <input
-                            type="checkbox"
-                            checked={selectedDifficulties(settings).includes(
-                                item.value,
-                            )}
-                            disabled={selectedDifficulties(settings).length ===
-                                1 &&
-                                selectedDifficulties(settings).includes(
-                                    item.value,
-                                )}
-                            onchange={() => toggleDifficulty(item.value)}
-                            class={["size-4 accent-accent-solid", focusRing]}
-                        />{item.label}
-                    </label>
-                {/each}
-            </div>
-        </fieldset>
-        <fieldset
-            disabled={ignored}
-            class="shrink-0 space-y-1 disabled:opacity-60"
-        >
-            <legend class="text-[13px]/5 font-medium">Format</legend>
-            <div class="flex gap-2">
-                {#each formats as item}<button
-                        type="button"
-                        aria-pressed={settings.questionFormat === item.value}
-                        class={[
-                            button,
-                            "min-w-0 flex-1 px-2!",
-                            settings.questionFormat === item.value
-                                ? "bg-selected! text-accent!"
-                                : "",
-                        ]}
-                        onclick={() =>
-                            onChange({
-                                ...settings,
-                                questionFormat: item.value,
-                            })}>{item.label}</button
-                    >{/each}
-            </div>
-        </fieldset>
-        <fieldset
-            disabled={ignored}
-            class="flex min-h-0 flex-col gap-2 disabled:opacity-60"
-        >
-            <legend class="mb-1 text-[13px]/5 font-medium">Topics</legend>
-            <div class="grid min-h-0 grid-cols-2 gap-2">
-                {#each [{ label: "Included", items: included, include: false }, { label: "Excluded", items: excluded, include: true }] as column}
-                    <section
-                        aria-label={`${column.label} topics`}
-                        class="flex min-h-0 flex-col rounded-md border border-border bg-surface"
-                    >
-                        <h3
-                            class="shrink-0 border-b border-border px-2 py-1 text-xs/5 font-medium"
+        <div class="grid shrink-0 grid-cols-[1.1fr_1fr] gap-3">
+            <fieldset
+                disabled={ignored}
+                class="shrink-0 space-y-1 disabled:opacity-60"
+            >
+                <legend class="text-[13px]/5 font-medium">Difficulties</legend>
+                <div class="flex flex-wrap gap-x-2">
+                    {#each difficulties as item}
+                        <label
+                            class="flex min-h-8 items-center gap-1 text-xs/5"
                         >
-                            {column.label}
-                            <span class="text-text-muted"
-                                >{column.items.length}</span
-                            >
-                        </h3>
-                        <div class="h-32 min-h-0 overflow-y-auto p-1">
-                            {#each column.items as topic (topic.id)}
-                                <button
-                                    type="button"
-                                    data-topic-id={topic.id}
-                                    aria-label={`${column.include ? "Include" : "Exclude"} ${topic.title}`}
-                                    title={!column.include &&
-                                    included.length === 1
-                                        ? "Keep at least one topic included."
-                                        : topic.title}
-                                    disabled={!column.include &&
-                                        included.length === 1}
-                                    onclick={() =>
-                                        moveTopic(topic.id, column.include)}
-                                    class={[
-                                        "flex min-h-8 w-full items-center gap-2 rounded px-2 py-1 text-left text-xs/5 hover:bg-hover disabled:cursor-not-allowed disabled:opacity-60",
-                                        focusRing,
-                                    ]}
-                                >
-                                    <span class="min-w-0 flex-1 truncate"
-                                        >{topic.title}</span
-                                    ><span
-                                        aria-hidden="true"
-                                        class="text-text-muted"
-                                        >{column.include ? "←" : "→"}</span
-                                    >
-                                </button>
-                            {:else}<p class="p-2 text-xs/5 text-text-muted">
-                                    {topics.length ? "None" : "No topics yet"}
-                                </p>{/each}
-                        </div>
-                    </section>
-                {/each}
-            </div>
-        </fieldset>
+                            <input
+                                type="checkbox"
+                                checked={selectedDifficulties(
+                                    settings,
+                                ).includes(item.value)}
+                                disabled={selectedDifficulties(settings)
+                                    .length === 1 &&
+                                    selectedDifficulties(settings).includes(
+                                        item.value,
+                                    )}
+                                onchange={() => toggleDifficulty(item.value)}
+                                class={[
+                                    "size-3.5 accent-accent-solid",
+                                    focusRing,
+                                ]}
+                            />{item.label}
+                        </label>
+                    {/each}
+                </div>
+            </fieldset>
+            <fieldset
+                disabled={ignored}
+                class="shrink-0 space-y-1 disabled:opacity-60"
+            >
+                <legend class="text-[13px]/5 font-medium">Format</legend>
+                <div class="flex gap-1">
+                    {#each formats as item}<button
+                            type="button"
+                            aria-pressed={settings.questionFormat ===
+                                item.value}
+                            class={[
+                                button,
+                                "min-w-0 flex-1 px-1! text-xs!",
+                                settings.questionFormat === item.value
+                                    ? "bg-selected! text-accent!"
+                                    : "",
+                            ]}
+                            onclick={() =>
+                                onChange({
+                                    ...settings,
+                                    questionFormat: item.value,
+                                })}>{item.label}</button
+                        >{/each}
+                </div>
+            </fieldset>
+        </div>
+        <TopicSelector {note} {settings} disabled={ignored} {onChange} />
         <div
             class="flex shrink-0 items-center justify-end gap-3 border-t border-border pt-3"
         >
+            {#if !ignored && settings.excludeAllTopics}<p
+                    class="text-xs/4 text-text-muted"
+                >
+                    Include a topic to start.
+                </p>{/if}
             {#if startDisabledReason}<p class="text-xs/4 text-text-muted">
                     {startDisabledReason}
                 </p>{/if}
             <button
                 type="button"
-                class={[primaryButton, "shrink-0"]}
-                disabled={invalidCount || !!startDisabledReason}
+                class={[
+                    primaryButton,
+                    "min-h-8! shrink-0 px-3! py-1! text-xs!",
+                ]}
+                disabled={invalidCount ||
+                    !!startDisabledReason ||
+                    (!ignored && !!settings.excludeAllTopics)}
                 onclick={() => {
                     void onStart();
                 }}>Start session</button

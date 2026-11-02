@@ -156,11 +156,17 @@ separate Quick tweak shortcut also opens this popup, scoped to the tab content b
 It edits the same per-note draft as the full settings tab, immediately affecting
 the next Start without saving a default. Controls appear in this order: question
 count, multiple difficulties, format, and Included / Excluded topic columns.
-Move a topic by clicking its row; at least one must remain included. The columns
-show subtopics and standalone broad topics. Fully included groups also select
-their broad parent so broad-topic questions remain eligible; excluding a child
-removes that parent selection while retaining its selected siblings. An empty
-stored topic list still means all topics. Only topic columns scroll; the fields
-remain visible in compact windows. Study mode enables only question count.
+The shared selector in Quick tweak and the full settings tab shows broad topics
+only. Moving a group includes/excludes all its subtopics. Legacy subtopic filters
+are shown under their broad parent; editing the selection saves whole groups.
+Include all is beside Included; Exclude all is beside Excluded. Excluding all
+leaves the selection empty and blocks Practice launch, including fresh generation,
+until a topic is included again. The optional `excludeAllTopics` flag distinguishes
+this from legacy empty `topicIds` meaning all topics. Migration
+`0009_empty_topic_selection.sql` persists the flag with a backward-compatible false
+default. Study ignores the flag together with other topic filters.
+Difficulty and format share one row. Taller topic columns fill the remaining
+popup height, and the compact Start session button stays visible beneath them.
+Only topic columns scroll; the fields remain visible in compact windows.
 Close and Escape preserve edits and return focus; changing notes or tabs closes
 the popup. Reuse and saving defaults remain in the full settings tab.

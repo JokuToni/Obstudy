@@ -23,6 +23,8 @@ pub struct PracticeSettings {
     reuseQuestions: bool,
     questionFormat: u8,
     topicIds: Vec<String>,
+    #[serde(default)]
+    excludeAllTopics: bool,
 }
 #[derive(Deserialize)]
 pub struct ExerciseRequest {
@@ -151,13 +153,16 @@ async fn insert_settings(
     sqlx::query("INSERT INTO practiceSettings (id,noteId,questionCount,difficulty,reuseQuestions,questionFormat) VALUES (?,?,?,?,?,?)")
         .bind(&settingsId).bind(note["id"].as_str()).bind(i64::from(settings.questionCount)).bind(i64::from(settings.difficulty))
         .bind(settings.reuseQuestions).bind(i64::from(settings.questionFormat)).execute(&mut *connection).await.map_err(db_error)?;
-    sqlx::query("UPDATE practiceSettings SET difficulty=?,difficulties=? WHERE id=?")
-        .bind(i64::from(levels[0]))
-        .bind(json!(levels).to_string())
-        .bind(&settingsId)
-        .execute(&mut *connection)
-        .await
-        .map_err(db_error)?;
+    sqlx::query(
+        "UPDATE practiceSettings SET difficulty=?,difficulties=?,excludeAllTopics=? WHERE id=?",
+    )
+    .bind(i64::from(levels[0]))
+    .bind(json!(levels).to_string())
+    .bind(settings.excludeAllTopics)
+    .bind(&settingsId)
+    .execute(&mut *connection)
+    .await
+    .map_err(db_error)?;
     for topicId in &settings.topicIds {
         let broad = topics
             .iter()
@@ -264,6 +269,9 @@ async fn persist_exercise(
         return Err(
             "The session must contain unique saved questions within the requested count.".into(),
         );
+    }
+    if request.mode == "practice" && request.settings.excludeAllTopics {
+        return Err("Include at least one topic before starting a practice session.".into());
     }
     let mut selectedTopics: HashSet<String> = request.settings.topicIds.iter().cloned().collect();
     for topic in note["topics"].as_array().ok_or("Invalid topics.")? {
@@ -798,6 +806,38 @@ mod tests {
                 None
             },
         }
+    }
+
+    #[test]
+    fn empty_topic_selection_survives_reopen_and_cannot_create_a_practice_session() {
+        tauri::async_runtime::block_on(async {
+            let (folder, mut connection) = fixture().await;
+            let note = snapshot::load_note(&mut connection, "note").await.unwrap();
+            let mut request = request("practice", &["q0"]);
+            assert!(!request.settings.excludeAllTopics);
+            request.settings.excludeAllTopics = true;
+            request.settings.topicIds.clear();
+            let settingsId = insert_settings(&mut connection, &note, &request.settings)
+                .await
+                .unwrap();
+            assert!(
+                persist_exercise(&mut connection, &request)
+                    .await
+                    .unwrap_err()
+                    .contains("Include at least one topic")
+            );
+            connection.close().await.unwrap();
+            let (mut reopened, _) = crate::database::openDatabase(folder.to_str().unwrap())
+                .await
+                .unwrap();
+            let restored = snapshot::settings(&mut reopened, &settingsId)
+                .await
+                .unwrap();
+            assert_eq!(restored["excludeAllTopics"], true);
+            assert_eq!(restored["topicIds"], json!([]));
+            reopened.close().await.unwrap();
+            std::fs::remove_dir_all(folder).unwrap();
+        });
     }
 
     #[test]

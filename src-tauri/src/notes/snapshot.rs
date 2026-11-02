@@ -35,7 +35,7 @@ pub(crate) async fn settings(
         .await
         .map_err(db_error)?;
     Ok(
-        json!({ "questionCount": row.get::<i64, _>("questionCount"), "difficulty": row.get::<i64, _>("difficulty"), "difficulties": parse_json(&row.get::<String,_>("difficulties"))?, "reuseQuestions": row.get::<bool, _>("reuseQuestions"), "questionFormat": row.get::<i64, _>("questionFormat"), "topicIds": topic_ids(connection, settingsId, true).await? }),
+        json!({ "questionCount": row.get::<i64, _>("questionCount"), "difficulty": row.get::<i64, _>("difficulty"), "difficulties": parse_json(&row.get::<String,_>("difficulties"))?, "reuseQuestions": row.get::<bool, _>("reuseQuestions"), "questionFormat": row.get::<i64, _>("questionFormat"), "topicIds": topic_ids(connection, settingsId, true).await?, "excludeAllTopics": row.get::<bool, _>("excludeAllTopics") }),
     )
 }
 

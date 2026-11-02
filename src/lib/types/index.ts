@@ -41,6 +41,7 @@ export interface PracticeSettings {
     reuseQuestions: boolean;
     questionFormat: QuestionFormatSelection;
     topicIds: EntityId[];
+    excludeAllTopics?: boolean;
 }
 
 export type SupplementaryMaterial =
