@@ -25,6 +25,12 @@
             var(--color-overview-gradient-start) 0%,
             var(--color-overview-gradient-middle) 40%,
             transparent 100%
+        ),
+        radial-gradient(
+            circle clamp(180px, 32vw, 420px) at 100% 100%,
+            var(--color-overview-gradient-start) 0%,
+            var(--color-overview-gradient-middle) 40%,
+            transparent 100%
         );
     --color-scrim: #000000;
     --color-canvas: #141414;
