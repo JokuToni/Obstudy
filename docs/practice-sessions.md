@@ -149,7 +149,10 @@ after submission. Results render a saved SVG preview. Ungraded drawings particip
 in exit confirmation/discard, and drawing answers use self grading until visual
 AI grading is implemented. Text-only AI grading is explicitly disabled for them.
 
-Quick tweak opens beside Start as a compact popup scoped to the tab content body.
+Start opens Quick tweak before creating or launching a session. Its Start session
+button confirms launch with the current draft; Close or Escape cancels launching
+and returns focus to Start. Invalid question counts disable confirmation. The
+separate Quick tweak shortcut also opens this popup, scoped to the tab content body.
 It edits the same per-note draft as the full settings tab, immediately affecting
 the next Start without saving a default. Controls appear in this order: question
 count, multiple difficulties, format, and Included / Excluded topic columns.

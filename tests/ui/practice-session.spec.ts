@@ -432,6 +432,13 @@ async function setup(
 async function selectNote(page: Page): Promise<void> {
     await page.getByRole("button", { name: "Intervals", exact: true }).click();
 }
+async function startFromWorkspace(page: Page): Promise<void> {
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await page
+        .getByRole("dialog", { name: "Quick tweak", exact: true })
+        .getByRole("button", { name: "Start session", exact: true })
+        .click();
+}
 async function calls(page: Page) {
     return page.evaluate(
         () =>
@@ -454,7 +461,30 @@ test("Start creates a due-only Study exercise and asks native code to open a sep
         page.getByRole("button", { name: "Start", exact: true }),
     ).toBeDisabled();
     await selectNote(page);
-    await page.getByRole("button", { name: "Start", exact: true }).click();
+    const start = page.getByRole("button", { name: "Start", exact: true });
+    const popup = page.getByRole("dialog", {
+        name: "Quick tweak",
+        exact: true,
+    });
+    await start.click();
+    await expect(popup).toBeVisible();
+    await expect(
+        popup.getByLabel("Number of questions", { exact: true }),
+    ).toBeFocused();
+    expect(
+        (await calls(page)).some(
+            (call) =>
+                call.command === "create_exercise" ||
+                call.command === "open_practice_window",
+        ),
+    ).toBe(false);
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+    await expect(start).toBeFocused();
+    expect(
+        (await calls(page)).some((call) => call.command === "create_exercise"),
+    ).toBe(false);
+    await startFromWorkspace(page);
     await expect
         .poll(
             async () =>
@@ -513,9 +543,7 @@ for (const mode of ["Study", "Practice", "Fresh practice"] as const) {
             await page
                 .getByLabel("Number of questions", { exact: true })
                 .fill(String(count));
-            await page
-                .getByRole("button", { name: "Start", exact: true })
-                .click();
+            await startFromWorkspace(page);
             await expect
                 .poll(
                     async () =>
@@ -608,7 +636,7 @@ for (const fresh of [false, true]) {
         await expect(
             page.getByRole("checkbox", { name: "Easy", exact: true }),
         ).not.toBeChecked();
-        await page.getByRole("button", { name: "Start", exact: true }).click();
+        await startFromWorkspace(page);
         await expect
             .poll(
                 async () =>
@@ -662,7 +690,7 @@ test("session settings save and Practice with reuse disabled generates only fres
     await expect(
         page.getByText("Session settings saved.", { exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await startFromWorkspace(page);
     await expect
         .poll(
             async () =>
@@ -2363,7 +2391,7 @@ for (const refresh of ["focus", "native notification"] as const) {
         await page.reload();
         await selectNote(page);
         await expect(statistic("Answers submitted")).toHaveText("1");
-        await page.getByRole("button", { name: "Start", exact: true }).click();
+        await startFromWorkspace(page);
         await expect
             .poll(
                 async () =>
@@ -2424,7 +2452,7 @@ test("window launch retry reuses the already prepared exercise", async ({
             window as unknown as { practiceControls: { failWindow: boolean } }
         ).practiceControls.failWindow = true;
     });
-    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await startFromWorkspace(page);
     await expect(page.getByRole("alert")).toContainText(
         "Unable to open the practice window",
     );
@@ -2433,7 +2461,7 @@ test("window launch retry reuses the already prepared exercise", async ({
             window as unknown as { practiceControls: { failWindow: boolean } }
         ).practiceControls.failWindow = false;
     });
-    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await startFromWorkspace(page);
     await expect
         .poll(
             async () =>
@@ -2503,7 +2531,7 @@ test("Quick tweak edits next-session options and moves topics without opening se
         excluded.getByRole("button", { name: "Include Sets", exact: true }),
     ).toBeVisible();
     await popup.getByRole("button", { name: "Close", exact: true }).click();
-    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await startFromWorkspace(page);
     await expect
         .poll(
             async () =>
@@ -2557,11 +2585,14 @@ test("Quick tweak keeps Study filters disabled and validates the question limit"
     ).toBeDisabled();
     const count = popup.getByLabel("Number of questions", { exact: true });
     await count.fill("0");
+    await expect(
+        popup.getByRole("button", { name: "Start session", exact: true }),
+    ).toBeDisabled();
     await expect(count).toHaveAttribute("aria-invalid", "true");
     await expect(popup.getByRole("alert")).toContainText("1 to 1000");
     await count.fill("1");
     await popup.getByRole("button", { name: "Close", exact: true }).click();
-    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await startFromWorkspace(page);
     await expect
         .poll(
             async () =>
@@ -2647,6 +2678,12 @@ test("Quick tweak fits the tab body with long topic lists in both themes", async
             ).toBeInViewport();
             await expect(
                 page.getByRole("button", { name: "Start", exact: true }),
+            ).toBeInViewport();
+            await expect(
+                popup.getByRole("button", {
+                    name: "Start session",
+                    exact: true,
+                }),
             ).toBeInViewport();
             expect(
                 await page.evaluate(

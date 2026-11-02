@@ -28,6 +28,8 @@
 
     let {
         quickTweakOpen = $bindable(false),
+        onStartSession,
+        startDisabledReason,
         tabs,
         notes,
         activeTab,
@@ -48,6 +50,8 @@
         noteWarning = null,
     }: {
         quickTweakOpen?: boolean;
+        onStartSession: () => Promise<void>;
+        startDisabledReason: string | null;
         noteWarning?: string | null;
         tabs: WorkspaceTab[];
         notes: SyncedNote[];
@@ -294,6 +298,8 @@
         </div>
         {#if quickTweakOpen && selectedNote}
             <QuickTweak
+                onStart={onStartSession}
+                {startDisabledReason}
                 note={selectedNote}
                 settings={practiceSettings}
                 {studyMode}

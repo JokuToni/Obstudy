@@ -517,6 +517,8 @@
                 notes={noteSync.notes}
                 {tabs}
                 bind:quickTweakOpen
+                onStartSession={startSession}
+                {startDisabledReason}
                 {activeTab}
                 {openTab}
                 {closeTab}
@@ -542,7 +544,9 @@
                 {starting}
                 {startDisabledReason}
                 {startError}
-                onStart={startSession}
+                onStart={async () => {
+                    quickTweakOpen = true;
+                }}
                 {studyMode}
                 onModeChange={(mode) => {
                     studyMode = mode;

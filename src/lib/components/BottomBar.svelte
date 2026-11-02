@@ -156,13 +156,23 @@
             title={quickTweakDisabled
                 ? "Select a Studying note first."
                 : undefined}
-            onclick={onQuickTweak}>Quick tweak</button
+            aria-controls="quick-tweak-dialog"
+            onclick={(event) => {
+                event.currentTarget.focus();
+                onQuickTweak();
+            }}>Quick tweak</button
         >
         <button
             type="button"
             disabled={starting || !!startDisabledReason}
-            title={startDisabledReason ?? "Open a separate session window"}
-            onclick={onStart}
+            title={startDisabledReason ?? "Review settings and start a session"}
+            aria-haspopup="dialog"
+            aria-expanded={quickTweakOpen}
+            aria-controls="quick-tweak-dialog"
+            onclick={(event) => {
+                event.currentTarget.focus();
+                void onStart();
+            }}
             class={[primaryButton, "shrink-0"]}
             >{starting ? "Preparing…" : "Start"}</button
         >

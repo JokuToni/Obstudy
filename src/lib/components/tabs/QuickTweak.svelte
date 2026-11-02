@@ -3,7 +3,12 @@
     import type { PracticeSettings, StudyMode } from "$lib/types";
     import type { SyncedNote } from "$lib/types/notes";
     import { selectedDifficulties } from "$lib/exercises/selection";
-    import { button, input, focusRing } from "$lib/components/ui/styles";
+    import {
+        button,
+        input,
+        focusRing,
+        primaryButton,
+    } from "$lib/components/ui/styles";
 
     let {
         note,
@@ -11,12 +16,16 @@
         studyMode,
         onChange,
         onClose,
+        onStart,
+        startDisabledReason,
     }: {
         note: SyncedNote;
         settings: PracticeSettings;
         studyMode: StudyMode;
         onChange: (settings: PracticeSettings) => void;
         onClose: () => void;
+        onStart: () => Promise<void>;
+        startDisabledReason: string | null;
     } = $props();
     let dialog: HTMLDialogElement;
     let countInput: HTMLInputElement;
@@ -106,7 +115,10 @@
             ?.focus();
     }
     onMount(() => {
-        const trigger = document.getElementById("quick-tweak-trigger");
+        const trigger =
+            document.activeElement instanceof HTMLButtonElement
+                ? document.activeElement
+                : document.getElementById("quick-tweak-trigger");
         dialog.show();
         countInput.focus();
         function keydown(event: KeyboardEvent): void {
@@ -148,6 +160,7 @@
 >
     <dialog
         bind:this={dialog}
+        id="quick-tweak-dialog"
         aria-labelledby="quick-tweak-title"
         oncancel={(event) => {
             event.preventDefault();
@@ -302,5 +315,20 @@
                 {/each}
             </div>
         </fieldset>
+        <div
+            class="flex shrink-0 items-center justify-end gap-3 border-t border-border pt-3"
+        >
+            {#if startDisabledReason}<p class="text-xs/4 text-text-muted">
+                    {startDisabledReason}
+                </p>{/if}
+            <button
+                type="button"
+                class={[primaryButton, "shrink-0"]}
+                disabled={invalidCount || !!startDisabledReason}
+                onclick={() => {
+                    void onStart();
+                }}>Start session</button
+            >
+        </div>
     </dialog>
 </div>
