@@ -95,6 +95,10 @@
     let aiError = $state<string | null>(null);
     let noteGenerations = $state<Record<string, NoteGenerationState>>({});
     let starting = $state(false);
+    let quickTweakOpen = $state(false);
+    $effect(() => {
+        if (starting) quickTweakOpen = false;
+    });
     let practiceDrafts = $state<Record<string, PracticeSettings>>({});
     const currentPracticeSettings = $derived(
         selectedNote
@@ -512,6 +516,7 @@
                         : null)}
                 notes={noteSync.notes}
                 {tabs}
+                bind:quickTweakOpen
                 {activeTab}
                 {openTab}
                 {closeTab}
@@ -529,6 +534,11 @@
                 onConfigurationChanged={refreshAiConfiguration}
             />
             <BottomBar
+                {quickTweakOpen}
+                quickTweakDisabled={!selectedNote || starting}
+                onQuickTweak={() => {
+                    quickTweakOpen = !quickTweakOpen;
+                }}
                 {starting}
                 {startDisabledReason}
                 {startError}

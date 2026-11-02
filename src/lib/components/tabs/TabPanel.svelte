@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { tick } from "svelte";
+    import { tick, untrack } from "svelte";
+    import QuickTweak from "./QuickTweak.svelte";
     import Overview from "./Overview.svelte";
     import NoteTab from "./NoteTab.svelte";
     import type { SyncedNote } from "$lib/types/notes";
@@ -26,6 +27,7 @@
     } from "$lib/types/questions";
 
     let {
+        quickTweakOpen = $bindable(false),
         tabs,
         notes,
         activeTab,
@@ -45,6 +47,7 @@
         onPracticeSettingsChange,
         noteWarning = null,
     }: {
+        quickTweakOpen?: boolean;
         noteWarning?: string | null;
         tabs: WorkspaceTab[];
         notes: SyncedNote[];
@@ -71,6 +74,15 @@
             settings: PracticeSettingsValue,
         ) => void;
     } = $props();
+    const quickTweakContext = $derived(
+        `${activeTab}:${selectedNote?.id ?? ""}`,
+    );
+    $effect(() => {
+        quickTweakContext;
+        untrack(() => {
+            quickTweakOpen = false;
+        });
+    });
     const activeIntegration = $derived(
         aiConfiguration.integrations.find(
             (integration) =>
@@ -225,7 +237,10 @@
         </div>
     </div>
     <div data-tab-body class="relative flex min-h-0 flex-1 flex-col">
-        <div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <div
+            inert={quickTweakOpen}
+            class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6"
+        >
             {#if noteWarning}<p
                     role="status"
                     class="mb-4 rounded-md border border-border bg-surface px-3 py-2 text-xs/5 text-warning"
@@ -248,7 +263,7 @@
                         )}
                         {#if note}<NoteTab
                                 {note}
-                                isActive={activeTab === tab}
+                                isActive={activeTab === tab && !quickTweakOpen}
                                 generation={noteGenerations[note.id]}
                                 {generationDisabledReason}
                                 onGenerate={onGenerateQuestions}
@@ -277,5 +292,17 @@
                 </div>
             {/each}
         </div>
+        {#if quickTweakOpen && selectedNote}
+            <QuickTweak
+                note={selectedNote}
+                settings={practiceSettings}
+                {studyMode}
+                onChange={(settings) =>
+                    onPracticeSettingsChange(selectedNote.id, settings)}
+                onClose={() => {
+                    quickTweakOpen = false;
+                }}
+            />
+        {/if}
     </div>
 </div>

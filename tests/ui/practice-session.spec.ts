@@ -2448,3 +2448,271 @@ test("window launch retry reuses the already prepared exercise", async ({
         ),
     ).toHaveLength(1);
 });
+
+test("Quick tweak edits next-session options and moves topics without opening settings", async ({
+    page,
+}) => {
+    await setup(page);
+    const trigger = page.getByRole("button", {
+        name: "Quick tweak",
+        exact: true,
+    });
+    await expect(trigger).toBeDisabled();
+    await selectNote(page);
+    await page.getByRole("button", { name: "Practice", exact: true }).click();
+    await trigger.click();
+    const popup = page.getByRole("dialog", {
+        name: "Quick tweak",
+        exact: true,
+    });
+    const count = popup.getByLabel("Number of questions", { exact: true });
+    await expect(count).toBeFocused();
+    await expect(
+        popup.getByText("Reuse saved questions", { exact: true }),
+    ).toHaveCount(0);
+    await count.fill("1");
+    await popup.getByLabel("Hard", { exact: true }).check();
+    await popup.getByRole("button", { name: "Freeform", exact: true }).click();
+    const included = popup.getByRole("region", {
+        name: "Included topics",
+        exact: true,
+    });
+    const excluded = popup.getByRole("region", {
+        name: "Excluded topics",
+        exact: true,
+    });
+    await included
+        .getByRole("button", { name: "Exclude Sets", exact: true })
+        .click();
+    await expect(
+        excluded.getByRole("button", { name: "Include Sets", exact: true }),
+    ).toBeFocused();
+    await expect(
+        included.getByRole("button", {
+            name: "Exclude Endpoints",
+            exact: true,
+        }),
+    ).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await expect(count).toHaveValue("1");
+    await expect(popup.getByLabel("Hard", { exact: true })).toBeChecked();
+    await expect(
+        excluded.getByRole("button", { name: "Include Sets", exact: true }),
+    ).toBeVisible();
+    await popup.getByRole("button", { name: "Close", exact: true }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect
+        .poll(
+            async () =>
+                (await calls(page)).filter(
+                    (call) => call.command === "create_exercise",
+                ).length,
+        )
+        .toBe(1);
+    const recorded = await calls(page);
+    const request = recorded.find((call) => call.command === "create_exercise")!
+        .args.request as ExerciseRequest;
+    expect(request.settings).toMatchObject({
+        questionCount: 1,
+        difficulties: [0, 2],
+        questionFormat: 1,
+        reuseQuestions: true,
+    });
+    expect(request.settings.topicIds.sort()).toEqual(["broad", "sub"]);
+    expect(request.questionIds.every((id) => ["q1", "q2"].includes(id))).toBe(
+        true,
+    );
+    expect(
+        recorded.some((call) => call.command === "save_practice_settings"),
+    ).toBe(false);
+    await trigger.click();
+    await excluded
+        .getByRole("button", { name: "Include Sets", exact: true })
+        .click();
+    await expect(
+        included.getByRole("button", { name: "Exclude Sets", exact: true }),
+    ).toBeFocused();
+    await page.getByRole("tab", { name: "Overview", exact: true }).click();
+    await expect(popup).toHaveCount(0);
+});
+
+test("Quick tweak keeps Study filters disabled and validates the question limit", async ({
+    page,
+}) => {
+    await setup(page);
+    await selectNote(page);
+    await page
+        .getByRole("button", { name: "Quick tweak", exact: true })
+        .click();
+    const popup = page.getByRole("dialog", {
+        name: "Quick tweak",
+        exact: true,
+    });
+    await expect(popup.getByLabel("Medium", { exact: true })).toBeDisabled();
+    await expect(
+        popup.getByRole("button", { name: "Freeform", exact: true }),
+    ).toBeDisabled();
+    const count = popup.getByLabel("Number of questions", { exact: true });
+    await count.fill("0");
+    await expect(count).toHaveAttribute("aria-invalid", "true");
+    await expect(popup.getByRole("alert")).toContainText("1 to 1000");
+    await count.fill("1");
+    await popup.getByRole("button", { name: "Close", exact: true }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect
+        .poll(
+            async () =>
+                (await calls(page)).filter(
+                    (call) => call.command === "create_exercise",
+                ).length,
+        )
+        .toBe(1);
+    const request = (await calls(page)).find(
+        (call) => call.command === "create_exercise",
+    )!.args.request as ExerciseRequest;
+    expect(request.questionIds).toHaveLength(1);
+});
+
+test("Quick tweak fits the tab body with long topic lists in both themes", async ({
+    page,
+}) => {
+    await setup(page);
+    const note = practiceNote();
+    for (let index = 0; index < 40; index++)
+        note.topics.push({
+            id: `long-${index}`,
+            noteId: note.id,
+            title: `A long topic title to check compact column overflow ${index}`,
+        });
+    await page.evaluate(
+        (note) =>
+            sessionStorage.setItem("practice-note-test", JSON.stringify(note)),
+        note,
+    );
+    await page.reload();
+    await selectNote(page);
+    await page.getByRole("button", { name: "Practice", exact: true }).click();
+    await page
+        .getByRole("button", { name: "Quick tweak", exact: true })
+        .click();
+    const popup = page.getByRole("dialog", {
+        name: "Quick tweak",
+        exact: true,
+    });
+    for (const colorScheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme });
+        for (const viewport of [
+            { width: 580, height: 550 },
+            { width: 800, height: 600 },
+            { width: 1200, height: 800 },
+        ]) {
+            await page.setViewportSize(viewport);
+            const body = (await page.locator("[data-tab-body]").boundingBox())!;
+            const backdrop = (await page
+                .locator("[data-quick-tweak-backdrop]")
+                .boundingBox())!;
+            expect(backdrop).toEqual(body);
+            const box = (await popup.boundingBox())!;
+            expect(box.y).toBeGreaterThanOrEqual(body.y);
+            expect(box.y + box.height).toBeLessThanOrEqual(
+                body.y + body.height,
+            );
+            expect(
+                await popup.evaluate(
+                    (element) => element.scrollHeight <= element.clientHeight,
+                ),
+            ).toBe(true);
+            const included = popup.getByRole("region", {
+                name: "Included topics",
+                exact: true,
+            });
+            const excluded = popup.getByRole("region", {
+                name: "Excluded topics",
+                exact: true,
+            });
+            expect((await excluded.boundingBox())!.x).toBeGreaterThan(
+                (await included.boundingBox())!.x,
+            );
+            await expect(
+                popup.getByLabel("Number of questions", { exact: true }),
+            ).toBeInViewport();
+            await expect(
+                popup.getByRole("button", { name: "Freeform", exact: true }),
+            ).toBeInViewport();
+            await expect(
+                page.getByRole("button", { name: "Quick tweak", exact: true }),
+            ).toBeInViewport();
+            await expect(
+                page.getByRole("button", { name: "Start", exact: true }),
+            ).toBeInViewport();
+            expect(
+                await page.evaluate(
+                    () => document.documentElement.scrollWidth <= innerWidth,
+                ),
+            ).toBe(true);
+            await page.screenshot({
+                path: `/tmp/obstudy-quick-tweak-${test.info().project.name}-${colorScheme}-${viewport.width}.png`,
+            });
+        }
+    }
+});
+
+test("Quick tweak expands saved parent topics and excludes a child without including its siblings again", async ({
+    page,
+}) => {
+    await setup(page);
+    const note = practiceNote();
+    note.topics.push({
+        id: "interior",
+        noteId: note.id,
+        broadTopicId: "broad",
+        title: "Interior",
+        text: "Inside the interval.",
+    });
+    note.savedPracticeSettings = {
+        questionCount: 5,
+        difficulty: 0,
+        questionFormat: 2,
+        reuseQuestions: true,
+        topicIds: ["broad"],
+    };
+    await page.evaluate(
+        (note) =>
+            sessionStorage.setItem("practice-note-test", JSON.stringify(note)),
+        note,
+    );
+    await page.reload();
+    await selectNote(page);
+    await page.getByRole("button", { name: "Practice", exact: true }).click();
+    await page
+        .getByRole("button", { name: "Quick tweak", exact: true })
+        .click();
+    const popup = page.getByRole("dialog", {
+        name: "Quick tweak",
+        exact: true,
+    });
+    await popup
+        .getByRole("button", { name: "Exclude Endpoints", exact: true })
+        .click();
+    await expect(
+        popup.getByRole("button", { name: "Exclude Interior", exact: true }),
+    ).toBeVisible();
+    await expect(
+        popup.getByRole("button", { name: "Include Endpoints", exact: true }),
+    ).toBeFocused();
+    await page.getByRole("button", { name: "Open a tab", exact: true }).click();
+    await page
+        .getByRole("button", { name: "Practice settings", exact: true })
+        .click();
+    await expect(popup).toHaveCount(0);
+    await expect(page.getByLabel("Interior", { exact: true })).toBeChecked();
+    await expect(
+        page.getByLabel("Endpoints", { exact: true }),
+    ).not.toBeChecked();
+    await expect(
+        page.getByRole("checkbox", { name: "Intervals", exact: true }),
+    ).not.toBeChecked();
+});

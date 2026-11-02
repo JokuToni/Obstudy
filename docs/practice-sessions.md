@@ -148,3 +148,16 @@ empty text with a non-empty drawing can be submitted. Drawings remain immutable
 after submission. Results render a saved SVG preview. Ungraded drawings participate
 in exit confirmation/discard, and drawing answers use self grading until visual
 AI grading is implemented. Text-only AI grading is explicitly disabled for them.
+
+Quick tweak opens beside Start as a compact popup scoped to the tab content body.
+It edits the same per-note draft as the full settings tab, immediately affecting
+the next Start without saving a default. Controls appear in this order: question
+count, multiple difficulties, format, and Included / Excluded topic columns.
+Move a topic by clicking its row; at least one must remain included. The columns
+show subtopics and standalone broad topics. Fully included groups also select
+their broad parent so broad-topic questions remain eligible; excluding a child
+removes that parent selection while retaining its selected siblings. An empty
+stored topic list still means all topics. Only topic columns scroll; the fields
+remain visible in compact windows. Study mode enables only question count.
+Close and Escape preserve edits and return focus; changing notes or tabs closes
+the popup. Reuse and saving defaults remain in the full settings tab.

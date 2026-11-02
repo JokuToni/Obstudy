@@ -12,6 +12,9 @@
     import type { StudyMode } from "$lib/types";
 
     let {
+        quickTweakOpen,
+        quickTweakDisabled,
+        onQuickTweak,
         studyMode,
         onModeChange,
         aiConfiguration,
@@ -26,6 +29,9 @@
         startDisabledReason,
         startError,
     }: {
+        quickTweakOpen: boolean;
+        quickTweakDisabled: boolean;
+        onQuickTweak: () => void;
         studyMode: StudyMode;
         onModeChange: (mode: StudyMode) => void;
         aiConfiguration: AiConfiguration;
@@ -73,7 +79,7 @@
                 {/each}
             </div>
         </fieldset>
-        <div class="w-52 min-w-0">
+        <div class="w-52 min-w-0 max-w-52 flex-1">
             <Dropdown
                 id="ai-quick-select"
                 above
@@ -141,11 +147,23 @@
             </Dropdown>
         </div>
         <button
+            id="quick-tweak-trigger"
+            type="button"
+            class={[button, "ml-auto h-10 shrink-0 px-2!"]}
+            aria-haspopup="dialog"
+            aria-expanded={quickTweakOpen}
+            disabled={quickTweakDisabled}
+            title={quickTweakDisabled
+                ? "Select a Studying note first."
+                : undefined}
+            onclick={onQuickTweak}>Quick tweak</button
+        >
+        <button
             type="button"
             disabled={starting || !!startDisabledReason}
             title={startDisabledReason ?? "Open a separate session window"}
             onclick={onStart}
-            class={[primaryButton, "ml-auto shrink-0"]}
+            class={[primaryButton, "shrink-0"]}
             >{starting ? "Preparing…" : "Start"}</button
         >
     </div>
