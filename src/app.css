@@ -15,7 +15,13 @@
             transparent 100%
         ),
         radial-gradient(
-            circle calc(clamp(180px, 32vw, 420px) * 0.75) at 0% 100%,
+            circle calc(clamp(180px, 32vw, 420px) * 1.25) at 0% 100%,
+            var(--color-overview-gradient-start) 0%,
+            var(--color-overview-gradient-middle) 40%,
+            transparent 100%
+        ),
+        radial-gradient(
+            circle clamp(180px, 32vw, 420px) at 50% 50%,
             var(--color-overview-gradient-start) 0%,
             var(--color-overview-gradient-middle) 40%,
             transparent 100%
