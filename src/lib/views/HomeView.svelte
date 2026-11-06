@@ -143,16 +143,7 @@
     let progressError = $state<string | null>(null);
     const progressRequests = new Map<string, number>();
     async function refreshNoteProgress(noteId?: string): Promise<void> {
-        const ids = noteId
-            ? [noteId]
-            : [
-                  ...new Set([
-                      ...(selectedNoteId ? [selectedNoteId] : []),
-                      ...tabs
-                          .filter((tab) => tab.startsWith("note:"))
-                          .map((tab) => tab.slice(5)),
-                  ]),
-              ];
+        const ids = noteId ? [noteId] : noteSync.notes.map((note) => note.id);
         if (!ids.length) return;
         let folderPath: string | null;
         try {

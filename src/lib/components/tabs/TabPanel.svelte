@@ -260,7 +260,10 @@
                     hidden={activeTab !== tab}
                     class={focusRing}
                 >
-                    {#if tab === "overview"}<Overview />
+                    {#if tab === "overview"}<Overview
+                            {notes}
+                            onOpenNote={(noteId) => openTab(`note:${noteId}`)}
+                        />
                     {:else if tab.startsWith("note:")}
                         {@const note = notes.find(
                             (item) => item.id === tab.slice(5),

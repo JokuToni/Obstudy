@@ -231,6 +231,15 @@ Existing questions to avoid duplicating (JSON reference data):
     - Jos laajempiAihe puuttuu mutta sen alaiheet on vielä läsnä varoitamme käyttäjää, että ala-aiheilta puuttuu laajempiAihe. Kysymme, että haluaako käyttäjä siirtää alaihe kysymykset jonkin toisen laajemman aiheen piiriin. Jos ei muutamme kysymyksiä niin että niillä ei ole laajempaa-aihetta ja jos haluaa niin vaihdamme kysymyksien laajemman aiheen valitsemaksi laajemmaksi aiheeksi
 
 **haeTallennetutObsidianMuistiinpanot():**
+
+**Yleiskatsauksen opiskeluputki ja erääntyneet kysymykset:**
+
+- Opiskeluputki muodostuu paikallisista kalenteripäivistä, joina on tallennettu vähintään yksi arvioitu vastaus Opiskele- tai Harjoittele-tilassa. Myös nollan pisteen vastaus lasketaan; arvioimattomat tai hylätyt luonnokset eivät kuulu mukaan.
+- Nykyinen putki on voimassa, jos viimeisin aktiivinen päivä on tänään tai eilen. Pisin putki lasketaan koko tallennetusta historiasta. Päivärajoissa käytetään paikallista kalenteria, ei kiinteitä 24 tunnin välejä.
+- Yleiskatsaus näyttää viimeisten 14 päivän vastausmäärät sekä jokaisen saatavilla olevan Opiskelussa-muistiinpanon kertausvalmiiden FSRS-peruskorttien määrän ja yhteissumman. Myös nollamäärät näytetään. Aiherajaus ja istunnon kysymysmäärä eivät rajoita näitä kokonaismääriä.
+- Kertausvalmius käyttää samaa laskentaa kuin Opiskele-istunto: erääntyneet uudet/kertauskortit, oppimiskortit vasta tarkkana erääntymisaikanaan, eikä arkistoituja, lisäkysymyksiä tai virheellisiä kortteja lasketa mukaan.
+- Lukemat päivittyvät tallennusten jälkeen, ikkunaan palatessa, paikallisen päivän vaihtuessa ja oppimiskortin erääntyessä.
+
 **haeKäyttäjä()**:
 **luoHarjoitus(harjoitusAsetukset, muistiinpanoId)**:
 - Jos käyttäjä on laittanut "opiskele" tilan päälle silloin keräämme valittuihin laajempiin aiheisiin ja niiden ala-aiheisiin kuuluvat muistiinpanon fsrs-kortit ja luomme harjoituksen sen perusteella, että kuinka monta kysymystä on harjoitusAsetuksissa ja otamme järjestyksessä niin monta kun kyseiselle päivälle on määritetty, jos kysymyksiä on vähemmän kuin harjoitus asetuksissa halutaan, emme luo uusia kysymyksiö vaan sitten harjoitukseen tulee vain ne kysymykset jotka on kyseiselle päivälle.

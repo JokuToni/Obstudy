@@ -99,6 +99,63 @@ export function matchingPracticeQuestions(
     );
 }
 
+export function readyStudyQuestions(
+    note: SyncedNote,
+    now = new Date(),
+): { questions: Question[]; warnings: string[] } {
+    if (!note.isAvailable || note.parseError || note.syncIssues.length)
+        return { questions: [], warnings: [] };
+    const nextDay = new Date(now);
+    nextDay.setHours(24, 0, 0, 0);
+    const dayStart = new Date(now);
+    dayStart.setHours(0, 0, 0, 0);
+    const warnings: string[] = [];
+    const submittedToday = new Set(
+        note.answers
+            .filter((answer) => {
+                const submittedAt = new Date(answer.answeredAt).getTime();
+                return (
+                    answer.mode === "study" &&
+                    !note.fsrsReviewedAnswerIds?.includes(answer.id) &&
+                    submittedAt >= dayStart.getTime() &&
+                    submittedAt < nextDay.getTime()
+                );
+            })
+            .map((answer) => answer.questionId),
+    );
+    const due = new Map<string, number>();
+    for (const stored of note.questionFsrs) {
+        try {
+            const card = TypeConvert.card(stored.fsrsData);
+            if (!Number.isFinite(card.due.getTime()))
+                throw new Error("Invalid due date");
+            if (
+                card.state === 1 || card.state === 3
+                    ? card.due.getTime() <= now.getTime()
+                    : card.due.getTime() < nextDay.getTime()
+            )
+                due.set(stored.questionId, card.due.getTime());
+        } catch {
+            warnings.push(
+                "Some study cards have invalid schedule data and were skipped. Reset their study schedule to recreate them.",
+            );
+        }
+    }
+    const questions = note.questions
+        .filter(
+            (question) =>
+                question.isBasicQuestion &&
+                due.has(question.id) &&
+                !submittedToday.has(question.id),
+        )
+        .sort(
+            (left, right) =>
+                due.get(left.id)! - due.get(right.id)! ||
+                left.id.localeCompare(right.id),
+        );
+    return { questions, warnings };
+}
+
 /** luoHarjoitus selection: study filters topics in due order; practice follows the filters. */
 export function selectExerciseQuestions(
     note: SyncedNote,
@@ -121,49 +178,14 @@ export function selectExerciseQuestions(
     const warnings: string[] = [];
     let questions: Question[];
     if (mode === "study") {
-        const submittedToday = new Set(
-            note.answers
-                .filter((answer) => {
-                    const submittedAt = new Date(answer.answeredAt).getTime();
-                    return (
-                        answer.mode === "study" &&
-                        !note.fsrsReviewedAnswerIds?.includes(answer.id) &&
-                        submittedAt >= dayStart.getTime() &&
-                        submittedAt < nextDay.getTime()
-                    );
-                })
-                .map((answer) => answer.questionId),
+        const ready = readyStudyQuestions(note, now);
+        warnings.push(...ready.warnings);
+        const matching = new Set(
+            questionsForTopics(note, settings).map((question) => question.id),
         );
-        const due = new Map<string, number>();
-        for (const stored of note.questionFsrs) {
-            try {
-                const card = TypeConvert.card(stored.fsrsData);
-                if (!Number.isFinite(card.due.getTime()))
-                    throw new Error("Invalid due date");
-                if (
-                    card.state === 1 || card.state === 3
-                        ? card.due.getTime() <= now.getTime()
-                        : card.due.getTime() < nextDay.getTime()
-                )
-                    due.set(stored.questionId, card.due.getTime());
-            } catch {
-                warnings.push(
-                    "Some study cards have invalid schedule data and were skipped. Reset their study schedule to recreate them.",
-                );
-            }
-        }
-        questions = questionsForTopics(note, settings)
-            .filter(
-                (question) =>
-                    question.isBasicQuestion &&
-                    due.has(question.id) &&
-                    !submittedToday.has(question.id),
-            )
-            .sort(
-                (left, right) =>
-                    due.get(left.id)! - due.get(right.id)! ||
-                    left.id.localeCompare(right.id),
-            );
+        questions = ready.questions.filter((question) =>
+            matching.has(question.id),
+        );
     } else {
         questions = [...matchingPracticeQuestions(note, settings)];
         for (let index = questions.length - 1; index > 0; index--) {

@@ -64,6 +64,9 @@ async function setup(
                 (JSON.parse(
                     sessionStorage.getItem("practice-note-test") ?? "null",
                 ) as typeof initialNote | null) ?? initialNote;
+            const extraNotes: (typeof initialNote)[] = JSON.parse(
+                sessionStorage.getItem("practice-extra-notes-test") ?? "[]",
+            );
             let session: ExerciseSession =
                 JSON.parse(
                     sessionStorage.getItem("practice-session-test") ?? "null",
@@ -168,7 +171,10 @@ async function setup(
                                 return ["/test/vault", true];
                             case "fetch_obsidian_notes":
                                 return {
-                                    notes: [structuredClone(note)],
+                                    notes: structuredClone([
+                                        note,
+                                        ...extraNotes,
+                                    ]),
                                     warnings: [],
                                 };
                             case "get_ai_configuration":
@@ -188,7 +194,11 @@ async function setup(
                             case "get_last_ai_response":
                                 return null;
                             case "get_question_generation_note":
-                                return structuredClone(note);
+                                return structuredClone(
+                                    [note, ...extraNotes].find(
+                                        (item) => item.id === args.noteId,
+                                    ) ?? note,
+                                );
                             case "save_practice_settings":
                                 note.savedPracticeSettings =
                                     args.settings as PracticeSettings;
@@ -3292,4 +3302,130 @@ test("Study AI grades schedule their cards automatically in results", async ({
     await expect(
         page.getByRole("dialog", { name: "Rate your recall", exact: true }),
     ).toHaveCount(0);
+});
+
+test("Overview shows real streaks, per-note ready counts, and updates at review times and local day changes", async ({
+    page,
+}) => {
+    await setup(page);
+    const note = practiceNote(new Date("2026-10-25T12:00:00Z"));
+    note.answers = [18, 19, 20, 21, 23, 24, 25].map((day) => ({
+        id: `history-${day}`,
+        questionId: "q0",
+        answeredAt: `2026-10-${day}T10:00:00Z`,
+        text: "Answer",
+        feedback: "",
+        points: day === 24 ? 0 : 1,
+        mode: day % 2 ? ("practice" as const) : ("study" as const),
+    }));
+    const waiting = practiceNote(new Date("2026-10-25T12:00:00Z"));
+    waiting.id = "waiting";
+    waiting.file.path = "/test/vault/Waiting.md";
+    waiting.questions = [
+        { ...waiting.questions[0], id: "waiting-card", noteId: "waiting" },
+    ];
+    waiting.questionFsrs = [
+        {
+            questionId: "waiting-card",
+            fsrsData: {
+                ...waiting.questionFsrs[0].fsrsData,
+                state: 1,
+                due: "2026-10-25T12:01:00Z",
+            },
+        },
+    ];
+    const paused = {
+        ...practiceNote(new Date("2026-10-25T12:00:00Z")),
+        id: "paused",
+        file: { path: "/test/vault/Paused.md", text: "Source" },
+        isStudying: false,
+    };
+    await page.evaluate(
+        ({ note, extras }) => {
+            sessionStorage.setItem("practice-note-test", JSON.stringify(note));
+            sessionStorage.setItem(
+                "practice-extra-notes-test",
+                JSON.stringify(extras),
+            );
+        },
+        { note, extras: [waiting, paused] },
+    );
+    await page.reload();
+    const overview = page.getByRole("region", {
+        name: "Study overview",
+        exact: true,
+    });
+    const statistic = (label: string) =>
+        overview
+            .locator("dl > div")
+            .filter({ has: page.locator("dt", { hasText: label }) })
+            .locator("dd");
+    await expect(statistic("Study streak")).toHaveText("3 days");
+    await expect(statistic("Longest streak")).toHaveText("4 days");
+    await expect(
+        overview.getByText("1 graded answer today", { exact: true }),
+    ).toBeVisible();
+    const intervals = overview.getByRole("button", {
+        name: "Open Intervals",
+        exact: true,
+    });
+    const queued = overview.getByRole("button", {
+        name: "Open Waiting",
+        exact: true,
+    });
+    await expect(intervals).toContainText("2 ready");
+    await expect(queued).toContainText("0 ready");
+    await expect(
+        overview.getByText("Due questions: 2", { exact: true }),
+    ).toBeVisible();
+    await expect(
+        overview.getByRole("button", { name: "Open Paused", exact: true }),
+    ).toHaveCount(0);
+    for (const colorScheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme });
+        for (const size of [
+            { width: 580, height: 550 },
+            { width: 1200, height: 800 },
+        ]) {
+            await page.setViewportSize(size);
+            await page.screenshot({
+                path: `/tmp/obstudy-overview-${test.info().project.name}-${colorScheme}-${size.width}.png`,
+            });
+            expect(
+                await page.evaluate(
+                    () => document.documentElement.scrollWidth <= innerWidth,
+                ),
+            ).toBe(true);
+        }
+    }
+    await page.evaluate(async (exerciseId) => {
+        const path = "/src/lib/services/exercises.ts";
+        const { saveExerciseDraft } = await import(/* @vite-ignore */ path);
+        await saveExerciseDraft(exerciseId, 0, [
+            {
+                questionId: "q0",
+                text: "A saved Practice answer",
+                selectedChoiceIndex: 0,
+                revealed: true,
+            },
+        ]);
+        window.dispatchEvent(new Event("focus"));
+    }, practiceSessionId);
+    await expect(
+        overview.getByText("2 graded answers today", { exact: true }),
+    ).toBeVisible();
+    await expect(statistic("Study streak")).toHaveText("3 days");
+    await page.clock.fastForward(61000);
+    await expect(queued).toContainText("1 ready");
+    await expect(
+        overview.getByText("Due questions: 3", { exact: true }),
+    ).toBeVisible();
+    await intervals.click();
+    await expect(
+        page.getByRole("tab", { name: "Intervals", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await page.getByRole("tab", { name: "Overview", exact: true }).click();
+    await page.clock.fastForward(2 * 86400000);
+    await expect(statistic("Study streak")).toHaveText("0 days");
+    await expect(statistic("Longest streak")).toHaveText("4 days");
 });

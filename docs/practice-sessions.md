@@ -215,3 +215,19 @@ Cmd+E in the editable answer text opens and focuses the MathQuill equation input
 at the current cursor/selection. It reuses an open composer, preserves its draft,
 and leaves submitted answers read-only. The Equation action exposes the shortcut
 in its tooltip and accessibility metadata.
+
+Overview derives current and longest streaks from persisted graded answers in both
+Study and Practice. Incorrect answers count; drafts and ungraded/discarded work do
+not. Deduplicate saved answer IDs, ignore invalid/future timestamps, and group by
+local calendar day. A streak remains current when the last active day was today
+or yesterday. Calendar-day identities handle 23/25-hour daylight-saving days.
+Activity shows the latest 14 days with actual answer counts.
+
+Ready to review shows each available Studying note, including zero, and their
+combined ready-card count. `readyStudyQuestions` shares the exact eligibility and
+ordering used by Study sessions, before topic filtering and question limits.
+Learning/relearning cards wait for their exact due time; invalid cards, additional
+questions, and unresolved notes are excluded. Rows open the corresponding note.
+The Overview clock updates at midnight and the next learning-card due time, and
+on window focus/visibility changes. Focus refreshes progress for all loaded notes;
+native progress events refresh the affected note even when its tab is closed.
