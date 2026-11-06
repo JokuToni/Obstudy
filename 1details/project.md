@@ -1,6 +1,7 @@
 **Development workflow:**
 
 - Commit the changes after completing each user prompt that changes project files, once the relevant checks pass. Do not create empty commits for prompts that make no changes.
+- Never edit a database migration after it has been applied. Add a new numbered migration for schema changes, including during development: Tauri may restart and apply migrations immediately.
 
 **Yleinen kuvaus:**
 

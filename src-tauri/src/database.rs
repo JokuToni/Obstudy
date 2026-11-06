@@ -89,12 +89,12 @@ mod tests {
                 .execute(&mut connection)
                 .await
                 .unwrap();
-            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 10);
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 11);
             sqlx::query("INSERT INTO notes (id, filePath) VALUES ('note', 'note.md')")
                 .execute(&mut connection)
                 .await
                 .unwrap();
-            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 10);
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 11);
             let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM notes")
                 .fetch_one(&mut connection)
                 .await
@@ -123,6 +123,77 @@ mod tests {
     }
 
     #[test]
+    fn original_fsrs_migration_upgrades_without_changing_its_checksum_or_saved_data() {
+        tauri::async_runtime::block_on(async {
+            use sqlx::migrate::Migrate;
+            let mut connection = SqliteConnection::connect("sqlite::memory:").await.unwrap();
+            // The original dev migration was already applied before its follow-up field.
+            assert_eq!(
+                MIGRATIONS
+                    .iter()
+                    .find(|migration| migration.version == 10)
+                    .unwrap()
+                    .checksum
+                    .as_ref(),
+                &[
+                    43, 226, 76, 31, 133, 116, 100, 118, 205, 56, 164, 26, 35, 151, 240, 198, 9,
+                    121, 196, 74, 170, 108, 119, 162, 0, 2, 170, 55, 139, 179, 26, 121, 24, 231,
+                    122, 244, 234, 223, 38, 142, 35, 67, 216, 241, 164, 164, 71, 101
+                ]
+            );
+            connection.ensure_migrations_table().await.unwrap();
+            for migration in MIGRATIONS
+                .iter()
+                .filter(|migration| migration.version <= 10)
+            {
+                connection.apply(migration).await.unwrap();
+            }
+            sqlx::raw_sql(r#"INSERT INTO notes (id,filePath) VALUES ('note','note.md');
+                INSERT INTO questions (id,noteId,text,exampleAnswer,difficulty,format,maxCharacters,answerCriteria,isBasicQuestion) VALUES ('q','note','Question','Answer',0,1,100,'Criteria',1);
+                INSERT INTO questionFsrs VALUES ('q','{"due":"2026-11-06T12:00:00Z","reps":3}');
+                INSERT INTO practiceSettings (id,noteId,questionCount,difficulty,reuseQuestions,questionFormat) VALUES ('settings','note',10,0,1,2);
+                INSERT INTO exercises (id,noteId,settingsId,mode,maxPoints) VALUES ('exercise','note','settings','study',1);
+                INSERT INTO exerciseQuestions (exerciseId,questionId,position,questionSnapshot) VALUES ('exercise','q',0,'{}');
+                INSERT INTO submittedAnswers (id,exerciseId,questionId,answeredAt,text,points) VALUES ('answer','exercise','q','2026-11-06T12:00:00Z','Saved answer',1);"#)
+                .execute(&mut connection).await.unwrap();
+            let before: String =
+                sqlx::query_scalar("SELECT fsrsData FROM questionFsrs WHERE questionId='q'")
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap();
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 11);
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 11);
+            assert_eq!(
+                sqlx::query_scalar::<_, String>(
+                    "SELECT fsrsData FROM questionFsrs WHERE questionId='q'"
+                )
+                .fetch_one(&mut connection)
+                .await
+                .unwrap(),
+                before
+            );
+            assert_eq!(
+                sqlx::query_scalar::<_, String>(
+                    "SELECT text FROM submittedAnswers WHERE id='answer'"
+                )
+                .fetch_one(&mut connection)
+                .await
+                .unwrap(),
+                "Saved answer"
+            );
+            assert_eq!(
+                sqlx::query_scalar::<_, bool>(
+                    "SELECT fsrsPending FROM submittedAnswers WHERE id='answer'"
+                )
+                .fetch_one(&mut connection)
+                .await
+                .unwrap(),
+                false
+            );
+        });
+    }
+
+    #[test]
     fn initialization_uses_the_selected_folder_and_preserves_data() {
         tauri::async_runtime::block_on(async {
             let suffix = std::time::SystemTime::now()
@@ -144,7 +215,7 @@ mod tests {
                     .await
                     .unwrap()
                     .schemaVersion,
-                10
+                11
             );
             assert!(initialize_database("relative/path".into()).await.is_err());
             assert!(initialize_database(first.databasePath).await.is_err());

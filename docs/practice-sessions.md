@@ -192,7 +192,9 @@ commit in one transaction. A changed card causes one recalculation against the
 latest state; repeated saves/reloads never apply a second review. Once scheduled,
 the Study grade points and recall rating are final. Scheduler failures preserve
 the answer for retry. Schedule reset starts fresh cards while keeping review history.
-Migration `0010_fsrs_reviews.sql` adds pending-rating state and review logs.
+Migration `0010_fsrs_reviews.sql` adds review logs; `0011_pending_fsrs_ratings.sql`
+adds pending-rating state. Keep applied migration files unchanged: development
+reloads may already have recorded their checksums.
 
 Note tabs show broad topics with due-today and total card counts, next review date,
 and expandable per-date schedules. Letter grades average the latest 50 graded

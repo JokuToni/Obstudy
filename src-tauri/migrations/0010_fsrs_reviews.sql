@@ -1,4 +1,3 @@
-ALTER TABLE submittedAnswers ADD COLUMN fsrsPending INTEGER NOT NULL DEFAULT 0 CHECK (fsrsPending IN (0, 1));
 CREATE TABLE fsrsReviews (
     id TEXT PRIMARY KEY,
     exerciseId TEXT NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,

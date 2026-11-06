@@ -11,12 +11,14 @@
     let noteSync = $state<NoteSyncResult>({ notes: [], warnings: [] });
     let loadingMessage = $state("Loading settings…");
     let isLoading = $state(true);
+    let errorDetails = $state<string | null>(null);
     let errorMessage = $state<string | null>(null);
     let practiceExerciseId = $state<string | null>(null);
 
     async function checkNotesFolderPath(folderPath?: string): Promise<void> {
         isLoading = true;
         errorMessage = null;
+        errorDetails = null;
 
         try {
             loadingMessage = "Loading settings…";
@@ -25,9 +27,15 @@
                 loadingMessage = "Synchronizing notes…";
                 noteSync = await fetchObsidianNotes(notesFolderPath);
             }
-        } catch {
+        } catch (error) {
             errorMessage =
-                "Unable to load settings or synchronize notes. Check that the notes folder is available, then try again.";
+                "Unable to load settings or synchronize notes. Try again, or check the error details below.";
+            errorDetails =
+                typeof error === "string"
+                    ? error
+                    : error instanceof Error
+                      ? error.message
+                      : "An unknown startup error occurred.";
         } finally {
             isLoading = false;
         }
@@ -51,6 +59,19 @@
         <p role="status" class="p-8 text-text-secondary">{loadingMessage}</p>
     {:else if errorMessage}
         <p role="alert" class="px-8 pt-8 text-danger">{errorMessage}</p>
+        {#if errorDetails}<details
+                class="mx-8 mt-3 text-sm text-text-secondary"
+            >
+                <summary
+                    class="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >Error details</summary
+                >
+                <p
+                    class="mt-2 whitespace-pre-wrap break-words rounded-md border border-border bg-surface p-3 font-mono text-xs/5"
+                >
+                    {errorDetails}
+                </p>
+            </details>{/if}
         <button
             type="button"
             class="mx-8 mt-4 min-h-9 rounded-md bg-accent-solid px-4 py-2 text-on-accent hover:bg-accent-solid-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
