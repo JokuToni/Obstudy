@@ -270,8 +270,8 @@ async fn persist_exercise(
             "The session must contain unique saved questions within the requested count.".into(),
         );
     }
-    if request.mode == "practice" && request.settings.excludeAllTopics {
-        return Err("Include at least one topic before starting a practice session.".into());
+    if request.settings.excludeAllTopics {
+        return Err("Include at least one topic before starting a session.".into());
     }
     let mut selectedTopics: HashSet<String> = request.settings.topicIds.iter().cloned().collect();
     for topic in note["topics"].as_array().ok_or("Invalid topics.")? {
@@ -284,8 +284,27 @@ async fn persist_exercise(
     }
     let mut questions = Vec::new();
     if request.mode == "study" {
-        let dueIds: Vec<String> = sqlx::query_scalar("SELECT q.id FROM questions q JOIN questionFsrs f ON f.questionId=q.id WHERE q.noteId=? AND q.isArchived=0 AND q.isBasicQuestion=1 AND julianday(json_extract(f.fsrsData,'$.due')) < julianday(?) AND NOT EXISTS (SELECT 1 FROM answerHistory h WHERE h.questionId=q.id AND h.mode='study' AND julianday(h.answeredAt)>=julianday(?) AND julianday(h.answeredAt)<julianday(?)) ORDER BY julianday(json_extract(f.fsrsData,'$.due')), q.id LIMIT ?")
-            .bind(&request.noteId).bind(&request.dueBefore).bind(&request.dueAfter).bind(&request.dueBefore).bind(i64::from(request.settings.questionCount)).fetch_all(&mut *connection).await.map_err(db_error)?;
+        let dueIds: Vec<String> = sqlx::query_scalar("SELECT q.id FROM questions q JOIN questionFsrs f ON f.questionId=q.id WHERE q.noteId=? AND q.isArchived=0 AND q.isBasicQuestion=1 AND julianday(json_extract(f.fsrsData,'$.due')) < julianday(?) AND NOT EXISTS (SELECT 1 FROM answerHistory h WHERE h.questionId=q.id AND h.mode='study' AND julianday(h.answeredAt)>=julianday(?) AND julianday(h.answeredAt)<julianday(?)) ORDER BY julianday(json_extract(f.fsrsData,'$.due')), q.id")
+            .bind(&request.noteId).bind(&request.dueBefore).bind(&request.dueAfter).bind(&request.dueBefore).fetch_all(&mut *connection).await.map_err(db_error)?;
+        let matchingIds: HashSet<&str> = note["questions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|question| {
+                selectedTopics.is_empty()
+                    || question["topicIds"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|topic| topic.as_str().is_some_and(|id| selectedTopics.contains(id)))
+            })
+            .filter_map(|question| question["id"].as_str())
+            .collect();
+        let dueIds: Vec<String> = dueIds
+            .into_iter()
+            .filter(|questionId| matchingIds.contains(questionId.as_str()))
+            .take(request.settings.questionCount as usize)
+            .collect();
         if dueIds != request.questionIds {
             return Err("The study schedule changed. Prepare the session again.".into());
         }
@@ -871,6 +890,43 @@ mod tests {
             assert_eq!(restored["questions"], session["questions"]);
             assert_eq!(restored["settings"], session["settings"]);
             reopened.close().await.unwrap();
+            std::fs::remove_dir_all(folder).unwrap();
+        });
+    }
+
+    #[test]
+    fn study_filters_parent_topics_and_children_before_limiting_due_cards() {
+        tauri::async_runtime::block_on(async {
+            let (folder, mut connection) = fixture().await;
+            sqlx::raw_sql("INSERT INTO broadTopics (id,noteId,title) VALUES ('other','note','Sets');
+                INSERT INTO subtopics (id,noteId,broadTopicId,title,text) VALUES ('child','note','other','Elements','source');
+                INSERT INTO questions (id,noteId,text,exampleAnswer,difficulty,format,maxCharacters,answerCriteria,isBasicQuestion) VALUES ('q2','note','Other topic','Example',2,1,100,'Criteria',1),('q3','note','Other later','Example',1,1,100,'Criteria',1);
+                INSERT INTO questionSubtopics VALUES ('q2','child');
+                INSERT INTO questionBroadTopics VALUES ('q3','other');
+                INSERT INTO questionFsrs SELECT 'q2',json_set(fsrsData,'$.due','2026-10-24T20:00:00Z') FROM questionFsrs WHERE questionId='q0';
+                INSERT INTO questionFsrs SELECT 'q3',json_set(fsrsData,'$.due','2026-10-25T21:00:00Z') FROM questionFsrs WHERE questionId='q0';")
+                .execute(&mut connection).await.unwrap();
+            let mut selected = request("study", &["q0"]);
+            selected.settings.questionCount = 1;
+            selected.settings.topicIds = vec!["broad".into()];
+            let session = persist_exercise(&mut connection, &selected).await.unwrap();
+            assert_eq!(session["questions"][0]["id"], "q0");
+            assert_eq!(session["settings"]["topicIds"], json!(["broad"]));
+            selected.settings.topicIds = vec!["other".into()];
+            assert!(persist_exercise(&mut connection, &selected).await.is_err());
+            selected.questionIds = vec!["q2".into(), "q3".into()];
+            selected.settings.questionCount = 2;
+            let session = persist_exercise(&mut connection, &selected).await.unwrap();
+            assert_eq!(session["questions"][0]["id"], "q2");
+            assert_eq!(session["questions"][1]["id"], "q3");
+            selected.settings.excludeAllTopics = true;
+            assert!(
+                persist_exercise(&mut connection, &selected)
+                    .await
+                    .unwrap_err()
+                    .contains("Include at least one topic")
+            );
+            connection.close().await.unwrap();
             std::fs::remove_dir_all(folder).unwrap();
         });
     }

@@ -14,7 +14,7 @@ test("study selects only due basic cards in order through the end of the local d
         difficulty: 2 as const,
         reuseQuestions: false,
         questionFormat: 1 as const,
-        topicIds: ["foreign"],
+        topicIds: ["broad"],
     };
     const result = selectExerciseQuestions(note, settings, "study", now);
     expect(result.questionIds).toEqual(["q0", "q1"]);
@@ -28,7 +28,7 @@ test("study selects only due basic cards in order through the end of the local d
         difficulty: 0,
         reuseQuestions: true,
         questionFormat: 2,
-        topicIds: [],
+        topicIds: ["broad"],
     });
 });
 
@@ -170,7 +170,7 @@ test("selection rejects unresolved notes and invalid counts before session persi
     ).toThrow("Resolve note errors");
 });
 
-test("an explicit empty topic selection blocks Practice while Study still ignores topic filters", () => {
+test("an explicit empty topic selection blocks both session modes", () => {
     const note = practiceNote();
     const settings = {
         ...note.savedPracticeSettings!,
@@ -180,7 +180,50 @@ test("an explicit empty topic selection blocks Practice while Study still ignore
     expect(() => selectExerciseQuestions(note, settings, "practice")).toThrow(
         "Include at least one topic",
     );
-    expect(effectiveExerciseSettings(settings, "study").excludeAllTopics).toBe(
-        false,
+    expect(() => selectExerciseQuestions(note, settings, "study")).toThrow(
+        "Include at least one topic",
     );
+    expect(effectiveExerciseSettings(settings, "study").excludeAllTopics).toBe(
+        true,
+    );
+});
+
+test("Study filters broad topics and their children before applying the due-order limit", () => {
+    const now = new Date(2026, 9, 25, 12);
+    const note = practiceNote(now);
+    note.questions.find((question) => question.id === "q1")!.topicIds = ["sub"];
+    note.questionFsrs.find((card) => card.questionId === "q3")!.fsrsData.due =
+        new Date(2026, 9, 23).toISOString();
+    const settings = {
+        ...note.savedPracticeSettings!,
+        questionCount: 1,
+        topicIds: ["broad"],
+    };
+    expect(
+        selectExerciseQuestions(note, settings, "study", now).questionIds,
+    ).toEqual(["q0"]);
+    expect(
+        selectExerciseQuestions(
+            note,
+            { ...settings, questionCount: 10 },
+            "study",
+            now,
+        ).questionIds,
+    ).toEqual(["q0", "q1"]);
+    expect(
+        selectExerciseQuestions(
+            note,
+            { ...settings, topicIds: ["other"] },
+            "study",
+            now,
+        ).questionIds,
+    ).toEqual(["q3"]);
+    expect(() =>
+        selectExerciseQuestions(
+            note,
+            { ...settings, topicIds: ["foreign"] },
+            "study",
+            now,
+        ),
+    ).toThrow("no longer belongs");
 });

@@ -51,8 +51,7 @@ export function effectiveExerciseSettings(
               difficulties: [0],
               questionFormat: 2,
               reuseQuestions: true,
-              topicIds: [],
-              excludeAllTopics: false,
+              topicIds: [...settings.topicIds],
           }
         : {
               ...settings,
@@ -63,13 +62,13 @@ export function effectiveExerciseSettings(
           };
 }
 
-export function matchingPracticeQuestions(
+function questionsForTopics(
     note: SyncedNote,
     settings: PracticeSettings,
 ): Question[] {
     if (settings.excludeAllTopics)
         throw new Error(
-            "Include at least one topic before starting a practice session.",
+            "Include at least one topic before starting a session.",
         );
     const ids = new Set(settings.topicIds);
     if ([...ids].some((id) => !note.topics.some((topic) => topic.id === id)))
@@ -84,15 +83,23 @@ export function matchingPracticeQuestions(
         )
             ids.add(topic.id);
     return note.questions.filter(
-        (question) =>
-            selectedDifficulties(settings).includes(question.difficulty) &&
-            (settings.questionFormat === 2 ||
-                question.format === settings.questionFormat) &&
-            (!ids.size || question.topicIds.some((id) => ids.has(id))),
+        (question) => !ids.size || question.topicIds.some((id) => ids.has(id)),
     );
 }
 
-/** luoHarjoitus selection: study is due-order only; practice follows the filters. */
+export function matchingPracticeQuestions(
+    note: SyncedNote,
+    settings: PracticeSettings,
+): Question[] {
+    return questionsForTopics(note, settings).filter(
+        (question) =>
+            selectedDifficulties(settings).includes(question.difficulty) &&
+            (settings.questionFormat === 2 ||
+                question.format === settings.questionFormat),
+    );
+}
+
+/** luoHarjoitus selection: study filters topics in due order; practice follows the filters. */
 export function selectExerciseQuestions(
     note: SyncedNote,
     settings: PracticeSettings,
@@ -140,7 +147,7 @@ export function selectExerciseQuestions(
                 );
             }
         }
-        questions = note.questions
+        questions = questionsForTopics(note, settings)
             .filter(
                 (question) =>
                     question.isBasicQuestion &&
@@ -194,14 +201,14 @@ export function selectExerciseQuestions(
     if (!questions.length)
         throw new Error(
             mode === "study"
-                ? "No basic questions are due today that have not already been submitted in Study today. Choose Practice to work with your question bank."
+                ? "No basic questions are due today in the selected topics that have not already been submitted in Study today. Choose Practice to work with your question bank."
                 : "No saved questions match these practice settings. Change the filters or turn off Reuse questions to generate fresh questions.",
         );
     const selected = questions.slice(0, settings.questionCount);
     if (selected.length < settings.questionCount)
         warnings.push(
             mode === "study"
-                ? `Only ${selected.length} basic questions are due today. No new questions were generated.`
+                ? `Only ${selected.length} basic questions are due today in the selected topics. No new questions were generated.`
                 : `Only ${selected.length} saved questions match your settings. This session uses those questions.`,
         );
     return {

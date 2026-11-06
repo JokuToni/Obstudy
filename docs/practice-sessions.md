@@ -19,8 +19,9 @@ preserves existing single-level profiles as one-element arrays. The legacy
 `createExercise` in `src/lib/services/exercises.ts` implements `luoHarjoitus`.
 Study selects basic questions due before the next local midnight, oldest first,
 excluding questions already submitted in Study during the current local day.
-Practice submissions do not remove questions from Study. It ignores practice
-filters and never generates questions. Practice with reuse enabled prefers
+Practice submissions do not remove questions from Study. Study uses the selected
+broad topics and their subtopics, filtering before applying the question limit.
+It ignores difficulty, format, and reuse and never generates questions. Practice with reuse enabled prefers
 matching unanswered questions, then those answered longest ago; ties are shuffled.
 Questions can repeat when the matching bank has been covered. Otherwise it generates fresh
 additional questions through the existing AI integration. Short selections and
@@ -164,7 +165,7 @@ leaves the selection empty and blocks Practice launch, including fresh generatio
 until a topic is included again. The optional `excludeAllTopics` flag distinguishes
 this from legacy empty `topicIds` meaning all topics. Migration
 `0009_empty_topic_selection.sql` persists the flag with a backward-compatible false
-default. Study ignores the flag together with other topic filters.
+default. Both Study and Practice honor this flag and topic filters.
 Difficulty and compact format buttons share one row, with a 4px gap above Topics.
 Close and Start session sit together at the top-right, in that order. Taller topic
 columns fill the remaining popup height through the removed bottom action area.

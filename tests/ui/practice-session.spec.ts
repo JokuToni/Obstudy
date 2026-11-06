@@ -2567,7 +2567,7 @@ test("Quick tweak edits next-session options and moves topics without opening se
     await expect(popup).toHaveCount(0);
 });
 
-test("Quick tweak keeps Study filters disabled and validates the question limit", async ({
+test("Quick tweak keeps Study difficulty and format disabled and validates the question limit", async ({
     page,
 }) => {
     await setup(page);
@@ -2860,4 +2860,101 @@ test("Both settings selectors move broad topics with their subtopics and persist
                 call.command === "create_exercise",
         ),
     ).toBe(false);
+});
+
+test("Study saves topic choices in settings and reviews only their due cards", async ({
+    page,
+}) => {
+    await setup(page);
+    const note = practiceNote(new Date("2026-10-25T12:00:00Z"));
+    note.questionFsrs.find((card) => card.questionId === "q3")!.fsrsData.due =
+        "2026-10-23T00:00:00Z";
+    await page.evaluate(
+        (note) =>
+            sessionStorage.setItem("practice-note-test", JSON.stringify(note)),
+        note,
+    );
+    await page.reload();
+    await selectNote(page);
+    await page.getByRole("button", { name: "Open a tab", exact: true }).click();
+    await page
+        .getByRole("button", { name: "Practice settings", exact: true })
+        .click();
+    const panel = page.getByRole("tabpanel", {
+        name: "Practice settings",
+        exact: true,
+    });
+    await expect(
+        panel.getByRole("button", { name: "Exclude all", exact: true }),
+    ).toBeEnabled();
+    await panel
+        .getByRole("button", { name: "Exclude all", exact: true })
+        .click();
+    await panel
+        .getByRole("button", { name: "Include Intervals", exact: true })
+        .click();
+    await panel
+        .getByRole("button", { name: "Save settings", exact: true })
+        .click();
+    await expect(panel.getByRole("status")).toContainText(
+        "Session settings saved",
+    );
+    await page.reload();
+    await selectNote(page);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    const popup = page.getByRole("dialog", {
+        name: "Quick tweak",
+        exact: true,
+    });
+    await expect(
+        popup.getByRole("button", { name: "Exclude Intervals", exact: true }),
+    ).toBeEnabled();
+    await expect(
+        popup.getByRole("button", { name: "Include Sets", exact: true }),
+    ).toBeEnabled();
+    await popup
+        .getByRole("button", { name: "Start session", exact: true })
+        .click();
+    await expect
+        .poll(
+            async () =>
+                (await calls(page)).filter(
+                    (call) => call.command === "create_exercise",
+                ).length,
+        )
+        .toBe(1);
+    const request = (await calls(page)).find(
+        (call) => call.command === "create_exercise",
+    )!.args.request as ExerciseRequest;
+    expect(request.mode).toBe("study");
+    expect(request.settings.topicIds).toEqual(["broad"]);
+    expect(request.questionIds).toEqual(["q0", "q1"]);
+    expect(
+        (await calls(page)).some((call) => call.command === "prompt_ai"),
+    ).toBe(false);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await popup
+        .getByRole("button", { name: "Exclude all", exact: true })
+        .click();
+    await expect(
+        popup.getByRole("button", { name: "Start session", exact: true }),
+    ).toBeDisabled();
+    await popup
+        .getByRole("button", { name: "Include Sets", exact: true })
+        .click();
+    await popup
+        .getByRole("button", { name: "Start session", exact: true })
+        .click();
+    await expect
+        .poll(
+            async () =>
+                (await calls(page)).filter(
+                    (call) => call.command === "create_exercise",
+                ).length,
+        )
+        .toBe(2);
+    const next = (await calls(page))
+        .filter((call) => call.command === "create_exercise")
+        .at(-1)!.args.request as ExerciseRequest;
+    expect(next.questionIds).toEqual(["q3"]);
 });

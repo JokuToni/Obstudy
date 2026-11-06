@@ -110,9 +110,9 @@
         {#if ignored}<p
                 class="rounded-md border border-border bg-surface p-3 text-xs/5 text-text-secondary"
             >
-                Study uses basic questions due today, in schedule order. Only
-                the question limit applies; difficulty, format, reuse, and topic
-                filters are ignored.
+                Study uses basic questions due today, in schedule order. The
+                question limit and included topics apply; difficulty, format,
+                and reuse are ignored.
             </p>{/if}
         <form
             onsubmit={save}
@@ -235,7 +235,7 @@
                     <TopicSelector
                         {note}
                         {settings}
-                        disabled={ignored || busy}
+                        disabled={busy}
                         onChange={change}
                     />
                 </div>

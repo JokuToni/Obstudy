@@ -128,7 +128,7 @@
                     ]}
                     disabled={invalidCount ||
                         !!startDisabledReason ||
-                        (!ignored && !!settings.excludeAllTopics)}
+                        !!settings.excludeAllTopics}
                     onclick={() => {
                         void onStart();
                     }}>Start session</button
@@ -168,11 +168,9 @@
                 Enter a whole number from 1 to 1000.
             </p>{/if}
         {#if ignored}<p class="shrink-0 text-xs/4 text-text-muted">
-                Study mode uses only the question count.
+                Study uses the question count and included topics.
             </p>{/if}
-        {#if !ignored && settings.excludeAllTopics}<p
-                class="text-xs/4 text-text-muted"
-            >
+        {#if settings.excludeAllTopics}<p class="text-xs/4 text-text-muted">
                 Include a topic to start.
             </p>{/if}
         {#if startDisabledReason}<p class="text-xs/4 text-text-muted">
@@ -239,7 +237,7 @@
                     </div>
                 </fieldset>
             </div>
-            <TopicSelector {note} {settings} disabled={ignored} {onChange} />
+            <TopicSelector {note} {settings} {onChange} />
         </div>
     </dialog>
 </div>
