@@ -307,10 +307,10 @@ Existing questions to avoid duplicating (JSON reference data):
 - Yhtälöeditorin nuolet liikuttavat matemaattista kohdistinta eivätkä vaihda kysymystä. Kysymyksen vaihtaminen nollaa keskeneräisen yhtälöeditorin. Vastauksen merkkiraja koskee myös lisättyä LaTeXia.
 
 **FSRS ja aihekohtaiset arvosanat:**
-- Opiskele-tilan peruskysymyksen oikeellisuuden arvioinnin jälkeen kysytään erillinen muistamisen arvio: Again, Hard, Good tai Easy. Oletusfokus on Again pisteillä 0, Hard pisteillä 0.5 ja Good pisteillä 1; käyttäjä voi muuttaa valintaa. Monivalinnan jälkeen näytetään sama muistamisen arvio.
+- Opiskele-tilan peruskysymyksen arvosana määrää FSRS-muistamisen arvion automaattisesti: väärin (0) = Again, osittain oikein (0.5) = Hard ja oikein (1) = Good. Erillistä muistamisen arviota tai valikkoa ei näytetä. Sama koskee monivalintoja sekä itse ja tekoälyllä arvioituja vastauksia.
 - ts-fsrs 5.4.2 laskee seuraavan korttitilan (retention 0.9, oletusoppimisaskeleet, enable_fuzz false). Kortti ja arviointiloki tallennetaan samassa transaktiossa vastauksen kanssa, kerran per kysymys ja istunto. Rinnakkaiset istunnot käyttävät uusinta korttitilaa. Lopullisen kertauksen pisteet ja muistamisen arvio lukitaan.
 - Oppimis- ja uudelleenoppimiskortit tulevat mukaan vasta tarkkana erääntymisaikanaan ja voivat palata samana päivänä. Harjoittele-tila ei muuta FSRS-aikatauluja. Historiallisia arvioita ei ajasteta uudelleen pelkän avaamisen takia.
-- Muistamisen arvion voi viimeistellä tulosnäkymässä. Tallennus ja poistuminen edellyttävät arvioitujen Opiskele-vastausten muistamisen arviota; keskeneräinen työ säilyy.
+- Vastausten arviointi tulosnäkymässä päivittää myös FSRS-aikataulun automaattisesti. Aiemmasta versiosta jääneet arvioidut mutta ajastamattomat vastaukset ajastetaan istunnon uudelleenavauksessa. Jo ajastetut kertaukset ja niiden historia säilyvät.
 - Muistiinpanon välilehdellä näytetään jokainen laajempi aihe, erääntyneiden ja kaikkien korttien määrät, seuraava kertauspäivä ja avattava päiväkohtainen aikataulu.
 - Aihekohtainen arvosana käyttää viimeisimpiä 50 arvioitua vastausta molemmista tiloista. Jos vastauksia on vähemmän, jaetaan niiden omalla määrällä. Kysymyksen alkuperäinen aihejäsenyys säilyy istunnon snapshotissa.
 - A+ >=97%, A >=93%, A− >=90%, B+ >=87%, B >=83%, B− >=80%, C+ >=77%, C >=73%, C− >=70%, D+ >=67%, D >=63%, D− >=60%, F <60%. Ilman arvioita näytetään viiva.

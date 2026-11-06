@@ -176,13 +176,18 @@ the popup. Reuse and saving defaults remain in the full settings tab.
 
 Study scheduling uses the installed ts-fsrs 5.4.2 scheduler with 90% target
 retention, default learning/relearning steps and maximum interval, and deterministic
-intervals (`enable_fuzz: false`). Correctness is saved first; a separate recall
-prompt asks Again / Hard / Good / Easy, initially focused on Again for 0 points,
-Hard for 0.5, or Good for 1. Users may choose any rating independently. Up/Down
-moves focus; Right or Enter confirms. Practice answers never change schedules.
-Cancel leaves recall pending, with controls in results; saving and exiting requires
-finishing recall ratings for graded Study answers. Ungraded answers still use the
-existing review/discard confirmation. Legacy grades are not rescheduled on reopen.
+intervals (`enable_fuzz: false`). The correctness grade directly determines the
+FSRS rating: 0 = Again, 0.5 = Hard, 1 = Good. This applies to multiple choice,
+self grading, and AI grading, including grading in results. There is no separate
+recall step. Self grading and AI actions continue to the next question; AI may
+finish in the background. Practice answers never change schedules. Ungraded
+answers still use the existing review/discard confirmation.
+
+Existing completed reviews retain their stored ratings (including manual Easy)
+and do not run again. Old pending grades are scheduled automatically when an open
+session is reloaded. Other historical grades are not retroactively rescheduled.
+The former pending-rating flag now tracks incomplete schedule saves, not a
+required user input. No migration files change for this behavior update.
 
 `prepare_study_reviews` loads current cards and a native review timestamp.
 The frontend calls ts-fsrs `next`, then sends the before/after card and review log
@@ -190,7 +195,7 @@ with the answer save. Native code checks card versions, ratings, grade finality,
 review dates, and card invariants. The answer, card update, and unique review log
 commit in one transaction. A changed card causes one recalculation against the
 latest state; repeated saves/reloads never apply a second review. Once scheduled,
-the Study grade points and recall rating are final. Scheduler failures preserve
+the Study grade points are final. Scheduler failures preserve
 the answer for retry. Schedule reset starts fresh cards while keeping review history.
 Migration `0010_fsrs_reviews.sql` adds review logs; `0011_pending_fsrs_ratings.sql`
 adds pending-rating state. Keep applied migration files unchanged: development

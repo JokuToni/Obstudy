@@ -72,13 +72,15 @@
                     : answer;
             });
             revision = loaded.revision;
-            editVersion = answers.some(
-                (answer, index) =>
-                    answer.grade && !loaded.draftAnswers[index].grade,
-            )
-                ? 1
-                : 0;
+            editVersion =
+                answers.some(
+                    (answer, index) =>
+                        answer.grade && !loaded.draftAnswers[index].grade,
+                ) || !!loaded.pendingReviewQuestionIds?.length
+                    ? 1
+                    : 0;
             savedVersion = 0;
+            if (editVersion) void flush().catch(() => {});
         } catch (error) {
             loadError = errorText(error);
         } finally {
@@ -162,7 +164,8 @@
         );
         if (
             !answer?.revealed ||
-            (session?.mode === "study" && answer.reviewRating)
+            (session?.mode === "study" &&
+                session.scheduledQuestionIds?.includes(questionId))
         )
             return;
         gradingErrors[questionId] = null;
@@ -182,7 +185,12 @@
         gradingErrors[questionId] = null;
         try {
             const grade = await gradeWithAi(question, { ...answer });
-            if (epoch === gradingEpoch && !session?.closedAt)
+            if (
+                epoch === gradingEpoch &&
+                !session?.closedAt &&
+                !answers.find((answer) => answer.questionId === questionId)
+                    ?.grade
+            )
                 gradeAnswer(questionId, grade);
         } catch (error) {
             if (epoch === gradingEpoch)
@@ -202,12 +210,6 @@
         gradingEpoch++;
         try {
             await flush();
-            if (session?.pendingReviewQuestionIds?.length) {
-                reviewRequest++;
-                throw new Error(
-                    "Choose recall ratings for graded Study answers before saving and exiting.",
-                );
-            }
             if (session && !session.closedAt) {
                 session = await closeExerciseSession(
                     exerciseId,

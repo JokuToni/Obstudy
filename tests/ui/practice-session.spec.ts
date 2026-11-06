@@ -228,7 +228,6 @@ async function setup(
                                 ).flatMap((answer) => {
                                     if (
                                         !answer.revealed ||
-                                        !answer.reviewRating ||
                                         session.scheduledQuestionIds?.includes(
                                             answer.questionId,
                                         )
@@ -255,7 +254,13 @@ async function setup(
                                             beforeCard: structuredClone(
                                                 card.fsrsData,
                                             ),
-                                            rating: answer.reviewRating,
+                                            rating:
+                                                answer.grade.points === 0
+                                                    ? 1
+                                                    : answer.grade.points ===
+                                                        0.5
+                                                      ? 2
+                                                      : 3,
                                             points: answer.grade.points,
                                             reviewedAt:
                                                 new Date().toISOString(),
@@ -3055,42 +3060,17 @@ test("Study saves topic choices in settings and reviews only their due cards", a
     expect(next.questionIds).toEqual(["q3"]);
 });
 
-test("Study separates correctness from recall, persists FSRS once, and shows topic grades and schedules", async ({
+test("Study uses grades for FSRS automatically and updates topic progress", async ({
     page,
 }) => {
     await setup(page, true, false, false, false, true);
     await expect(page.getByRole("radio").first()).toBeFocused();
     await page.keyboard.press("ArrowRight");
-    const recall = page.getByRole("dialog", {
-        name: "Rate your recall",
-        exact: true,
-    });
-    await expect(recall).toBeVisible();
-    await expect(recall.getByRole("button", { name: /Good/ })).toBeFocused();
-    for (const colorScheme of ["light", "dark"] as const) {
-        await page.emulateMedia({ colorScheme });
-        await page.screenshot({
-            path: `/tmp/obstudy-recall-${test.info().project.name}-${colorScheme}.png`,
-        });
-    }
-    await expect
-        .poll(async () =>
-            page.evaluate(
-                () =>
-                    JSON.parse(
-                        sessionStorage.getItem("practice-note-test")!,
-                    ).questionFsrs.find(
-                        (card: { questionId: string }) =>
-                            card.questionId === "q0",
-                    ).fsrsData.reps,
-            ),
-        )
-        .toBe(0);
-    await page.keyboard.press("ArrowDown");
-    await expect(recall.getByRole("button", { name: /Easy/ })).toBeFocused();
-    await page.keyboard.press("ArrowRight");
     const input = page.getByLabel("Your answer", { exact: true });
     await expect(input).toBeFocused();
+    await expect(
+        page.getByRole("dialog", { name: "Rate your recall", exact: true }),
+    ).toHaveCount(0);
     await input.fill("An endpoint explanation");
     await page.keyboard.press("ArrowRight");
     await expect(
@@ -3101,36 +3081,46 @@ test("Study separates correctness from recall, persists FSRS once, and shows top
         .getByRole("dialog", { name: "Grade your answer", exact: true })
         .getByRole("button", { name: "Partly correct", exact: true })
         .click();
-    await expect(recall.getByRole("button", { name: /Hard/ })).toBeFocused();
-    await page.keyboard.press("ArrowUp");
-    await page.keyboard.press("ArrowRight");
     await expect(
         page.getByRole("heading", { name: "Review your answers", exact: true }),
     ).toBeVisible();
     await expect(
-        page.getByText("Review scheduled · Again", { exact: true }),
-    ).toBeVisible();
+        page.getByText("Review scheduled", { exact: true }),
+    ).toHaveCount(2);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    const updates = (await calls(page))
+        .filter((call) => call.command === "save_exercise_draft")
+        .flatMap(
+            (call) =>
+                (call.args.fsrsUpdates ?? []) as {
+                    questionId: string;
+                    rating: number;
+                }[],
+        );
+    expect(
+        updates
+            .filter((update) => update.questionId === "q0")
+            .map((update) => update.rating),
+    ).toEqual([3]);
+    expect(
+        updates
+            .filter((update) => update.questionId === "q1")
+            .map((update) => update.rating),
+    ).toEqual([2]);
     const stored = await page.evaluate(() =>
         JSON.parse(sessionStorage.getItem("practice-note-test")!),
     );
-    const easy = stored.questionFsrs.find(
-        (card: { questionId: string }) => card.questionId === "q0",
-    ).fsrsData;
-    const again = stored.questionFsrs.find(
-        (card: { questionId: string }) => card.questionId === "q1",
-    ).fsrsData;
-    expect(easy.reps).toBe(1);
-    expect(easy.state).toBe(2);
-    expect(again.reps).toBe(1);
-    expect(again.state).toBe(1);
     await page.reload();
     await expect(
         page.getByRole("heading", { name: "Review your answers", exact: true }),
     ).toBeVisible();
-    const afterReload = await page.evaluate(() =>
-        JSON.parse(sessionStorage.getItem("practice-note-test")!),
-    );
-    expect(afterReload.questionFsrs).toEqual(stored.questionFsrs);
+    expect(
+        await page.evaluate(
+            () =>
+                JSON.parse(sessionStorage.getItem("practice-note-test")!)
+                    .questionFsrs,
+        ),
+    ).toEqual(stored.questionFsrs);
     await page
         .getByRole("button", { name: "Close session", exact: true })
         .click();
@@ -3142,60 +3132,78 @@ test("Study separates correctness from recall, persists FSRS once, and shows top
     await expect(
         page.getByText("75% · 2/50 answers", { exact: true }),
     ).toBeVisible();
+});
+
+test("Study schedules an incorrect choice and saves and exits without a recall prompt", async ({
+    page,
+}) => {
+    await setup(page, true, false, false, false, true);
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByLabel("Your answer", { exact: true })).toBeFocused();
     await page
-        .getByText("Topics and review schedule", { exact: true })
-        .scrollIntoViewIfNeeded();
-    await page.getByLabel("Intervals grade C", { exact: true }).click();
-    await expect(
-        page.getByLabel("Intervals review schedule", { exact: true }),
-    ).toBeVisible();
-    await page.screenshot({
-        path: `/tmp/obstudy-topic-progress-${test.info().project.name}.png`,
-    });
-    await startFromWorkspace(page);
-    await expect(page.getByRole("alert")).toContainText(
-        "No Study cards are ready",
-    );
-    await page.clock.fastForward(61000);
-    await startFromWorkspace(page);
+        .getByRole("button", { name: "Save and exit", exact: true })
+        .click();
     await expect
         .poll(
             async () =>
                 (await calls(page)).filter(
-                    (call) => call.command === "create_exercise",
+                    (call) => call.command === "test:window-close",
                 ).length,
         )
         .toBe(1);
-    const request = (await calls(page)).find(
-        (call) => call.command === "create_exercise",
-    )!.args.request as ExerciseRequest;
-    expect(request.questionIds).toEqual(["q1"]);
+    const updates = (await calls(page))
+        .filter((call) => call.command === "save_exercise_draft")
+        .flatMap(
+            (call) => (call.args.fsrsUpdates ?? []) as { rating: number }[],
+        );
+    expect(updates.map((update) => update.rating)).toEqual([1]);
+    await expect(
+        page.getByRole("dialog", { name: "Rate your recall", exact: true }),
+    ).toHaveCount(0);
 });
 
-test("a graded Study answer can finish its recall rating in results before exiting", async ({
+test("reopening a Study session automatically schedules grades left awaiting recall", async ({
     page,
 }) => {
     await setup(page, true, false, false, false, true);
-    await page.getByRole("radio").first().check();
-    await page
-        .getByRole("button", { name: "Reveal answer", exact: true })
-        .click();
-    await page
-        .getByRole("button", { name: "Save and exit", exact: true })
-        .click();
-    await expect(
-        page.getByRole("heading", { name: "Review your answers", exact: true }),
-    ).toBeVisible();
-    await expect(page.getByRole("alert")).toContainText(
-        "Choose recall ratings",
+    const session = practiceSession();
+    session.pendingReviewQuestionIds = ["q0"];
+    session.draftAnswers = [
+        {
+            questionId: "q0",
+            text: "$[0,4)$",
+            selectedChoiceIndex: 0,
+            revealed: true,
+            grade: { points: 1, source: "automatic", feedback: "" },
+        },
+    ];
+    await page.evaluate(
+        (session) =>
+            sessionStorage.setItem(
+                "practice-session-test",
+                JSON.stringify(session),
+            ),
+        session,
     );
-    await page
-        .getByRole("region", { name: "Recall needed", exact: true })
-        .getByRole("button", { name: /Good/ })
-        .click();
-    await expect(
-        page.getByText("Review scheduled · Good", { exact: true }),
-    ).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Your answer", { exact: true })).toBeFocused();
+    await expect
+        .poll(async () =>
+            page.evaluate(
+                () =>
+                    JSON.parse(sessionStorage.getItem("practice-session-test")!)
+                        .pendingReviewQuestionIds,
+            ),
+        )
+        .toEqual([]);
+    const updates = (await calls(page))
+        .filter((call) => call.command === "save_exercise_draft")
+        .flatMap(
+            (call) => (call.args.fsrsUpdates ?? []) as { rating: number }[],
+        );
+    expect(updates.map((update) => update.rating)).toEqual([3]);
     await page
         .getByRole("button", { name: "Save and exit", exact: true })
         .click();
@@ -3242,5 +3250,46 @@ test("Cmd+E opens the equation input at the text selection and preserves an open
     await answer.press("Meta+e");
     await expect(
         page.getByRole("region", { name: "Equation editor", exact: true }),
+    ).toHaveCount(0);
+});
+
+test("Study AI grades schedule their cards automatically in results", async ({
+    page,
+}) => {
+    await setup(page, true, false, false, false, true);
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    const answer = page.getByLabel("Your answer", { exact: true });
+    await expect(answer).toBeFocused();
+    await answer.fill("An interval explanation");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    await page
+        .getByRole("dialog", { name: "Grade your answer", exact: true })
+        .getByRole("button", { name: "Grade with AI", exact: true })
+        .click();
+    await expect(
+        page.getByRole("heading", { name: "Review your answers", exact: true }),
+    ).toBeVisible();
+    await expect(
+        page.getByText("Review scheduled", { exact: true }),
+    ).toHaveCount(2);
+    await expect(page.getByText("Graded by AI", { exact: true })).toBeVisible();
+    const updates = (await calls(page))
+        .filter((call) => call.command === "save_exercise_draft")
+        .flatMap(
+            (call) =>
+                (call.args.fsrsUpdates ?? []) as {
+                    questionId: string;
+                    rating: number;
+                }[],
+        );
+    expect(
+        updates
+            .filter((update) => update.questionId === "q1")
+            .map((update) => update.rating),
+    ).toEqual([2]);
+    await expect(
+        page.getByRole("dialog", { name: "Rate your recall", exact: true }),
     ).toHaveCount(0);
 });

@@ -22,6 +22,7 @@ export interface ExerciseDraftAnswer {
     drawing?: DrawingAnswer | null;
     editorMode?: "text" | "draw";
     grade?: AnswerGrade | null;
+    /** Retained for loading older drafts; new reviews derive their rating from the grade. */
     reviewRating?: 1 | 2 | 3 | 4 | null;
 }
 export interface ExerciseSession extends Exercise {

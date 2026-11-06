@@ -48,13 +48,13 @@ pub(super) async fn prepare(
         let Some(points) = points else {
             continue;
         };
-        let rating = answer.reviewRating.unwrap_or(if points == 0.0 {
+        let rating = if points == 0.0 {
             1
         } else if points == 0.5 {
             2
         } else {
             3
-        });
+        };
         if !(1..=4).contains(&rating) {
             return Err("Choose a valid recall rating.".into());
         }
@@ -67,14 +67,12 @@ pub(super) async fn prepare(
         .await
         .map_err(db_error)?;
         if let Some(previous) = previous {
-            if previous.get::<f64, _>("points") != points
-                || previous.get::<i64, _>("rating") != i64::from(rating)
-            {
-                return Err("This Study answer has already updated its schedule. Its grade and recall rating are final.".into());
+            if previous.get::<f64, _>("points") != points {
+                return Err(
+                    "This Study answer has already updated its schedule. Its grade is final."
+                        .into(),
+                );
             }
-            continue;
-        }
-        if answer.reviewRating.is_none() {
             continue;
         }
         let wasGraded = session["draftAnswers"]

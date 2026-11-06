@@ -774,7 +774,8 @@ async fn close_session(
         .is_some_and(|ids| !ids.is_empty())
     {
         return Err(
-            "Choose recall ratings for graded Study answers before saving and exiting.".into(),
+            "The Study schedule still needs updating. Save the session again before exiting."
+                .into(),
         );
     }
     let drafts = session["draftAnswers"]
@@ -948,16 +949,15 @@ mod tests {
                     .await
                     .unwrap();
             let response = answer("q0", "Correct", None, true);
-            assert!(
-                scheduling::prepare(
-                    &mut connection,
-                    exerciseId,
-                    &[answer("q0", "Correct", None, true)]
-                )
-                .await
-                .unwrap()
-                .is_empty()
-            );
+            let automatic = scheduling::prepare(
+                &mut connection,
+                exerciseId,
+                &[answer("q0", "Correct", None, true)],
+            )
+            .await
+            .unwrap();
+            assert_eq!(automatic.len(), 1);
+            assert_eq!(automatic[0]["rating"], 3);
             save_draft(&mut connection, exerciseId, 0, &[response], false)
                 .await
                 .unwrap();
@@ -965,7 +965,7 @@ mod tests {
                 close_session(&mut connection, exerciseId, 1, false)
                     .await
                     .unwrap_err()
-                    .contains("recall")
+                    .contains("schedule")
             );
             let mut rated = answer("q0", "Correct", None, true);
             rated.reviewRating = Some(4);
@@ -1022,6 +1022,7 @@ mod tests {
             );
             let mut edited = answer("q0", "Correct", None, true);
             edited.reviewRating = Some(1);
+            edited.grade.as_mut().unwrap().points = 0.0;
             assert!(
                 scheduling::prepare(&mut connection, exerciseId, &[edited])
                     .await
@@ -1049,6 +1050,65 @@ mod tests {
             assert_ne!(card, original);
             assert_eq!(serde_json::from_str::<Value>(&card).unwrap()["reps"], 1);
             reopened.close().await.unwrap();
+            std::fs::remove_dir_all(folder).unwrap();
+        });
+    }
+
+    #[test]
+    fn fsrs_ratings_follow_grades_and_ignore_legacy_manual_choices() {
+        tauri::async_runtime::block_on(async {
+            let (folder, mut connection) = fixture().await;
+            let session = persist_exercise(&mut connection, &request("study", &["q0"]))
+                .await
+                .unwrap();
+            let exerciseId = session["id"].as_str().unwrap();
+            for (points, rating) in [(0.0, 1), (0.5, 2), (1.0, 3)] {
+                let mut graded = answer("q0", "Answer", None, true);
+                graded.grade.as_mut().unwrap().points = points;
+                graded.reviewRating = Some(4);
+                let contexts = scheduling::prepare(&mut connection, exerciseId, &[graded])
+                    .await
+                    .unwrap();
+                assert_eq!(contexts[0]["rating"], rating);
+            }
+            // Older completed reviews keep their manual rating and do not run twice.
+            let graded = answer("q0", "Answer", None, true);
+            let mut contexts = scheduling::prepare(&mut connection, exerciseId, &[graded])
+                .await
+                .unwrap();
+            contexts[0]["rating"] = json!(4);
+            let due: String =
+                sqlx::query_scalar("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now','+4 days')")
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap();
+            scheduling::apply(
+                &mut connection,
+                exerciseId,
+                &contexts,
+                &[review_update(&contexts[0], &due)],
+            )
+            .await
+            .unwrap();
+            assert!(
+                scheduling::prepare(
+                    &mut connection,
+                    exerciseId,
+                    &[answer("q0", "Answer", None, true)]
+                )
+                .await
+                .unwrap()
+                .is_empty()
+            );
+            assert_eq!(
+                sqlx::query_scalar::<_, i64>("SELECT rating FROM fsrsReviews WHERE exerciseId=?")
+                    .bind(exerciseId)
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap(),
+                4
+            );
+            connection.close().await.unwrap();
             std::fs::remove_dir_all(folder).unwrap();
         });
     }
