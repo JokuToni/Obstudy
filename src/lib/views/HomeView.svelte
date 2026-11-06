@@ -188,6 +188,10 @@
                                     ? {
                                           ...note,
                                           answers: updated.answers,
+                                          questionFsrs: updated.questionFsrs,
+                                          topicGrades: updated.topicGrades,
+                                          fsrsReviewedAnswerIds:
+                                              updated.fsrsReviewedAnswerIds,
                                           performances: updated.performances,
                                           exercises: updated.exercises,
                                           questions: note.questions.map(
@@ -284,6 +288,7 @@
                           ...item,
                           questions: note.questions,
                           questionFsrs: note.questionFsrs,
+                          topicGrades: note.topicGrades,
                           ...(includeSyncIssues
                               ? { syncIssues: note.syncIssues }
                               : {}),

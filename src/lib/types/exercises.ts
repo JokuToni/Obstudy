@@ -22,6 +22,7 @@ export interface ExerciseDraftAnswer {
     drawing?: DrawingAnswer | null;
     editorMode?: "text" | "draw";
     grade?: AnswerGrade | null;
+    reviewRating?: 1 | 2 | 3 | 4 | null;
 }
 export interface ExerciseSession extends Exercise {
     noteTitle: string;
@@ -31,11 +32,14 @@ export interface ExerciseSession extends Exercise {
     closedAt?: string | null;
     revision: number;
     draftAnswers: ExerciseDraftAnswer[];
+    scheduledQuestionIds?: string[];
+    pendingReviewQuestionIds?: string[];
 }
 export interface ExerciseSelection {
     questionIds: string[];
     dueBefore: string;
     dueAfter: string;
+    dueNow?: string;
     warnings: string[];
 }
 export interface ExerciseRequest {
@@ -46,9 +50,12 @@ export interface ExerciseRequest {
     sourceText: string;
     dueBefore: string;
     dueAfter: string;
+    dueNow?: string;
     warnings: string[];
 }
 export interface ExerciseDraftSaveResult {
+    scheduledQuestionIds?: string[];
+    pendingReviewQuestionIds?: string[];
     revision: number;
     reviewedAt: string | null;
 }

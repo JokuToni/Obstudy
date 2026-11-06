@@ -127,6 +127,7 @@ export function selectExerciseQuestions(
                     const submittedAt = new Date(answer.answeredAt).getTime();
                     return (
                         answer.mode === "study" &&
+                        !note.fsrsReviewedAnswerIds?.includes(answer.id) &&
                         submittedAt >= dayStart.getTime() &&
                         submittedAt < nextDay.getTime()
                     );
@@ -139,7 +140,11 @@ export function selectExerciseQuestions(
                 const card = TypeConvert.card(stored.fsrsData);
                 if (!Number.isFinite(card.due.getTime()))
                     throw new Error("Invalid due date");
-                if (card.due.getTime() < nextDay.getTime())
+                if (
+                    card.state === 1 || card.state === 3
+                        ? card.due.getTime() <= now.getTime()
+                        : card.due.getTime() < nextDay.getTime()
+                )
                     due.set(stored.questionId, card.due.getTime());
             } catch {
                 warnings.push(
@@ -201,7 +206,7 @@ export function selectExerciseQuestions(
     if (!questions.length)
         throw new Error(
             mode === "study"
-                ? "No basic questions are due today in the selected topics that have not already been submitted in Study today. Choose Practice to work with your question bank."
+                ? "No Study cards are ready in the selected topics. Learning cards return at their scheduled time; choose Practice to use your question bank."
                 : "No saved questions match these practice settings. Change the filters or turn off Reuse questions to generate fresh questions.",
         );
     const selected = questions.slice(0, settings.questionCount);
@@ -215,6 +220,7 @@ export function selectExerciseQuestions(
         questionIds: selected.map((question) => question.id),
         dueBefore: nextDay.toISOString(),
         dueAfter: dayStart.toISOString(),
+        dueNow: now.toISOString(),
         warnings: [...new Set(warnings)],
     };
 }

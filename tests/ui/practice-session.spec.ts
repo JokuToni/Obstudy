@@ -26,6 +26,7 @@ async function setup(
     math = false,
     native = false,
     extraQuestion = false,
+    study = false,
 ): Promise<void> {
     await page.clock.install({ time: new Date("2026-10-25T12:00:00Z") });
     const initialNote = practiceNote(new Date("2026-10-25T12:00:00Z"));
@@ -39,6 +40,7 @@ async function setup(
         stored.fsrsData.due = dueDates[index];
     });
     const initialSession = practiceSession();
+    initialSession.mode = study ? "study" : "practice";
     if (extraQuestion) initialSession.questions.push(initialNote.questions[2]);
     if (math) {
         const question = initialSession.questions[0];
@@ -219,6 +221,48 @@ async function setup(
                                 if (controls.failLoad)
                                     throw "Session is unavailable.";
                                 return structuredClone(session);
+                            case "prepare_study_reviews": {
+                                if (session.mode !== "study") return [];
+                                return (
+                                    args.answers as ExerciseDraftAnswer[]
+                                ).flatMap((answer) => {
+                                    if (
+                                        !answer.revealed ||
+                                        !answer.reviewRating ||
+                                        session.scheduledQuestionIds?.includes(
+                                            answer.questionId,
+                                        )
+                                    )
+                                        return [];
+                                    const question = session.questions.find(
+                                        (question) =>
+                                            question.id === answer.questionId,
+                                    );
+                                    const card = note.questionFsrs.find(
+                                        (card) =>
+                                            card.questionId ===
+                                            answer.questionId,
+                                    );
+                                    if (
+                                        !question?.isBasicQuestion ||
+                                        !card ||
+                                        !answer.grade
+                                    )
+                                        return [];
+                                    return [
+                                        {
+                                            questionId: answer.questionId,
+                                            beforeCard: structuredClone(
+                                                card.fsrsData,
+                                            ),
+                                            rating: answer.reviewRating,
+                                            points: answer.grade.points,
+                                            reviewedAt:
+                                                new Date().toISOString(),
+                                        },
+                                    ];
+                                });
+                            }
                             case "save_exercise_draft": {
                                 if (controls.holdSave)
                                     await new Promise<void>((resolve) => {
@@ -283,6 +327,54 @@ async function setup(
                                     if (question)
                                         question.lastAnsweredAt = answeredAt;
                                 }
+                                for (const update of (args.fsrsUpdates ??
+                                    []) as {
+                                    questionId: string;
+                                    afterCard: (typeof note.questionFsrs)[number]["fsrsData"];
+                                }[]) {
+                                    const card = note.questionFsrs.find(
+                                        (card) =>
+                                            card.questionId ===
+                                            update.questionId,
+                                    );
+                                    if (card) card.fsrsData = update.afterCard;
+                                    session.scheduledQuestionIds = [
+                                        ...new Set([
+                                            ...(session.scheduledQuestionIds ??
+                                                []),
+                                            update.questionId,
+                                        ]),
+                                    ];
+                                }
+                                session.pendingReviewQuestionIds =
+                                    session.mode === "study"
+                                        ? session.draftAnswers
+                                              .filter(
+                                                  (answer) =>
+                                                      answer.grade &&
+                                                      session.questions.some(
+                                                          (question) =>
+                                                              question.id ===
+                                                                  answer.questionId &&
+                                                              question.isBasicQuestion,
+                                                      ) &&
+                                                      !session.scheduledQuestionIds?.includes(
+                                                          answer.questionId,
+                                                      ),
+                                              )
+                                              .map(
+                                                  (answer) => answer.questionId,
+                                              )
+                                        : [];
+                                note.fsrsReviewedAnswerIds = note.answers
+                                    .filter(
+                                        (answer) =>
+                                            answer.exerciseId === session.id &&
+                                            session.scheduledQuestionIds?.includes(
+                                                answer.questionId,
+                                            ),
+                                    )
+                                    .map((answer) => answer.id);
                                 session.revision++;
                                 if (args.finish)
                                     session.reviewedAt =
@@ -291,6 +383,10 @@ async function setup(
                                 return {
                                     revision: session.revision,
                                     reviewedAt: session.reviewedAt,
+                                    scheduledQuestionIds:
+                                        session.scheduledQuestionIds,
+                                    pendingReviewQuestionIds:
+                                        session.pendingReviewQuestionIds,
                                 };
                             }
                             case "close_exercise_session": {
@@ -1783,7 +1879,7 @@ test("AI selection advances and focuses the next input before grading completes;
         .getByRole("heading", { name: "Intervals", exact: true })
         .boundingBox();
     const mode = await header
-        .getByText("Study session", { exact: true })
+        .getByText("Practice session", { exact: true })
         .boundingBox();
     expect(mode!.x).toBeGreaterThan(title!.x);
     expect(Math.abs(mode!.y - title!.y)).toBeLessThan(8);
@@ -2347,7 +2443,7 @@ test("a native close failure is shown and can be retried without resaving or los
 });
 
 for (const refresh of ["focus", "native notification"] as const) {
-    test(`note statistics refresh after submission via ${refresh}, survive reload, and Study skips the saved question`, async ({
+    test(`note statistics refresh after submission via ${refresh}, survive reload, and Practice keeps its saved answer`, async ({
         page,
     }) => {
         await setup(page, false, false, refresh === "native notification");
@@ -2403,7 +2499,7 @@ for (const refresh of ["focus", "native notification"] as const) {
         const request = (await calls(page)).find(
             (call) => call.command === "create_exercise",
         )!.args.request as ExerciseRequest;
-        expect(request.questionIds).toEqual(["q1"]);
+        expect(request.questionIds).toEqual(["q0", "q1"]);
     });
 }
 
@@ -2957,4 +3053,158 @@ test("Study saves topic choices in settings and reviews only their due cards", a
         .filter((call) => call.command === "create_exercise")
         .at(-1)!.args.request as ExerciseRequest;
     expect(next.questionIds).toEqual(["q3"]);
+});
+
+test("Study separates correctness from recall, persists FSRS once, and shows topic grades and schedules", async ({
+    page,
+}) => {
+    await setup(page, true, false, false, false, true);
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    const recall = page.getByRole("dialog", {
+        name: "Rate your recall",
+        exact: true,
+    });
+    await expect(recall).toBeVisible();
+    await expect(recall.getByRole("button", { name: /Good/ })).toBeFocused();
+    for (const colorScheme of ["light", "dark"] as const) {
+        await page.emulateMedia({ colorScheme });
+        await page.screenshot({
+            path: `/tmp/obstudy-recall-${test.info().project.name}-${colorScheme}.png`,
+        });
+    }
+    await expect
+        .poll(async () =>
+            page.evaluate(
+                () =>
+                    JSON.parse(
+                        sessionStorage.getItem("practice-note-test")!,
+                    ).questionFsrs.find(
+                        (card: { questionId: string }) =>
+                            card.questionId === "q0",
+                    ).fsrsData.reps,
+            ),
+        )
+        .toBe(0);
+    await page.keyboard.press("ArrowDown");
+    await expect(recall.getByRole("button", { name: /Easy/ })).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    const input = page.getByLabel("Your answer", { exact: true });
+    await expect(input).toBeFocused();
+    await input.fill("An endpoint explanation");
+    await page.keyboard.press("ArrowRight");
+    await expect(
+        page.getByRole("region", { name: "Example answer", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await page
+        .getByRole("dialog", { name: "Grade your answer", exact: true })
+        .getByRole("button", { name: "Partly correct", exact: true })
+        .click();
+    await expect(recall.getByRole("button", { name: /Hard/ })).toBeFocused();
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("ArrowRight");
+    await expect(
+        page.getByRole("heading", { name: "Review your answers", exact: true }),
+    ).toBeVisible();
+    await expect(
+        page.getByText("Review scheduled · Again", { exact: true }),
+    ).toBeVisible();
+    const stored = await page.evaluate(() =>
+        JSON.parse(sessionStorage.getItem("practice-note-test")!),
+    );
+    const easy = stored.questionFsrs.find(
+        (card: { questionId: string }) => card.questionId === "q0",
+    ).fsrsData;
+    const again = stored.questionFsrs.find(
+        (card: { questionId: string }) => card.questionId === "q1",
+    ).fsrsData;
+    expect(easy.reps).toBe(1);
+    expect(easy.state).toBe(2);
+    expect(again.reps).toBe(1);
+    expect(again.state).toBe(1);
+    await page.reload();
+    await expect(
+        page.getByRole("heading", { name: "Review your answers", exact: true }),
+    ).toBeVisible();
+    const afterReload = await page.evaluate(() =>
+        JSON.parse(sessionStorage.getItem("practice-note-test")!),
+    );
+    expect(afterReload.questionFsrs).toEqual(stored.questionFsrs);
+    await page
+        .getByRole("button", { name: "Close session", exact: true })
+        .click();
+    await page.goto("/");
+    await selectNote(page);
+    await expect(
+        page.getByLabel("Intervals grade C", { exact: true }),
+    ).toBeVisible();
+    await expect(
+        page.getByText("75% · 2/50 answers", { exact: true }),
+    ).toBeVisible();
+    await page
+        .getByText("Topics and review schedule", { exact: true })
+        .scrollIntoViewIfNeeded();
+    await page.getByLabel("Intervals grade C", { exact: true }).click();
+    await expect(
+        page.getByLabel("Intervals review schedule", { exact: true }),
+    ).toBeVisible();
+    await page.screenshot({
+        path: `/tmp/obstudy-topic-progress-${test.info().project.name}.png`,
+    });
+    await startFromWorkspace(page);
+    await expect(page.getByRole("alert")).toContainText(
+        "No Study cards are ready",
+    );
+    await page.clock.fastForward(61000);
+    await startFromWorkspace(page);
+    await expect
+        .poll(
+            async () =>
+                (await calls(page)).filter(
+                    (call) => call.command === "create_exercise",
+                ).length,
+        )
+        .toBe(1);
+    const request = (await calls(page)).find(
+        (call) => call.command === "create_exercise",
+    )!.args.request as ExerciseRequest;
+    expect(request.questionIds).toEqual(["q1"]);
+});
+
+test("a graded Study answer can finish its recall rating in results before exiting", async ({
+    page,
+}) => {
+    await setup(page, true, false, false, false, true);
+    await page.getByRole("radio").first().check();
+    await page
+        .getByRole("button", { name: "Reveal answer", exact: true })
+        .click();
+    await page
+        .getByRole("button", { name: "Save and exit", exact: true })
+        .click();
+    await expect(
+        page.getByRole("heading", { name: "Review your answers", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("alert")).toContainText(
+        "Choose recall ratings",
+    );
+    await page
+        .getByRole("region", { name: "Recall needed", exact: true })
+        .getByRole("button", { name: /Good/ })
+        .click();
+    await expect(
+        page.getByText("Review scheduled · Good", { exact: true }),
+    ).toBeVisible();
+    await page
+        .getByRole("button", { name: "Save and exit", exact: true })
+        .click();
+    await expect
+        .poll(
+            async () =>
+                (await calls(page)).filter(
+                    (call) => call.command === "test:window-close",
+                ).length,
+        )
+        .toBe(1);
 });

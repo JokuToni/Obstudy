@@ -304,6 +304,15 @@ Existing questions to avoid duplicating (JSON reference data):
 - Syötekentissä ja editoreissa ei näytetä fokusoinnin ääriviivaa tai rengasta. Painikkeiden ja välilehtien näppäimistöfokus säilyy näkyvänä.
 - Yhtälöeditorin nuolet liikuttavat matemaattista kohdistinta eivätkä vaihda kysymystä. Kysymyksen vaihtaminen nollaa keskeneräisen yhtälöeditorin. Vastauksen merkkiraja koskee myös lisättyä LaTeXia.
 
+**FSRS ja aihekohtaiset arvosanat:**
+- Opiskele-tilan peruskysymyksen oikeellisuuden arvioinnin jälkeen kysytään erillinen muistamisen arvio: Again, Hard, Good tai Easy. Oletusfokus on Again pisteillä 0, Hard pisteillä 0.5 ja Good pisteillä 1; käyttäjä voi muuttaa valintaa. Monivalinnan jälkeen näytetään sama muistamisen arvio.
+- ts-fsrs 5.4.2 laskee seuraavan korttitilan (retention 0.9, oletusoppimisaskeleet, enable_fuzz false). Kortti ja arviointiloki tallennetaan samassa transaktiossa vastauksen kanssa, kerran per kysymys ja istunto. Rinnakkaiset istunnot käyttävät uusinta korttitilaa. Lopullisen kertauksen pisteet ja muistamisen arvio lukitaan.
+- Oppimis- ja uudelleenoppimiskortit tulevat mukaan vasta tarkkana erääntymisaikanaan ja voivat palata samana päivänä. Harjoittele-tila ei muuta FSRS-aikatauluja. Historiallisia arvioita ei ajasteta uudelleen pelkän avaamisen takia.
+- Muistamisen arvion voi viimeistellä tulosnäkymässä. Tallennus ja poistuminen edellyttävät arvioitujen Opiskele-vastausten muistamisen arviota; keskeneräinen työ säilyy.
+- Muistiinpanon välilehdellä näytetään jokainen laajempi aihe, erääntyneiden ja kaikkien korttien määrät, seuraava kertauspäivä ja avattava päiväkohtainen aikataulu.
+- Aihekohtainen arvosana käyttää viimeisimpiä 50 arvioitua vastausta molemmista tiloista. Jos vastauksia on vähemmän, jaetaan niiden omalla määrällä. Kysymyksen alkuperäinen aihejäsenyys säilyy istunnon snapshotissa.
+- A+ >=97%, A >=93%, A− >=90%, B+ >=87%, B >=83%, B− >=80%, C+ >=77%, C >=73%, C− >=70%, D+ >=67%, D >=63%, D− >=60%, F <60%. Ilman arvioita näytetään viiva.
+
 **arvosteleVastaus():**
 - Monivalinta arvostellaan automaattisesti oikein (1) tai väärin (0).
 - Vapaakirjoituksen arvostelee käyttäjä itse tai tekoäly: väärin 0, osittain oikein 0.5, oikein 1.

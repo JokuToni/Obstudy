@@ -51,7 +51,7 @@ test("study respects the limit and gives an actionable empty state without gener
             "study",
             now,
         ),
-    ).toThrow("No basic questions are due today");
+    ).toThrow("No Study cards are ready");
 });
 
 test("practice applies difficulty, format, and selected broad topics and includes additional questions", () => {
@@ -226,4 +226,36 @@ test("Study filters broad topics and their children before applying the due-orde
             now,
         ),
     ).toThrow("no longer belongs");
+});
+
+test("learning cards return at their FSRS due time even after a graded answer today", () => {
+    const now = new Date("2026-10-25T12:00:00Z");
+    const note = practiceNote(now);
+    const card = note.questionFsrs.find((card) => card.questionId === "q0")!;
+    card.fsrsData.state = 1;
+    card.fsrsData.due = "2026-10-25T12:01:00Z";
+    note.answers = [
+        {
+            id: "rated",
+            questionId: "q0",
+            mode: "study",
+            answeredAt: now.toISOString(),
+            text: "answer",
+            points: 0,
+            feedback: "",
+        },
+    ];
+    note.fsrsReviewedAnswerIds = ["rated"];
+    const settings = { ...note.savedPracticeSettings!, topicIds: ["broad"] };
+    expect(
+        selectExerciseQuestions(note, settings, "study", now).questionIds,
+    ).toEqual(["q1"]);
+    expect(
+        selectExerciseQuestions(
+            note,
+            settings,
+            "study",
+            new Date("2026-10-25T12:01:00Z"),
+        ).questionIds,
+    ).toContain("q0");
 });

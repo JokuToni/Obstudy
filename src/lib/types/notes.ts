@@ -30,6 +30,12 @@ export interface SyncedNote extends Note {
     answers: Answer[];
     exercises: Exercise[];
     questionFsrs: QuestionFsrs[];
+    fsrsReviewedAnswerIds?: string[];
+    topicGrades?: {
+        topicId: string;
+        answerCount: number;
+        averagePoints: number | null;
+    }[];
 }
 export interface NoteSyncResult {
     notes: SyncedNote[];

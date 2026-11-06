@@ -109,6 +109,8 @@
                 session = {
                     ...session,
                     revision,
+                    scheduledQuestionIds: result.scheduledQuestionIds,
+                    pendingReviewQuestionIds: result.pendingReviewQuestionIds,
                     reviewedAt: result.reviewedAt,
                     draftAnswers: snapshot,
                 };
@@ -158,7 +160,11 @@
         const answer = answers.find(
             (answer) => answer.questionId === questionId,
         );
-        if (!answer?.revealed) return;
+        if (
+            !answer?.revealed ||
+            (session?.mode === "study" && answer.reviewRating)
+        )
+            return;
         gradingErrors[questionId] = null;
         change({ ...answer, grade });
     }
@@ -196,6 +202,12 @@
         gradingEpoch++;
         try {
             await flush();
+            if (session?.pendingReviewQuestionIds?.length) {
+                reviewRequest++;
+                throw new Error(
+                    "Choose recall ratings for graded Study answers before saving and exiting.",
+                );
+            }
             if (session && !session.closedAt) {
                 session = await closeExerciseSession(
                     exerciseId,

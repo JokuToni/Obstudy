@@ -18,7 +18,9 @@ preserves existing single-level profiles as one-element arrays. The legacy
 
 `createExercise` in `src/lib/services/exercises.ts` implements `luoHarjoitus`.
 Study selects basic questions due before the next local midnight, oldest first,
-excluding questions already submitted in Study during the current local day.
+Learning and relearning cards wait until their exact due time, and scheduled
+reviews may return again that day. Historical submissions without a review log
+retain the same-day exclusion.
 Practice submissions do not remove questions from Study. Study uses the selected
 broad topics and their subtopics, filtering before applying the question limit.
 It ignores difficulty, format, and reuse and never generates questions. Practice with reuse enabled prefers
@@ -94,9 +96,8 @@ The note tab refreshes after native grading/closure notifications and when retur
 to the main window. It shows answered questions, saved submissions, and last answer
 time. Score averages include graded answers only. Closing records total points;
 voided or unanswered questions do not count toward the saved performance maximum.
-Legacy ungraded history is not given an invented zero score. FSRS rescheduling is
-still deferred; the existing same-day Study exclusion and Practice reuse priority
-use saved graded answers. Images remain subject to network/file availability.
+Legacy ungraded history is not given an invented zero score. Practice reuse
+priority uses saved graded answers. Images remain subject to network/file availability.
 
 The shared `StudyText` renderer typesets math in questions, choices, examples,
 and review answers. It supports `$...$`, `$$...$$`, `\(...\)`, and `\[...\]`,
@@ -172,3 +173,33 @@ columns fill the remaining popup height through the removed bottom action area.
 Only topic columns scroll; the fields remain visible in compact windows.
 Close and Escape preserve edits and return focus; changing notes or tabs closes
 the popup. Reuse and saving defaults remain in the full settings tab.
+
+Study scheduling uses the installed ts-fsrs 5.4.2 scheduler with 90% target
+retention, default learning/relearning steps and maximum interval, and deterministic
+intervals (`enable_fuzz: false`). Correctness is saved first; a separate recall
+prompt asks Again / Hard / Good / Easy, initially focused on Again for 0 points,
+Hard for 0.5, or Good for 1. Users may choose any rating independently. Up/Down
+moves focus; Right or Enter confirms. Practice answers never change schedules.
+Cancel leaves recall pending, with controls in results; saving and exiting requires
+finishing recall ratings for graded Study answers. Ungraded answers still use the
+existing review/discard confirmation. Legacy grades are not rescheduled on reopen.
+
+`prepare_study_reviews` loads current cards and a native review timestamp.
+The frontend calls ts-fsrs `next`, then sends the before/after card and review log
+with the answer save. Native code checks card versions, ratings, grade finality,
+review dates, and card invariants. The answer, card update, and unique review log
+commit in one transaction. A changed card causes one recalculation against the
+latest state; repeated saves/reloads never apply a second review. Once scheduled,
+the Study grade points and recall rating are final. Scheduler failures preserve
+the answer for retry. Schedule reset starts fresh cards while keeping review history.
+Migration `0010_fsrs_reviews.sql` adds pending-rating state and review logs.
+
+Note tabs show broad topics with due-today and total card counts, next review date,
+and expandable per-date schedules. Letter grades average the latest 50 graded
+answers across Study and Practice, using available answers when fewer than 50.
+No answers shows an em dash. The thresholds are A+ 97, A 93, A− 90, B+ 87, B 83,
+B− 80, C+ 77, C 73, C− 70, D+ 67, D 63, D− 60; lower percentages are F. The score
+is classified before display rounding. Question snapshots retain broad-topic
+membership so archived questions and later hierarchy edits keep historical grades.
+Both grades and schedules refresh through the existing native progress event and
+window-focus refresh.

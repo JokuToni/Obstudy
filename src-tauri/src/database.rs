@@ -89,12 +89,12 @@ mod tests {
                 .execute(&mut connection)
                 .await
                 .unwrap();
-            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 9);
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 10);
             sqlx::query("INSERT INTO notes (id, filePath) VALUES ('note', 'note.md')")
                 .execute(&mut connection)
                 .await
                 .unwrap();
-            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 9);
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 10);
             let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM notes")
                 .fetch_one(&mut connection)
                 .await
@@ -144,7 +144,7 @@ mod tests {
                     .await
                     .unwrap()
                     .schemaVersion,
-                9
+                10
             );
             assert!(initialize_database("relative/path".into()).await.is_err());
             assert!(initialize_database(first.databasePath).await.is_err());

@@ -162,11 +162,28 @@ async fn load_filtered_notes(
         } else {
             Value::Null
         };
+        let fsrsReviewedAnswerIds: Vec<String> = sqlx::query_scalar("SELECT a.id FROM submittedAnswers a JOIN fsrsReviews r ON r.exerciseId=a.exerciseId AND r.questionId=a.questionId JOIN exercises e ON e.id=a.exerciseId WHERE e.noteId=?")
+            .bind(&noteId).fetch_all(&mut *connection).await.map_err(db_error)?;
+        let mut topicGrades = Vec::new();
+        for topic in topics.iter().filter(|topic| topic.get("text").is_none()) {
+            let topicId = topic["id"].as_str().ok_or("Invalid topic ID.")?;
+            let points: Vec<f64> = sqlx::query_scalar("SELECT CAST(h.points AS REAL) FROM answerHistory h LEFT JOIN exerciseQuestions eq ON eq.exerciseId=h.exerciseId AND eq.questionId=h.questionId WHERE h.noteId=? AND h.points IS NOT NULL AND (EXISTS(SELECT 1 FROM json_each(eq.questionSnapshot,'$.broadTopicIds') t WHERE t.value=?) OR EXISTS(SELECT 1 FROM json_each(eq.questionSnapshot,'$.topicIds') t WHERE t.value=? OR t.value IN(SELECT id FROM subtopics WHERE broadTopicId=?)) OR (eq.questionSnapshot IS NULL AND (EXISTS(SELECT 1 FROM questionBroadTopics b WHERE b.questionId=h.questionId AND b.topicId=?) OR EXISTS(SELECT 1 FROM questionSubtopics s JOIN subtopics t ON t.id=s.topicId WHERE s.questionId=h.questionId AND t.broadTopicId=?)))) ORDER BY julianday(h.answeredAt) DESC,h.id DESC LIMIT 50")
+                .bind(&noteId).bind(topicId).bind(topicId).bind(topicId).bind(topicId).bind(topicId)
+                .fetch_all(&mut *connection).await.map_err(db_error)?;
+            let average = if points.is_empty() {
+                None
+            } else {
+                Some(points.iter().sum::<f64>() / points.len() as f64)
+            };
+            topicGrades.push(
+                json!({"topicId":topicId,"answerCount":points.len(),"averagePoints":average}),
+            );
+        }
         let mut issues = Vec::new();
         for issue in sqlx::query("SELECT * FROM noteSyncIssues WHERE noteId = ? ORDER BY CASE kind WHEN 'orphanedSubtopic' THEN 0 WHEN 'topicRemoved' THEN 1 ELSE 2 END, rowid").bind(&noteId).fetch_all(&mut *connection).await.map_err(db_error)? {
             issues.push(json!({ "id": issue.get::<String,_>("id"), "noteId": noteId, "kind": issue.get::<String,_>("kind"), "topicId": issue.get::<String,_>("topicId"), "topicKind": issue.get::<String,_>("topicKind"), "title": issue.get::<String,_>("title") }));
         }
-        notes.push(json!({ "id": noteId, "isStudying": row.get::<bool,_>("isStudying"), "file": { "path": row.get::<String,_>("filePath"), "text": row.get::<String,_>("text") }, "topics": topics, "questions": questions, "performances": performances, "savedPracticeSettings": savedSettings, "answers": answers, "exercises": exercises, "questionFsrs": questionFsrs, "isAvailable": row.get::<bool,_>("isAvailable"), "parseError": row.get::<Option<String>,_>("parseError"), "parseWarnings": parse_json(&row.get::<String,_>("parseWarnings"))?, "syncIssues": issues }));
+        notes.push(json!({ "id": noteId, "isStudying": row.get::<bool,_>("isStudying"), "file": { "path": row.get::<String,_>("filePath"), "text": row.get::<String,_>("text") }, "topics": topics, "questions": questions, "performances": performances, "savedPracticeSettings": savedSettings, "answers": answers, "exercises": exercises, "questionFsrs": questionFsrs, "topicGrades": topicGrades, "fsrsReviewedAnswerIds":fsrsReviewedAnswerIds, "isAvailable": row.get::<bool,_>("isAvailable"), "parseError": row.get::<Option<String>,_>("parseError"), "parseWarnings": parse_json(&row.get::<String,_>("parseWarnings"))?, "syncIssues": issues }));
     }
     Ok(notes)
 }

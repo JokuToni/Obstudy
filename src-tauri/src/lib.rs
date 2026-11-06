@@ -22,6 +22,7 @@ pub fn run() {
             exercises::open_practice_window,
             exercises::load_exercise_session,
             exercises::save_exercise_draft,
+            exercises::prepare_study_reviews,
             exercises::close_exercise_session,
             notes::extract_note_topics,
             notes::fetch_obsidian_notes,

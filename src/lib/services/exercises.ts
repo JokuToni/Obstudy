@@ -1,3 +1,4 @@
+import { scheduleReview, type StudyReviewContext } from "$lib/fsrs/scheduler";
 import { invoke } from "@tauri-apps/api/core";
 import { getNotesFolderPath } from "./settings";
 import { generateQuestions, QuestionGenerationError } from "./questions";
@@ -127,6 +128,7 @@ export async function createExercise(
             sourceText: note.file.text,
             dueBefore: selection.dueBefore,
             dueAfter: selection.dueAfter,
+            dueNow: selection.dueNow,
             warnings: [...new Set([...warnings, ...selection.warnings])],
         },
     });
@@ -144,18 +146,34 @@ export function loadExerciseSession(
 ): Promise<ExerciseSession> {
     return invoke("load_exercise_session", { exerciseId });
 }
-export function saveExerciseDraft(
+export async function saveExerciseDraft(
     exerciseId: string,
     expectedRevision: number,
     answers: ExerciseDraftAnswer[],
     finish = false,
 ): Promise<ExerciseDraftSaveResult> {
-    return invoke("save_exercise_draft", {
-        exerciseId,
-        expectedRevision,
-        answers: answers.map((answer) => ({ ...answer })),
-        finish,
-    });
+    const snapshot = answers.map((answer) => ({ ...answer }));
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const contexts = await invoke<StudyReviewContext[]>(
+            "prepare_study_reviews",
+            { exerciseId, answers: snapshot },
+        );
+        const fsrsUpdates = contexts.map(scheduleReview);
+        try {
+            return await invoke("save_exercise_draft", {
+                exerciseId,
+                expectedRevision,
+                answers: snapshot,
+                finish,
+                fsrsUpdates,
+            });
+        } catch (error) {
+            if (attempt === 0 && String(error).includes("Study card changed"))
+                continue;
+            throw error;
+        }
+    }
+    throw new Error("Unable to update the Study schedule.");
 }
 
 export function closeExerciseSession(

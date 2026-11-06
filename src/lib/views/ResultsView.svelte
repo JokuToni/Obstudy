@@ -7,6 +7,7 @@
     import DrawingPreview from "$lib/components/practice/DrawingPreview.svelte";
     import { hasDrawing, hasAnswer } from "$lib/drawing/answers";
     import StudyText from "$lib/components/practice/StudyText.svelte";
+    import RecallChoices from "$lib/components/practice/RecallChoices.svelte";
     import AnswerGrading from "$lib/components/practice/AnswerGrading.svelte";
     import { button, primaryButton } from "$lib/components/ui/styles";
     let {
@@ -18,9 +19,11 @@
         gradingErrors,
         onGrade,
         onAiGrade,
+        onRateRecall,
     }: {
         session: ExerciseSession;
         answers: ExerciseDraftAnswer[];
+        onRateRecall: (questionId: string, rating: 1 | 2 | 3 | 4) => void;
         onClose: () => void;
         onReview: (index: number) => void;
         grading: Record<string, boolean>;
@@ -108,6 +111,31 @@
                                 : "No answer submitted."}
                         </p>{/if}
                 </div>
+                {#if session.mode === "study" && answer?.grade && question.isBasicQuestion}
+                    {#if session.pendingReviewQuestionIds?.includes(question.id)}
+                        <section class="space-y-2" aria-label="Recall needed">
+                            <h4 class="text-sm font-medium">
+                                Rate your recall
+                            </h4>
+                            <RecallChoices
+                                points={answer.grade.points}
+                                onRate={(rating) =>
+                                    onRateRecall(question.id, rating)}
+                                disabled={!!session.closedAt}
+                            />
+                        </section>
+                    {:else if session.scheduledQuestionIds?.includes(question.id)}<p
+                            class="text-xs/5 text-text-secondary"
+                        >
+                            Review scheduled · {[
+                                "",
+                                "Again",
+                                "Hard",
+                                "Good",
+                                "Easy",
+                            ][answer.reviewRating ?? 3]}
+                        </p>{/if}
+                {/if}
                 {#if answer?.revealed}<div class="space-y-2">
                         <h4
                             class="text-[13px]/5 font-medium text-text-secondary"

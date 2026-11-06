@@ -1,5 +1,7 @@
 #![allow(non_snake_case)]
 
+mod scheduling;
+
 use crate::notes::{NotesState, snapshot};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -35,6 +37,8 @@ pub struct ExerciseRequest {
     sourceText: String,
     dueBefore: String,
     dueAfter: String,
+    #[serde(default)]
+    dueNow: Option<String>,
     warnings: Vec<String>,
 }
 #[derive(Deserialize, Serialize)]
@@ -56,6 +60,8 @@ pub struct DraftAnswer {
     drawing: Option<Value>,
     #[serde(default)]
     editorMode: Option<String>,
+    #[serde(default)]
+    reviewRating: Option<u8>,
 }
 
 fn validate_drawing(drawing: &Option<Value>) -> Result<Value, String> {
@@ -233,8 +239,21 @@ async fn load_session(
             draft["grade"] = json!({"points":grade.get::<f64,_>("points"),"feedback":grade.get::<String,_>("feedback"),"source":grade.get::<Option<String>,_>("gradingSource").unwrap_or("self".into()),"model":grade.get::<Option<String>,_>("gradingModel")});
         }
     }
+    let scheduledQuestionIds: Vec<String> =
+        sqlx::query_scalar("SELECT questionId FROM fsrsReviews WHERE exerciseId=?")
+            .bind(exerciseId)
+            .fetch_all(&mut *connection)
+            .await
+            .map_err(db_error)?;
+    let pendingReviewQuestionIds: Vec<String> = sqlx::query_scalar(
+        "SELECT questionId FROM submittedAnswers WHERE exerciseId=? AND fsrsPending=1",
+    )
+    .bind(exerciseId)
+    .fetch_all(&mut *connection)
+    .await
+    .map_err(db_error)?;
     Ok(
-        json!({"id":exerciseId,"noteId":row.get::<String,_>("noteId"),"mode":row.get::<String,_>("mode"),"settings":settings,
+        json!({"pendingReviewQuestionIds":pendingReviewQuestionIds,"scheduledQuestionIds":scheduledQuestionIds,"id":exerciseId,"noteId":row.get::<String,_>("noteId"),"mode":row.get::<String,_>("mode"),"settings":settings,
         "maxPoints":row.get::<f64,_>("maxPoints"),"questions":questions,"noteTitle":row.get::<String,_>("noteTitle"),
         "createdAt":row.get::<Option<String>,_>("createdAt"),"reviewedAt":row.get::<Option<String>,_>("reviewedAt"),
         "closedAt":row.get::<Option<String>,_>("closedAt"),"revision":row.get::<i64,_>("draftRevision"),"draftAnswers":drafts,"warnings":parse(&row.get::<String,_>("warnings"))?}),
@@ -284,8 +303,8 @@ async fn persist_exercise(
     }
     let mut questions = Vec::new();
     if request.mode == "study" {
-        let dueIds: Vec<String> = sqlx::query_scalar("SELECT q.id FROM questions q JOIN questionFsrs f ON f.questionId=q.id WHERE q.noteId=? AND q.isArchived=0 AND q.isBasicQuestion=1 AND julianday(json_extract(f.fsrsData,'$.due')) < julianday(?) AND NOT EXISTS (SELECT 1 FROM answerHistory h WHERE h.questionId=q.id AND h.mode='study' AND julianday(h.answeredAt)>=julianday(?) AND julianday(h.answeredAt)<julianday(?)) ORDER BY julianday(json_extract(f.fsrsData,'$.due')), q.id")
-            .bind(&request.noteId).bind(&request.dueBefore).bind(&request.dueAfter).bind(&request.dueBefore).fetch_all(&mut *connection).await.map_err(db_error)?;
+        let dueIds: Vec<String> = sqlx::query_scalar("SELECT q.id FROM questions q JOIN questionFsrs f ON f.questionId=q.id WHERE q.noteId=? AND q.isArchived=0 AND q.isBasicQuestion=1 AND ((json_extract(f.fsrsData,'$.state') IN (1,3) AND julianday(json_extract(f.fsrsData,'$.due')) <= julianday(?)) OR (json_extract(f.fsrsData,'$.state') NOT IN (1,3) AND julianday(json_extract(f.fsrsData,'$.due')) < julianday(?))) AND NOT EXISTS (SELECT 1 FROM answerHistory h WHERE h.questionId=q.id AND h.mode='study' AND julianday(h.answeredAt)>=julianday(?) AND julianday(h.answeredAt)<julianday(?) AND NOT EXISTS(SELECT 1 FROM fsrsReviews r WHERE r.exerciseId=h.exerciseId AND r.questionId=h.questionId)) ORDER BY julianday(json_extract(f.fsrsData,'$.due')), q.id")
+            .bind(&request.noteId).bind(request.dueNow.as_deref().unwrap_or(&request.dueBefore)).bind(&request.dueBefore).bind(&request.dueAfter).bind(&request.dueBefore).fetch_all(&mut *connection).await.map_err(db_error)?;
         let matchingIds: HashSet<&str> = note["questions"]
             .as_array()
             .unwrap()
@@ -317,8 +336,8 @@ async fn persist_exercise(
             .find(|question| question["id"].as_str() == Some(questionId))
             .ok_or("A selected question was removed. Prepare the session again.")?;
         if request.mode == "study" {
-            let due: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM questionFsrs f JOIN questions q ON q.id=f.questionId WHERE q.id=? AND q.isBasicQuestion=1 AND q.isArchived=0 AND julianday(json_extract(f.fsrsData,'$.due')) < julianday(?))")
-                .bind(questionId).bind(&request.dueBefore).fetch_one(&mut *connection).await.map_err(db_error)?;
+            let due: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM questionFsrs f JOIN questions q ON q.id=f.questionId WHERE q.id=? AND q.isBasicQuestion=1 AND q.isArchived=0 AND ((json_extract(f.fsrsData,'$.state') IN (1,3) AND julianday(json_extract(f.fsrsData,'$.due')) <= julianday(?)) OR (json_extract(f.fsrsData,'$.state') NOT IN (1,3) AND julianday(json_extract(f.fsrsData,'$.due')) < julianday(?))))")
+                .bind(questionId).bind(request.dueNow.as_deref().unwrap_or(&request.dueBefore)).bind(&request.dueBefore).fetch_one(&mut *connection).await.map_err(db_error)?;
             if !due {
                 return Err(
                     "A selected study question is no longer due. Prepare the session again.".into(),
@@ -348,7 +367,27 @@ async fn persist_exercise(
         {
             return Err("Fresh practice sessions require additional questions.".into());
         }
-        questions.push(question.clone());
+        let mut questionSnapshot = question.clone();
+        let topicIds = question["topicIds"]
+            .as_array()
+            .ok_or("Invalid question topics.")?;
+        questionSnapshot["broadTopicIds"] = json!(
+            note["topics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|topic| topic.get("text").is_none()
+                    && (topicIds.contains(&topic["id"])
+                        || note["topics"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .any(|child| child["broadTopicId"] == topic["id"]
+                                && topicIds.contains(&child["id"]))))
+                .map(|topic| topic["id"].clone())
+                .collect::<Vec<_>>()
+        );
+        questions.push(questionSnapshot);
     }
     let settingsId = insert_settings(connection, &note, &request.settings).await?;
     let exerciseId = id();
@@ -517,6 +556,12 @@ async fn save_draft(
             .iter()
             .find(|question| question["id"].as_str() == Some(&answer.questionId))
             .ok_or("An answer does not belong to this session.")?;
+        if answer
+            .reviewRating
+            .is_some_and(|rating| !(1..=4).contains(&rating))
+        {
+            return Err("Choose a valid recall rating.".into());
+        }
         let drawing = validate_drawing(&answer.drawing)?;
         if question["format"] == 0 && !drawing.is_null() {
             return Err("Multiple-choice answers cannot contain drawings.".into());
@@ -568,7 +613,7 @@ async fn save_draft(
         } else {
             Value::Null
         };
-        let value = json!({"questionId":answer.questionId,"text":text,"selectedChoiceIndex":answer.selectedChoiceIndex,"revealed":answer.revealed,"grade":grade,"drawing":drawing,"editorMode":editorMode});
+        let value = json!({"questionId":answer.questionId,"text":text,"selectedChoiceIndex":answer.selectedChoiceIndex,"revealed":answer.revealed,"grade":grade,"drawing":drawing,"editorMode":editorMode,"reviewRating":answer.reviewRating});
         if let Some(saved) = previous
             .iter()
             .find(|saved| saved["questionId"] == answer.questionId && saved["revealed"] == true)
@@ -609,9 +654,9 @@ async fn save_draft(
         {
             continue;
         }
-        sqlx::query("INSERT INTO submittedAnswers (id,exerciseId,questionId,answeredAt,text,selectedChoiceIndex,points,feedback,gradingSource,gradingModel,gradedAt,drawing) VALUES (?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?,?,?,?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?) ON CONFLICT(exerciseId,questionId) DO UPDATE SET points=excluded.points,feedback=excluded.feedback,gradingSource=excluded.gradingSource,gradingModel=excluded.gradingModel,gradedAt=excluded.gradedAt")
+        sqlx::query("INSERT INTO submittedAnswers (id,exerciseId,questionId,answeredAt,text,selectedChoiceIndex,points,feedback,gradingSource,gradingModel,gradedAt,drawing,fsrsPending) VALUES (?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?,?,?,?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?,CASE WHEN ? THEN EXISTS(SELECT 1 FROM questionFsrs f JOIN questions q ON q.id=f.questionId WHERE q.id=? AND q.isBasicQuestion=1 AND q.isArchived=0) ELSE 0 END) ON CONFLICT(exerciseId,questionId) DO UPDATE SET points=excluded.points,feedback=excluded.feedback,gradingSource=excluded.gradingSource,gradingModel=excluded.gradingModel,gradedAt=excluded.gradedAt")
             .bind(id()).bind(exerciseId).bind(answer["questionId"].as_str()).bind(answer["text"].as_str()).bind(answer["selectedChoiceIndex"].as_i64())
-            .bind(grade["points"].as_f64()).bind(grade["feedback"].as_str().unwrap_or("")).bind(grade["source"].as_str()).bind(grade["model"].as_str()).bind(if answer["drawing"].is_null() { None } else { Some(answer["drawing"].to_string()) })
+            .bind(grade["points"].as_f64()).bind(grade["feedback"].as_str().unwrap_or("")).bind(grade["source"].as_str()).bind(grade["model"].as_str()).bind(if answer["drawing"].is_null() { None } else { Some(answer["drawing"].to_string()) }).bind(session["mode"] == "study").bind(answer["questionId"].as_str())
             .execute(&mut *connection).await.map_err(db_error)?;
         newSubmissions += 1;
         refresh_question_statistics(connection, answer["questionId"].as_str().unwrap()).await?;
@@ -630,6 +675,20 @@ async fn save_draft(
 }
 
 #[tauri::command]
+pub async fn prepare_study_reviews(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, NotesState>,
+    exerciseId: String,
+    answers: Vec<DraftAnswer>,
+) -> Result<Vec<Value>, String> {
+    let folder = session_folder(&window, &app, &exerciseId)?;
+    let _guard = state.0.lock().await;
+    let (mut connection, _) = crate::database::openDatabase(&folder).await?;
+    scheduling::prepare(&mut connection, &exerciseId, &answers).await
+}
+
+#[tauri::command]
 pub async fn save_exercise_draft(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -638,12 +697,14 @@ pub async fn save_exercise_draft(
     expectedRevision: i64,
     answers: Vec<DraftAnswer>,
     finish: bool,
+    fsrsUpdates: Option<Vec<scheduling::FsrsUpdate>>,
 ) -> Result<Value, String> {
     let folder = session_folder(&window, &app, &exerciseId)?;
     let _guard = state.0.lock().await;
     let (mut connection, _) = crate::database::openDatabase(&folder).await?;
     let mut transaction = connection.begin().await.map_err(db_error)?;
-    let result = save_draft(
+    let contexts = scheduling::prepare(&mut transaction, &exerciseId, &answers).await?;
+    let mut result = save_draft(
         &mut transaction,
         &exerciseId,
         expectedRevision,
@@ -651,8 +712,33 @@ pub async fn save_exercise_draft(
         finish,
     )
     .await?;
+    scheduling::apply(
+        &mut transaction,
+        &exerciseId,
+        &contexts,
+        &fsrsUpdates.unwrap_or_default(),
+    )
+    .await?;
+    result["scheduledQuestionIds"] = json!(
+        sqlx::query_scalar::<_, String>("SELECT questionId FROM fsrsReviews WHERE exerciseId=?")
+            .bind(&exerciseId)
+            .fetch_all(&mut *transaction)
+            .await
+            .map_err(db_error)?
+    );
+    sqlx::query("UPDATE submittedAnswers SET fsrsPending=0 WHERE exerciseId=? AND fsrsPending=1 AND NOT EXISTS(SELECT 1 FROM questionFsrs f JOIN questions q ON q.id=f.questionId WHERE q.id=submittedAnswers.questionId AND q.isBasicQuestion=1 AND q.isArchived=0)")
+        .bind(&exerciseId).execute(&mut *transaction).await.map_err(db_error)?;
+    result["pendingReviewQuestionIds"] = json!(
+        sqlx::query_scalar::<_, String>(
+            "SELECT questionId FROM submittedAnswers WHERE exerciseId=? AND fsrsPending=1"
+        )
+        .bind(&exerciseId)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(db_error)?
+    );
     transaction.commit().await.map_err(db_error)?;
-    if result["newSubmissions"].as_u64().unwrap_or(0) > 0 {
+    if result["newSubmissions"].as_u64().unwrap_or(0) > 0 || !contexts.is_empty() {
         if let Some(main) = app.get_webview_window("main") {
             // Notification failure must not turn a committed save into an error.
             let _ = main.emit("study-progress-updated", json!({"noteId":result["noteId"]}));
@@ -682,6 +768,14 @@ async fn close_session(
     }
     if session["revision"].as_i64() != Some(expectedRevision) {
         return Err("This session changed. Reload before closing.".into());
+    }
+    if session["pendingReviewQuestionIds"]
+        .as_array()
+        .is_some_and(|ids| !ids.is_empty())
+    {
+        return Err(
+            "Choose recall ratings for graded Study answers before saving and exiting.".into(),
+        );
     }
     let drafts = session["draftAnswers"]
         .as_array()
@@ -813,6 +907,7 @@ mod tests {
             selectedChoiceIndex: selected,
             drawing: None,
             editorMode: None,
+            reviewRating: None,
             revealed,
             grade: if revealed && selected.is_none() {
                 Some(AnswerGrade {
@@ -825,6 +920,237 @@ mod tests {
                 None
             },
         }
+    }
+
+    fn review_update(context: &Value, due: &str) -> scheduling::FsrsUpdate {
+        let mut after = context["beforeCard"].clone();
+        after["reps"] = json!(after["reps"].as_u64().unwrap() + 1);
+        after["state"] = json!(2);
+        after["stability"] = json!(4.0);
+        after["difficulty"] = json!(5.0);
+        after["scheduled_days"] = json!(4);
+        after["last_review"] = context["reviewedAt"].clone();
+        after["due"] = json!(due);
+        serde_json::from_value(json!({"questionId":context["questionId"],"beforeCard":context["beforeCard"],"afterCard":after,"reviewedAt":context["reviewedAt"],"rating":context["rating"],"reviewLog":{"review":context["reviewedAt"],"rating":context["rating"]}})).unwrap()
+    }
+
+    #[test]
+    fn recall_updates_are_atomic_idempotent_and_guard_stale_cards() {
+        tauri::async_runtime::block_on(async {
+            let (folder, mut connection) = fixture().await;
+            let session = persist_exercise(&mut connection, &request("study", &["q0"]))
+                .await
+                .unwrap();
+            let exerciseId = session["id"].as_str().unwrap();
+            let original: String =
+                sqlx::query_scalar("SELECT fsrsData FROM questionFsrs WHERE questionId='q0'")
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap();
+            let response = answer("q0", "Correct", None, true);
+            assert!(
+                scheduling::prepare(
+                    &mut connection,
+                    exerciseId,
+                    &[answer("q0", "Correct", None, true)]
+                )
+                .await
+                .unwrap()
+                .is_empty()
+            );
+            save_draft(&mut connection, exerciseId, 0, &[response], false)
+                .await
+                .unwrap();
+            assert!(
+                close_session(&mut connection, exerciseId, 1, false)
+                    .await
+                    .unwrap_err()
+                    .contains("recall")
+            );
+            let mut rated = answer("q0", "Correct", None, true);
+            rated.reviewRating = Some(4);
+            let contexts = scheduling::prepare(&mut connection, exerciseId, &[rated])
+                .await
+                .unwrap();
+            assert_eq!(contexts.len(), 1);
+            let due: String =
+                sqlx::query_scalar("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now','+4 days')")
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap();
+            let mut transaction = connection.begin().await.unwrap();
+            let mut rated = answer("q0", "Correct", None, true);
+            rated.reviewRating = Some(4);
+            save_draft(&mut transaction, exerciseId, 1, &[rated], false)
+                .await
+                .unwrap();
+            assert!(
+                scheduling::apply(&mut transaction, exerciseId, &contexts, &[])
+                    .await
+                    .is_err()
+            );
+            transaction.rollback().await.unwrap();
+            assert_eq!(
+                load_session(&mut connection, exerciseId).await.unwrap()["revision"],
+                1
+            );
+            let mut transaction = connection.begin().await.unwrap();
+            let mut rated = answer("q0", "Correct", None, true);
+            rated.reviewRating = Some(4);
+            save_draft(&mut transaction, exerciseId, 1, &[rated], false)
+                .await
+                .unwrap();
+            scheduling::apply(
+                &mut transaction,
+                exerciseId,
+                &contexts,
+                &[review_update(&contexts[0], &due)],
+            )
+            .await
+            .unwrap();
+            transaction.commit().await.unwrap();
+            let updated = load_session(&mut connection, exerciseId).await.unwrap();
+            assert_eq!(updated["scheduledQuestionIds"], json!(["q0"]));
+            assert_eq!(updated["pendingReviewQuestionIds"], json!([]));
+            let mut rated = answer("q0", "Correct", None, true);
+            rated.reviewRating = Some(4);
+            assert!(
+                scheduling::prepare(&mut connection, exerciseId, &[rated])
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
+            let mut edited = answer("q0", "Correct", None, true);
+            edited.reviewRating = Some(1);
+            assert!(
+                scheduling::prepare(&mut connection, exerciseId, &[edited])
+                    .await
+                    .is_err()
+            );
+            assert_eq!(
+                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM fsrsReviews")
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap(),
+                1
+            );
+            close_session(&mut connection, exerciseId, 2, false)
+                .await
+                .unwrap();
+            connection.close().await.unwrap();
+            let (mut reopened, _) = crate::database::openDatabase(folder.to_str().unwrap())
+                .await
+                .unwrap();
+            let card: String =
+                sqlx::query_scalar("SELECT fsrsData FROM questionFsrs WHERE questionId='q0'")
+                    .fetch_one(&mut reopened)
+                    .await
+                    .unwrap();
+            assert_ne!(card, original);
+            assert_eq!(serde_json::from_str::<Value>(&card).unwrap()["reps"], 1);
+            reopened.close().await.unwrap();
+            std::fs::remove_dir_all(folder).unwrap();
+        });
+    }
+
+    #[test]
+    fn stale_review_contexts_cannot_overwrite_another_sessions_card() {
+        tauri::async_runtime::block_on(async {
+            let (folder, mut connection) = fixture().await;
+            let session = persist_exercise(&mut connection, &request("study", &["q0"]))
+                .await
+                .unwrap();
+            let exerciseId = session["id"].as_str().unwrap();
+            let mut rated = answer("q0", "Correct", None, true);
+            rated.reviewRating = Some(3);
+            let old = scheduling::prepare(&mut connection, exerciseId, &[rated])
+                .await
+                .unwrap();
+            sqlx::query("UPDATE questionFsrs SET fsrsData=json_set(fsrsData,'$.reps',2)")
+                .execute(&mut connection)
+                .await
+                .unwrap();
+            let mut rated = answer("q0", "Correct", None, true);
+            rated.reviewRating = Some(3);
+            let latest = scheduling::prepare(&mut connection, exerciseId, &[rated])
+                .await
+                .unwrap();
+            let due: String =
+                sqlx::query_scalar("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now','+4 days')")
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap();
+            assert!(
+                scheduling::apply(
+                    &mut connection,
+                    exerciseId,
+                    &latest,
+                    &[review_update(&old[0], &due)]
+                )
+                .await
+                .unwrap_err()
+                .contains("Study card changed")
+            );
+            assert_eq!(
+                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM fsrsReviews")
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap(),
+                0
+            );
+            connection.close().await.unwrap();
+            std::fs::remove_dir_all(folder).unwrap();
+        });
+    }
+
+    #[test]
+    fn learning_cards_wait_until_their_exact_due_time_then_return() {
+        tauri::async_runtime::block_on(async {
+            let (folder, mut connection) = fixture().await;
+            sqlx::query("UPDATE questionFsrs SET fsrsData=json_set(fsrsData,'$.state',1,'$.due','2026-10-25T12:01:00Z')").execute(&mut connection).await.unwrap();
+            let mut selected = request("study", &["q0"]);
+            selected.dueNow = Some("2026-10-25T12:00:00Z".into());
+            assert!(persist_exercise(&mut connection, &selected).await.is_err());
+            selected.dueNow = Some("2026-10-25T12:01:00Z".into());
+            assert!(persist_exercise(&mut connection, &selected).await.is_ok());
+            connection.close().await.unwrap();
+            std::fs::remove_dir_all(folder).unwrap();
+        });
+    }
+
+    #[test]
+    fn topic_grades_use_recent_snapshots_even_when_questions_are_archived() {
+        tauri::async_runtime::block_on(async {
+            let (folder, mut connection) = fixture().await;
+            sqlx::query("DELETE FROM questionBroadTopics WHERE questionId='q0'")
+                .execute(&mut connection)
+                .await
+                .unwrap();
+            let session = persist_exercise(&mut connection, &request("practice", &["q0"]))
+                .await
+                .unwrap();
+            let exerciseId = session["id"].as_str().unwrap();
+            for index in 0..55 {
+                // One question per session, retaining original topic membership.
+                let exercise = format!("history-{index}");
+                sqlx::query("INSERT INTO exercises (id,noteId,settingsId,mode,maxPoints) SELECT ?,noteId,settingsId,mode,maxPoints FROM exercises WHERE id=?").bind(&exercise).bind(exerciseId).execute(&mut connection).await.unwrap();
+                sqlx::query("INSERT INTO exerciseQuestions (exerciseId,questionId,position,questionSnapshot) SELECT ?,questionId,position,questionSnapshot FROM exerciseQuestions WHERE exerciseId=?").bind(&exercise).bind(exerciseId).execute(&mut connection).await.unwrap();
+                sqlx::query("INSERT INTO submittedAnswers (id,exerciseId,questionId,answeredAt,text,points) VALUES (?,?,'q0',datetime('2026-01-01',?),'Answer',?)").bind(format!("answer-{index}")).bind(&exercise).bind(format!("+{index} days")).bind(if index<5 {0.0} else {1.0}).execute(&mut connection).await.unwrap();
+            }
+            sqlx::query("UPDATE questions SET isArchived=1 WHERE id='q0'")
+                .execute(&mut connection)
+                .await
+                .unwrap();
+            sqlx::query("UPDATE subtopics SET broadTopicId=NULL WHERE id='sub'")
+                .execute(&mut connection)
+                .await
+                .unwrap();
+            let note = snapshot::load_note(&mut connection, "note").await.unwrap();
+            assert_eq!(note["topicGrades"][0]["answerCount"], 50);
+            assert_eq!(note["topicGrades"][0]["averagePoints"], 1.0);
+            connection.close().await.unwrap();
+            std::fs::remove_dir_all(folder).unwrap();
+        });
     }
 
     #[test]

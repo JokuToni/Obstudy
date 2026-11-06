@@ -11,6 +11,7 @@
     import type { DrawingAnswer } from "$lib/types/exercises";
     import AnswerEditor from "$lib/components/practice/AnswerEditor.svelte";
     import ResultsView from "./ResultsView.svelte";
+    import RecallMenu from "$lib/components/practice/RecallMenu.svelte";
     import GradingMenu from "$lib/components/practice/GradingMenu.svelte";
     import {
         button,
@@ -57,6 +58,7 @@
     let mainContent = $state<HTMLElement>();
     let answerEditor = $state<AnswerEditor>();
     let editorMode = $state<"text" | "draw">("text");
+    let recallQuestionId = $state<string | null>(null);
     let gradingQuestionId = $state<string | null>(null);
     let gradeButton = $state<HTMLButtonElement>();
     let scrollFrame: number | null = null;
@@ -119,7 +121,10 @@
         };
     });
     $effect(() => {
-        if (showReview || closing) gradingQuestionId = null;
+        if (showReview || closing) {
+            gradingQuestionId = null;
+            recallQuestionId = null;
+        }
     });
     $effect(() => {
         cancelResultsScroll();
@@ -140,6 +145,7 @@
     });
     async function navigate(index: number): Promise<void> {
         gradingQuestionId = null;
+        recallQuestionId = null;
         questionIndex = Math.max(
             0,
             Math.min(session.questions.length - 1, index),
@@ -197,6 +203,14 @@
         )
             viewingQuestion = false;
         else if (!draft.revealed) reveal();
+        else if (
+            session.mode === "study" &&
+            question.isBasicQuestion &&
+            draft.grade &&
+            !draft.reviewRating &&
+            !session.scheduledQuestionIds?.includes(question.id)
+        )
+            recallQuestionId = question.id;
         else if (question.format === 1 && !draft.grade && !grading[question.id])
             gradingQuestionId = question.id;
         else if (questionIndex + 1 < session.questions.length)
@@ -204,13 +218,41 @@
         else if (!saving && submittedCount === session.questions.length)
             void onFinish();
     }
-    function chooseGrade(grade?: AnswerGrade, ai = false): void {
+    async function afterGrading(): Promise<void> {
+        await tick();
+        if (
+            session.mode === "study" &&
+            question.isBasicQuestion &&
+            draft.grade &&
+            !session.scheduledQuestionIds?.includes(question.id)
+        )
+            recallQuestionId = question.id;
+        else await advance();
+    }
+    async function chooseGrade(grade?: AnswerGrade, ai = false): Promise<void> {
         const questionId = gradingQuestionId;
         if (!questionId) return;
         gradingQuestionId = null;
         if (grade) onGrade(questionId, grade);
+        if (ai && session.mode === "study" && question.isBasicQuestion) {
+            await onAiGrade(questionId);
+            await tick();
+            if (question.id === questionId && draft.grade)
+                recallQuestionId = questionId;
+            return;
+        }
         if (ai) void onAiGrade(questionId);
-        void tick().then(advance);
+        if (grade) await afterGrading();
+        else await tick().then(advance);
+    }
+    function rateRecall(questionId: string, rating: 1 | 2 | 3 | 4): void {
+        const answer = answers.find(
+            (answer) => answer.questionId === questionId,
+        );
+        if (!answer?.grade || answer.reviewRating) return;
+        onChange({ ...answer, reviewRating: rating });
+        recallQuestionId = null;
+        if (!showReview) void tick().then(advance);
     }
     async function cancelGrading(): Promise<void> {
         gradingQuestionId = null;
@@ -321,7 +363,7 @@
                     selectedChoiceIndex: index,
                     revealed: true,
                 });
-                void tick().then(advance);
+                void afterGrading();
             } else forward();
         } else if (
             question?.format === 0 &&
@@ -430,6 +472,7 @@
                     {gradingErrors}
                     {onGrade}
                     {onAiGrade}
+                    onRateRecall={rateRecall}
                     onReview={(index) => {
                         viewingQuestion = true;
                         void navigate(index);
@@ -735,6 +778,16 @@
                 </div>
             {/if}
         </main>
+        {#if recallQuestionId}<RecallMenu
+                points={answers.find(
+                    (answer) => answer.questionId === recallQuestionId,
+                )?.grade?.points ?? 0}
+                onRate={(rating) => rateRecall(recallQuestionId!, rating)}
+                onCancel={() => {
+                    recallQuestionId = null;
+                    void tick().then(() => gradeButton?.focus());
+                }}
+            />{/if}
         {#if gradingQuestionId}<GradingMenu
                 onGrade={(grade) => chooseGrade(grade)}
                 onAi={() => chooseGrade(undefined, true)}
@@ -783,11 +836,26 @@
                             <button
                                 type="button"
                                 class={[button, "shrink-0"]}
-                                disabled={grading[question.id]}
+                                disabled={grading[question.id] ||
+                                    !!draft.reviewRating ||
+                                    session.scheduledQuestionIds?.includes(
+                                        question.id,
+                                    )}
                                 bind:this={gradeButton}
                                 onclick={() => {
-                                    gradingQuestionId = question.id;
-                                }}>Grade answer</button
+                                    if (
+                                        session.mode === "study" &&
+                                        draft.grade &&
+                                        question.isBasicQuestion
+                                    )
+                                        recallQuestionId = question.id;
+                                    else gradingQuestionId = question.id;
+                                }}
+                                >{session.mode === "study" &&
+                                draft.grade &&
+                                question.isBasicQuestion
+                                    ? "Rate recall"
+                                    : "Grade answer"}</button
                             >
                         </div>
                     {/if}
