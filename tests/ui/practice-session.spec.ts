@@ -2671,6 +2671,31 @@ test("Quick tweak fits the tab body with long topic lists in both themes", async
             expect(
                 (await startButton.boundingBox())!.height,
             ).toBeLessThanOrEqual(32);
+            const startBox = (await startButton.boundingBox())!;
+            const closeBox = (await popup
+                .getByRole("button", { name: "Close", exact: true })
+                .boundingBox())!;
+            expect(startBox.x).toBeGreaterThan(closeBox.x);
+            expect(
+                Math.abs(
+                    startBox.y +
+                        startBox.height / 2 -
+                        closeBox.y -
+                        closeBox.height / 2,
+                ),
+            ).toBeLessThan(1);
+            expect(startBox.y).toBeLessThan(difficultyBox.y);
+            const topicColumns = popup.getByRole("region", {
+                name: "Included topics",
+                exact: true,
+            });
+            const topicBox = (await topicColumns.boundingBox())!;
+            expect(
+                Math.abs(
+                    box.y + box.height - topicBox.y - topicBox.height - 17,
+                ),
+            ).toBeLessThan(1);
+
             expect(
                 (await popup
                     .locator("[data-topic-list]")

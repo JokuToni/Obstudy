@@ -165,8 +165,9 @@ until a topic is included again. The optional `excludeAllTopics` flag distinguis
 this from legacy empty `topicIds` meaning all topics. Migration
 `0009_empty_topic_selection.sql` persists the flag with a backward-compatible false
 default. Study ignores the flag together with other topic filters.
-Difficulty and format share one row. Taller topic columns fill the remaining
-popup height, and the compact Start session button stays visible beneath them.
+Difficulty and compact format buttons share one row, with a 4px gap above Topics.
+Close and Start session sit together at the top-right, in that order. Taller topic
+columns fill the remaining popup height through the removed bottom action area.
 Only topic columns scroll; the fields remain visible in compact windows.
 Close and Escape preserve edits and return focus; changing notes or tabs closes
 the popup. Reuse and saving defaults remain in the full settings tab.

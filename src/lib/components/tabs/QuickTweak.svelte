@@ -116,8 +116,24 @@
             <h2 id="quick-tweak-title" class="text-base font-semibold">
                 Quick tweak
             </h2>
-            <button type="button" class={button} onclick={onClose}>Close</button
-            >
+            <div class="flex shrink-0 items-center gap-2">
+                <button type="button" class={button} onclick={onClose}
+                    >Close</button
+                >
+                <button
+                    type="button"
+                    class={[
+                        primaryButton,
+                        "min-h-8! shrink-0 px-3! py-1! text-xs!",
+                    ]}
+                    disabled={invalidCount ||
+                        !!startDisabledReason ||
+                        (!ignored && !!settings.excludeAllTopics)}
+                    onclick={() => {
+                        void onStart();
+                    }}>Start session</button
+                >
+            </div>
         </div>
         <div class="flex shrink-0 items-center justify-between gap-3">
             <label for="quick-question-count" class="text-[13px]/5 font-medium"
@@ -154,88 +170,76 @@
         {#if ignored}<p class="shrink-0 text-xs/4 text-text-muted">
                 Study mode uses only the question count.
             </p>{/if}
-        <div class="grid shrink-0 grid-cols-[1.1fr_1fr] gap-3">
-            <fieldset
-                disabled={ignored}
-                class="shrink-0 space-y-1 disabled:opacity-60"
+        {#if !ignored && settings.excludeAllTopics}<p
+                class="text-xs/4 text-text-muted"
             >
-                <legend class="text-[13px]/5 font-medium">Difficulties</legend>
-                <div class="flex flex-wrap gap-x-2">
-                    {#each difficulties as item}
-                        <label
-                            class="flex min-h-8 items-center gap-1 text-xs/5"
-                        >
-                            <input
-                                type="checkbox"
-                                checked={selectedDifficulties(
-                                    settings,
-                                ).includes(item.value)}
-                                disabled={selectedDifficulties(settings)
-                                    .length === 1 &&
-                                    selectedDifficulties(settings).includes(
-                                        item.value,
-                                    )}
-                                onchange={() => toggleDifficulty(item.value)}
-                                class={[
-                                    "size-3.5 accent-accent-solid",
-                                    focusRing,
-                                ]}
-                            />{item.label}
-                        </label>
-                    {/each}
-                </div>
-            </fieldset>
-            <fieldset
-                disabled={ignored}
-                class="shrink-0 space-y-1 disabled:opacity-60"
-            >
-                <legend class="text-[13px]/5 font-medium">Format</legend>
-                <div class="flex gap-1">
-                    {#each formats as item}<button
-                            type="button"
-                            aria-pressed={settings.questionFormat ===
-                                item.value}
-                            class={[
-                                button,
-                                "min-w-0 flex-1 px-1! text-xs!",
-                                settings.questionFormat === item.value
-                                    ? "bg-selected! text-accent!"
-                                    : "",
-                            ]}
-                            onclick={() =>
-                                onChange({
-                                    ...settings,
-                                    questionFormat: item.value,
-                                })}>{item.label}</button
-                        >{/each}
-                </div>
-            </fieldset>
-        </div>
-        <TopicSelector {note} {settings} disabled={ignored} {onChange} />
-        <div
-            class="flex shrink-0 items-center justify-end gap-3 border-t border-border pt-3"
-        >
-            {#if !ignored && settings.excludeAllTopics}<p
-                    class="text-xs/4 text-text-muted"
+                Include a topic to start.
+            </p>{/if}
+        {#if startDisabledReason}<p class="text-xs/4 text-text-muted">
+                {startDisabledReason}
+            </p>{/if}
+        <div class="flex min-h-0 flex-1 flex-col gap-1">
+            <div class="grid shrink-0 grid-cols-[1.1fr_1fr] gap-3">
+                <fieldset
+                    disabled={ignored}
+                    class="shrink-0 space-y-1 disabled:opacity-60"
                 >
-                    Include a topic to start.
-                </p>{/if}
-            {#if startDisabledReason}<p class="text-xs/4 text-text-muted">
-                    {startDisabledReason}
-                </p>{/if}
-            <button
-                type="button"
-                class={[
-                    primaryButton,
-                    "min-h-8! shrink-0 px-3! py-1! text-xs!",
-                ]}
-                disabled={invalidCount ||
-                    !!startDisabledReason ||
-                    (!ignored && !!settings.excludeAllTopics)}
-                onclick={() => {
-                    void onStart();
-                }}>Start session</button
-            >
+                    <legend class="text-[13px]/5 font-medium"
+                        >Difficulties</legend
+                    >
+                    <div class="flex flex-wrap gap-x-2">
+                        {#each difficulties as item}
+                            <label
+                                class="flex min-h-8 items-center gap-1 text-xs/5"
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={selectedDifficulties(
+                                        settings,
+                                    ).includes(item.value)}
+                                    disabled={selectedDifficulties(settings)
+                                        .length === 1 &&
+                                        selectedDifficulties(settings).includes(
+                                            item.value,
+                                        )}
+                                    onchange={() =>
+                                        toggleDifficulty(item.value)}
+                                    class={[
+                                        "size-3.5 accent-accent-solid",
+                                        focusRing,
+                                    ]}
+                                />{item.label}
+                            </label>
+                        {/each}
+                    </div>
+                </fieldset>
+                <fieldset
+                    disabled={ignored}
+                    class="shrink-0 space-y-1 disabled:opacity-60"
+                >
+                    <legend class="text-[13px]/5 font-medium">Format</legend>
+                    <div class="flex gap-1">
+                        {#each formats as item}<button
+                                type="button"
+                                aria-pressed={settings.questionFormat ===
+                                    item.value}
+                                class={[
+                                    button,
+                                    "min-h-6! min-w-0 flex-1 px-1! py-0.5! text-[11px]/4!",
+                                    settings.questionFormat === item.value
+                                        ? "bg-selected! text-accent!"
+                                        : "",
+                                ]}
+                                onclick={() =>
+                                    onChange({
+                                        ...settings,
+                                        questionFormat: item.value,
+                                    })}>{item.label}</button
+                            >{/each}
+                    </div>
+                </fieldset>
+            </div>
+            <TopicSelector {note} {settings} disabled={ignored} {onChange} />
         </div>
     </dialog>
 </div>
