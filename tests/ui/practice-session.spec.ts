@@ -3208,3 +3208,39 @@ test("a graded Study answer can finish its recall rating in results before exiti
         )
         .toBe(1);
 });
+
+test("Cmd+E opens the equation input at the text selection and preserves an open equation draft", async ({
+    page,
+}) => {
+    await setup(page, true);
+    await expect(page.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    const answer = page.getByLabel("Your answer", { exact: true });
+    await answer.fill("Before x after");
+    await selectAnswer(page, 7, 8);
+    await page.keyboard.press("Meta+e");
+    const equation = page.getByLabel("Equation", { exact: true });
+    await expect(equation).toBeFocused();
+    await page.keyboard.type("y");
+    await answer.focus();
+    await page.keyboard.press("Meta+e");
+    await expect(equation).toBeFocused();
+    await expect(
+        page.getByRole("region", { name: "Equation editor", exact: true }),
+    ).toHaveCount(1);
+    await page.keyboard.press("Enter");
+    await expect.poll(() => answerSource(page)).toBe("Before $y$ after");
+    await expect(answer).toBeFocused();
+    await page.keyboard.press("Meta+e");
+    await expect(equation).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(answer).toBeFocused();
+    await expect.poll(() => answerSource(page)).toBe("Before $y$ after");
+    await page
+        .getByRole("button", { name: "Reveal answer", exact: true })
+        .click();
+    await answer.press("Meta+e");
+    await expect(
+        page.getByRole("region", { name: "Equation editor", exact: true }),
+    ).toHaveCount(0);
+});

@@ -148,6 +148,19 @@
                             },
                             keydown: (event) => {
                                 if (
+                                    event.metaKey &&
+                                    event.key.toLowerCase() === "e" &&
+                                    !event.ctrlKey &&
+                                    !event.altKey &&
+                                    !event.shiftKey &&
+                                    !event.isComposing &&
+                                    !disabled
+                                ) {
+                                    event.preventDefault();
+                                    if (!event.repeat) openEquation();
+                                    return true;
+                                }
+                                if (
                                     (event.key === "Enter" ||
                                         event.key === " ") &&
                                     editRenderedEquation(event.target)
@@ -201,6 +214,7 @@
         if (disabled || !view) return;
         if (equationOpen) {
             if (command) equationEditor?.insertCommand(command);
+            else equationEditor?.focus();
             return;
         }
         const selection = view.state.selection.main;
@@ -264,7 +278,10 @@
                 type="button"
                 class={[button, "border-transparent bg-transparent px-2"]}
                 aria-label={action.title}
-                title={action.title}
+                title={action.command
+                    ? action.title
+                    : `${action.title} (Cmd+E)`}
+                aria-keyshortcuts={action.command ? undefined : "Meta+E"}
                 {disabled}
                 onclick={() => openEquation(action.command)}
                 >{action.label}</button

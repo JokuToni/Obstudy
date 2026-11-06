@@ -205,3 +205,8 @@ is classified before display rounding. Question snapshots retain broad-topic
 membership so archived questions and later hierarchy edits keep historical grades.
 Both grades and schedules refresh through the existing native progress event and
 window-focus refresh.
+
+Cmd+E in the editable answer text opens and focuses the MathQuill equation input
+at the current cursor/selection. It reuses an open composer, preserves its draft,
+and leaves submitted answers read-only. The Equation action exposes the shortcut
+in its tooltip and accessibility metadata.

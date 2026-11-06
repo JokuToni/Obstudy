@@ -26,6 +26,9 @@
     let errorMessage = $state<string | null>(null);
     const pendingCommands: EquationCommand[] = [];
 
+    export function focus(): void {
+        field?.focus();
+    }
     export function insertCommand(command: EquationCommand): void {
         if (!field) {
             pendingCommands.push(command);
