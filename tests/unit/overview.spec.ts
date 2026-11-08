@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { studyActivity, localDay } from "../../src/lib/analytics/overview";
 import {
     readyStudyQuestions,
+    studyQuestionsDueToday,
     selectExerciseQuestions,
 } from "../../src/lib/exercises/selection";
 import { practiceNote } from "../fixtures/practice";
@@ -140,4 +141,41 @@ test("ready counts share Study eligibility and ignore per-session topic and coun
     ).toContain("q0");
     note.parseError = "Invalid note";
     expect(readyStudyQuestions(note, now).questions).toEqual([]);
+});
+
+test("today's remaining reviews include overdue and upcoming learning cards, but exclude tomorrow and additional questions", () => {
+    const now = new Date(2026, 9, 25, 12);
+    const note = practiceNote(now);
+    note.questionFsrs[0].fsrsData.state = 1;
+    note.questionFsrs[0].fsrsData.due = new Date(2026, 9, 25, 18).toISOString();
+    note.questionFsrs[1].fsrsData.state = 3;
+    note.questionFsrs[1].fsrsData.due = new Date(2026, 9, 24, 18).toISOString();
+    expect(
+        readyStudyQuestions(note, now).questions.map((question) => question.id),
+    ).toEqual(["q1"]);
+    expect(
+        studyQuestionsDueToday(note, now).questions.map(
+            (question) => question.id,
+        ),
+    ).toEqual(["q1", "q0"]);
+    note.questionFsrs[0].fsrsData.due = new Date(2026, 9, 26).toISOString();
+    expect(
+        studyQuestionsDueToday(note, now).questions.map(
+            (question) => question.id,
+        ),
+    ).toEqual(["q1"]);
+    note.answers = [answer("legacy", now)];
+    note.answers[0].questionId = "q1";
+    expect(studyQuestionsDueToday(note, now).questions).toEqual([]);
+    note.fsrsReviewedAnswerIds = ["legacy"];
+    expect(
+        studyQuestionsDueToday(note, now).questions.map(
+            (question) => question.id,
+        ),
+    ).toEqual(["q1"]);
+    note.questionFsrs[1].fsrsData.due = "invalid";
+    expect(studyQuestionsDueToday(note, now).questions).toEqual([]);
+    expect(studyQuestionsDueToday(note, now).warnings).toHaveLength(1);
+    note.isAvailable = false;
+    expect(studyQuestionsDueToday(note, now).questions).toEqual([]);
 });

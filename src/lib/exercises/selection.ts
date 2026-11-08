@@ -103,6 +103,22 @@ export function readyStudyQuestions(
     note: SyncedNote,
     now = new Date(),
 ): { questions: Question[]; warnings: string[] } {
+    return scheduledStudyQuestions(note, now, false);
+}
+
+/** Remaining cards due before local midnight, including upcoming learning steps. */
+export function studyQuestionsDueToday(
+    note: SyncedNote,
+    now = new Date(),
+): { questions: Question[]; warnings: string[] } {
+    return scheduledStudyQuestions(note, now, true);
+}
+
+function scheduledStudyQuestions(
+    note: SyncedNote,
+    now: Date,
+    includeUpcomingLearning: boolean,
+): { questions: Question[]; warnings: string[] } {
     if (!note.isAvailable || note.parseError || note.syncIssues.length)
         return { questions: [], warnings: [] };
     const nextDay = new Date(now);
@@ -130,7 +146,8 @@ export function readyStudyQuestions(
             if (!Number.isFinite(card.due.getTime()))
                 throw new Error("Invalid due date");
             if (
-                card.state === 1 || card.state === 3
+                !includeUpcomingLearning &&
+                (card.state === 1 || card.state === 3)
                     ? card.due.getTime() <= now.getTime()
                     : card.due.getTime() < nextDay.getTime()
             )

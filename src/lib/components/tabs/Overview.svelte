@@ -3,7 +3,7 @@
     import type { SyncedNote } from "$lib/types/notes";
     import { noteTitle } from "$lib/types/workspace";
     import { focusRing } from "$lib/components/ui/styles";
-    import { readyStudyQuestions } from "$lib/exercises/selection";
+    import { studyQuestionsDueToday } from "$lib/exercises/selection";
     import { studyActivity } from "$lib/analytics/overview";
 
     let {
@@ -14,10 +14,10 @@
     const activity = $derived(studyActivity(notes, now));
     const reviewNotes = $derived(
         notes
-            .filter((note) => note.isStudying && note.isAvailable)
+            .filter((note) => note.isStudying)
             .map((note) => ({
                 note,
-                count: readyStudyQuestions(note, now).questions.length,
+                count: studyQuestionsDueToday(note, now).questions.length,
             }))
             .sort(
                 (left, right) =>
@@ -25,7 +25,7 @@
                     noteTitle(left.note).localeCompare(noteTitle(right.note)),
             ),
     );
-    const totalReady = $derived(
+    const totalDueToday = $derived(
         reviewNotes.reduce((sum, item) => sum + item.count, 0),
     );
     onMount(() => {
@@ -46,16 +46,7 @@
     $effect(() => {
         const midnight = new Date(now);
         midnight.setHours(24, 0, 0, 0);
-        let next = midnight.getTime();
-        for (const note of notes.filter(
-            (note) => note.isStudying && note.isAvailable,
-        ))
-            for (const stored of note.questionFsrs) {
-                if (stored.fsrsData.state !== 1 && stored.fsrsData.state !== 3)
-                    continue;
-                const due = Date.parse(stored.fsrsData.due);
-                if (due > now.getTime()) next = Math.min(next, due);
-            }
+        const next = midnight.getTime();
         const timer = setTimeout(
             () => {
                 now = new Date();
@@ -92,6 +83,62 @@
             </div>
         {/each}
     </dl>
+    <section aria-labelledby="due-heading">
+        <div
+            class="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3"
+        >
+            <h3 id="due-heading" class="text-base/6 font-semibold">
+                Today’s reviews
+            </h3>
+            <span class="text-xs text-text-muted"
+                >{totalDueToday} remaining</span
+            >
+        </div>
+        {#if reviewNotes.length}
+            <ul class="divide-y divide-border">
+                {#each reviewNotes as item (item.note.id)}
+                    <li>
+                        <button
+                            type="button"
+                            onclick={() => onOpenNote(item.note.id)}
+                            class={[
+                                "flex w-full items-center justify-between gap-3 rounded px-1 py-3 text-left hover:bg-hover",
+                                focusRing,
+                            ]}
+                            aria-label={`Open ${noteTitle(item.note)}`}
+                        >
+                            <span
+                                class="min-w-0 flex-1 truncate text-sm"
+                                title={noteTitle(item.note)}
+                                >{noteTitle(
+                                    item.note,
+                                )}{#if !item.note.isAvailable || item.note.parseError || item.note.syncIssues.length}<span
+                                        class="ml-2 text-xs text-warning"
+                                        >{item.note.isAvailable
+                                            ? "Needs attention"
+                                            : "Note unavailable"}</span
+                                    >{/if}</span
+                            >
+                            <span
+                                class="shrink-0 text-[13px]/5 tabular-nums text-text-secondary"
+                                >{item.count}
+                                {item.count === 1 ? "review" : "reviews"}</span
+                            >
+                        </button>
+                    </li>
+                {/each}
+            </ul>
+            <p class="mt-2 text-xs/5 text-text-muted">
+                Remaining FSRS cards due today, including overdue reviews and
+                learning cards scheduled later today. All topics included.
+            </p>
+        {:else}<div class="py-6">
+                <p class="text-sm text-text-secondary">No Studying notes yet</p>
+                <p class="mt-2 text-xs/4 text-text-muted">
+                    Move a note to Studying to see its review count.
+                </p>
+            </div>{/if}
+    </section>
     <section aria-labelledby="activity-heading">
         <div class="flex flex-wrap items-end justify-between gap-2">
             <h3 id="activity-heading" class="text-base/6 font-semibold">
@@ -144,58 +191,5 @@
                 </p>
             </div>
         {/if}
-    </section>
-    <section aria-labelledby="due-heading">
-        <div
-            class="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3"
-        >
-            <h3 id="due-heading" class="text-base/6 font-semibold">
-                Ready to review
-            </h3>
-            <span class="text-xs text-text-muted"
-                >Due questions: {totalReady}</span
-            >
-        </div>
-        {#if reviewNotes.length}
-            <ul class="divide-y divide-border">
-                {#each reviewNotes as item (item.note.id)}
-                    <li>
-                        <button
-                            type="button"
-                            onclick={() => onOpenNote(item.note.id)}
-                            class={[
-                                "flex w-full items-center justify-between gap-3 rounded px-1 py-3 text-left hover:bg-hover",
-                                focusRing,
-                            ]}
-                            aria-label={`Open ${noteTitle(item.note)}`}
-                        >
-                            <span
-                                class="min-w-0 flex-1 truncate text-sm"
-                                title={noteTitle(item.note)}
-                                >{noteTitle(
-                                    item.note,
-                                )}{#if item.note.parseError || item.note.syncIssues.length}<span
-                                        class="ml-2 text-xs text-warning"
-                                        >Needs attention</span
-                                    >{/if}</span
-                            >
-                            <span
-                                class="shrink-0 text-[13px]/5 tabular-nums text-text-secondary"
-                                >{item.count} ready</span
-                            >
-                        </button>
-                    </li>
-                {/each}
-            </ul>
-            <p class="mt-2 text-xs/5 text-text-muted">
-                All topics, before the session question limit. Learning cards
-                appear when their review time arrives.
-            </p>
-        {:else}<div class="py-6">
-                <p class="text-sm text-text-secondary">No Studying notes yet</p>
-                <p class="mt-2 text-xs/4 text-text-muted">
-                    Move a note to Studying to see its review count.
-                </p>
-            </div>{/if}
     </section>
 </section>

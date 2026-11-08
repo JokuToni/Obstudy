@@ -223,11 +223,12 @@ local calendar day. A streak remains current when the last active day was today
 or yesterday. Calendar-day identities handle 23/25-hour daylight-saving days.
 Activity shows the latest 14 days with actual answer counts.
 
-Ready to review shows each available Studying note, including zero, and their
-combined ready-card count. `readyStudyQuestions` shares the exact eligibility and
-ordering used by Study sessions, before topic filtering and question limits.
-Learning/relearning cards wait for their exact due time; invalid cards, additional
-questions, and unresolved notes are excluded. Rows open the corresponding note.
-The Overview clock updates at midnight and the next learning-card due time, and
-on window focus/visibility changes. Focus refreshes progress for all loaded notes;
-native progress events refresh the affected note even when its tab is closed.
+Today’s reviews appears directly below the streak summary, before activity. It
+lists every Studying note, including zero counts, and the combined remaining total.
+Counts include overdue cards and all cards due before the next local midnight,
+including learning/relearning cards scheduled later today. Study sessions still
+wait until a learning card’s exact due time. The shared eligibility helper excludes
+additional questions, invalid cards, and historical submissions already answered
+today without a review log, before topic filters and question limits. Unavailable
+or unresolved notes show a status and zero reviews. Rows open the corresponding
+note tab. Totals refresh on saved progress, focus/visibility changes, and midnight.

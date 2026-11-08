@@ -3304,7 +3304,7 @@ test("Study AI grades schedule their cards automatically in results", async ({
     ).toHaveCount(0);
 });
 
-test("Overview shows real streaks, per-note ready counts, and updates at review times and local day changes", async ({
+test("Overview shows streaks and today’s per-note reviews, including upcoming learning cards", async ({
     page,
 }) => {
     await setup(page);
@@ -3334,6 +3334,19 @@ test("Overview shows real streaks, per-note ready counts, and updates at review 
             },
         },
     ];
+    const empty = {
+        ...practiceNote(new Date("2026-10-25T12:00:00Z")),
+        id: "empty",
+        file: { path: "/test/vault/Empty.md", text: "Source" },
+        questions: [],
+        questionFsrs: [],
+    };
+    const unavailable = {
+        ...empty,
+        id: "unavailable",
+        file: { path: "/test/vault/Missing.md", text: "Source" },
+        isAvailable: false,
+    };
     const paused = {
         ...practiceNote(new Date("2026-10-25T12:00:00Z")),
         id: "paused",
@@ -3348,7 +3361,7 @@ test("Overview shows real streaks, per-note ready counts, and updates at review 
                 JSON.stringify(extras),
             );
         },
-        { note, extras: [waiting, paused] },
+        { note, extras: [waiting, empty, unavailable, paused] },
     );
     await page.reload();
     const overview = page.getByRole("region", {
@@ -3373,10 +3386,22 @@ test("Overview shows real streaks, per-note ready counts, and updates at review 
         name: "Open Waiting",
         exact: true,
     });
-    await expect(intervals).toContainText("2 ready");
-    await expect(queued).toContainText("0 ready");
     await expect(
-        overview.getByText("Due questions: 2", { exact: true }),
+        overview.getByRole("heading", { name: "Today’s reviews", exact: true }),
+    ).toBeVisible();
+    await expect(
+        overview.getByRole("button", { name: "Open Empty", exact: true }),
+    ).toContainText("0 reviews");
+    const missing = overview.getByRole("button", {
+        name: "Open Missing",
+        exact: true,
+    });
+    await expect(missing).toContainText("Note unavailable");
+    await expect(missing).toContainText("0 reviews");
+    await expect(intervals).toContainText("2 reviews");
+    await expect(queued).toContainText("1 review");
+    await expect(
+        overview.getByText("3 remaining", { exact: true }),
     ).toBeVisible();
     await expect(
         overview.getByRole("button", { name: "Open Paused", exact: true }),
@@ -3416,9 +3441,9 @@ test("Overview shows real streaks, per-note ready counts, and updates at review 
     ).toBeVisible();
     await expect(statistic("Study streak")).toHaveText("3 days");
     await page.clock.fastForward(61000);
-    await expect(queued).toContainText("1 ready");
+    await expect(queued).toContainText("1 review");
     await expect(
-        overview.getByText("Due questions: 3", { exact: true }),
+        overview.getByText("3 remaining", { exact: true }),
     ).toBeVisible();
     await intervals.click();
     await expect(

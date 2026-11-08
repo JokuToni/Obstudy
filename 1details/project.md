@@ -236,9 +236,9 @@ Existing questions to avoid duplicating (JSON reference data):
 
 - Opiskeluputki muodostuu paikallisista kalenteripäivistä, joina on tallennettu vähintään yksi arvioitu vastaus Opiskele- tai Harjoittele-tilassa. Myös nollan pisteen vastaus lasketaan; arvioimattomat tai hylätyt luonnokset eivät kuulu mukaan.
 - Nykyinen putki on voimassa, jos viimeisin aktiivinen päivä on tänään tai eilen. Pisin putki lasketaan koko tallennetusta historiasta. Päivärajoissa käytetään paikallista kalenteria, ei kiinteitä 24 tunnin välejä.
-- Yleiskatsaus näyttää viimeisten 14 päivän vastausmäärät sekä jokaisen saatavilla olevan Opiskelussa-muistiinpanon kertausvalmiiden FSRS-peruskorttien määrän ja yhteissumman. Myös nollamäärät näytetään. Aiherajaus ja istunnon kysymysmäärä eivät rajoita näitä kokonaismääriä.
-- Kertausvalmius käyttää samaa laskentaa kuin Opiskele-istunto: erääntyneet uudet/kertauskortit, oppimiskortit vasta tarkkana erääntymisaikanaan, eikä arkistoituja, lisäkysymyksiä tai virheellisiä kortteja lasketa mukaan.
-- Lukemat päivittyvät tallennusten jälkeen, ikkunaan palatessa, paikallisen päivän vaihtuessa ja oppimiskortin erääntyessä.
+- Yleiskatsaus näyttää viimeisten 14 päivän vastausmäärät sekä jokaisen Opiskelussa-muistiinpanon tänään jäljellä olevien FSRS-peruskorttien määrän ja yhteissumman. Myös nollamäärät näytetään. Aiherajaus ja istunnon kysymysmäärä eivät rajoita näitä kokonaismääriä.
+- Today’s reviews -osio on heti opiskeluputken alapuolella ennen aktiivisuusruudukkoa. Päivän määrä sisältää erääntyneet ja ennen seuraavaa paikallista keskiyötä erääntyvät kortit, myös myöhemmin tänään erääntyvät oppimiskortit. Opiskele-istuntoon oppimiskortti tulee edelleen vasta tarkkana erääntymisaikanaan. Arkistoituja, lisäkysymyksiä tai virheellisiä kortteja ei lasketa. Puuttuva tai selvitystä odottava muistiinpano näytetään tilamerkinnällä ja nollamäärällä.
+- Lukemat päivittyvät tallennusten jälkeen, ikkunaan palatessa ja paikallisen päivän vaihtuessa.
 
 **haeKäyttäjä()**:
 **luoHarjoitus(harjoitusAsetukset, muistiinpanoId)**:
