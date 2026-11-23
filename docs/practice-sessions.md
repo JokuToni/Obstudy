@@ -262,9 +262,10 @@ including forms, controls, headings, tab panes, and answer editors. Neutral bord
 selection styling, text cursors, and keyboard navigation remain. Multiple-choice
 keyboard focus uses its hover background without an accent focus border.
 
-The note’s Topics and review schedule section is a separate shared-style panel.
+The note’s Topics and review schedule section has one rounded table container,
+with its title and explanation above it. There is no outer bordered panel.
 Its semantic table has Topic, Due today, Cards, Next review, and Grade columns,
 with aligned numeric values, wrapping titles, and a date/time split. Topic buttons
 expand a full-width row with a per-date card table. The table scrolls within the
-panel at compact widths. Grades, schedule calculations, and empty states retain
+container at compact widths. Grades, schedule calculations, and empty states retain
 their existing behavior; focus does not draw outlines.

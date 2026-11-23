@@ -1,12 +1,7 @@
 <script lang="ts">
     import type { SyncedNote } from "$lib/types/notes";
     import { topicProgress } from "$lib/analytics/topics";
-    import {
-        focusRing,
-        tabSection,
-        tabSectionHeader,
-        tabSectionTitle,
-    } from "$lib/components/ui/styles";
+    import { focusRing, tabSectionTitle } from "$lib/components/ui/styles";
 
     let { note }: { note: SyncedNote } = $props();
     const topics = $derived(topicProgress(note));
@@ -19,8 +14,8 @@
     }
 </script>
 
-<section aria-label="Topic progress" class={tabSection}>
-    <div class={tabSectionHeader}>
+<section aria-label="Topic progress" class="w-full max-w-xl">
+    <div class="flex min-h-8 items-center justify-between gap-3">
         <h3 class={tabSectionTitle}>Topics and review schedule</h3>
         <span class="text-right text-xs/5 text-text-muted"
             >{topics.length} {topics.length === 1 ? "topic" : "topics"}</span
@@ -36,7 +31,7 @@
             role="region"
             aria-label="Topic review table"
             tabindex="0"
-            class="mt-3 overflow-x-auto rounded-lg border border-border outline-none"
+            class="mt-3 overflow-x-auto rounded-lg border border-border bg-sidebar outline-none"
         >
             <table
                 class="w-full min-w-[520px] table-fixed border-collapse text-[13px]/5"

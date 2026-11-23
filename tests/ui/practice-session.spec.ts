@@ -3599,7 +3599,7 @@ test("Overview calendar shows a complete month, navigates months and years, and 
     await expect(day("2026-11-01")).toHaveAccessibleName(/: 3 reviews$/);
 });
 
-test("note topic schedules use a separate table panel with expandable dates and compact scrolling", async ({
+test("note topic schedules use one table container with expandable dates and compact scrolling", async ({
     page,
 }) => {
     await setup(page);
