@@ -1,5 +1,4 @@
-export const focusRing =
-    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+export const focusRing = "outline-none";
 export const tabSection =
     "w-full max-w-xl rounded-lg border border-border bg-sidebar p-3 sm:p-4";
 export const tabSectionHeader =

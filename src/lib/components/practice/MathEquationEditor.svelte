@@ -124,7 +124,7 @@
     >
         <span
             bind:this={host}
-            class="min-w-full border-0! bg-transparent! text-text-primary! shadow-none! [&_*]:border-text-primary! [&_.mq-cursor]:border-text-primary! [&_.mq-selection]:bg-selected! [&_.mq-selection_*]:bg-selected! [&_.mq-selection_*]:text-text-primary! [&_.mq-empty]:bg-hover! [&_.mq-focused]:shadow-none!"
+            class="min-w-full border-0! bg-transparent! text-text-primary! outline-none! ring-0! shadow-none! [&_*]:border-text-primary! [&_.mq-cursor]:border-text-primary! [&_.mq-selection]:bg-selected! [&_.mq-selection_*]:bg-selected! [&_.mq-selection_*]:text-text-primary! [&_.mq-empty]:bg-hover! [&_.mq-focused]:shadow-none!"
         ></span>
     </div>
     {#if errorMessage}<p role="alert" class="text-xs/5 text-danger">

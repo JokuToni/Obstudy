@@ -313,7 +313,7 @@ Existing questions to avoid duplicating (JSON reference data):
 - Vapaatekstieditorin yläreunassa on pieni työkalupalkki: yhtälö, murtoluku, potenssi, neliöjuuri, matemaattiset symbolit. CodeMirror näyttää tekstin ja KaTeX-yhtälöt samassa muokattavassa kentässä.
 - Cmd+E avaa ja fokusoi yhtälösyötteen tekstieditorista. Kohdistin tai valittu teksti säilyy lisäämisen kohteena; jo avoin syöte fokusoidaan uudelleen. Lähetettyä vastausta ei voi muokata pikanäppäimellä.
 - MathQuill muokkaa yhtälöitä visuaalisesti. Insert equation / Enter lisää kohdistimen paikalle tai valitun tekstin tilalle KaTeXilla renderöidyn yhtälön; taustalla säilyy LaTeX-muoto `$...$`. Yhtälön klikkaaminen avaa sen uudelleen MathQuilliin. Yhtälöt ovat yksittäisiä kohteita nuolinavigaatiossa ja poistossa, ja muutokset voi perua undo-toiminnolla. Cancel / Escape peruu lisäämisen. Tallennus ja arvostelu käyttävät edelleen tekstiä ja LaTeXia.
-- Syötekentissä ja editoreissa ei näytetä fokusoinnin ääriviivaa tai rengasta. Painikkeiden ja välilehtien näppäimistöfokus säilyy näkyvänä.
+- Fokusoinnin ääriviivoja tai vain fokusoinnissa näkyviä renkaita ei näytetä lomakkeissa, syötekentissä, editoreissa, painikkeissa, välilehdissä, otsikoissa tai sisältöalueissa. Normaalit reunat, valintatilat, tekstikohdistin ja näppäimistönavigaatio säilyvät. Monivalinnan näppäimistöfokus osoitetaan taustavärillä ilman korostettua reunaa.
 - Yhtälöeditorin nuolet liikuttavat matemaattista kohdistinta eivätkä vaihda kysymystä. Kysymyksen vaihtaminen nollaa keskeneräisen yhtälöeditorin. Vastauksen merkkiraja koskee myös lisättyä LaTeXia.
 
 **FSRS ja aihekohtaiset arvosanat:**

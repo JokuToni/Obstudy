@@ -62,8 +62,7 @@
         {#if errorDetails}<details
                 class="mx-8 mt-3 text-sm text-text-secondary"
             >
-                <summary
-                    class="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                <summary class="cursor-pointer rounded outline-none"
                     >Error details</summary
                 >
                 <p
@@ -74,14 +73,14 @@
             </details>{/if}
         <button
             type="button"
-            class="mx-8 mt-4 min-h-9 rounded-md bg-accent-solid px-4 py-2 text-on-accent hover:bg-accent-solid-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            class="mx-8 mt-4 min-h-9 rounded-md bg-accent-solid px-4 py-2 text-on-accent hover:bg-accent-solid-hover outline-none"
             onclick={() => checkNotesFolderPath()}
         >
             Try again
         </button>
         <button
             type="button"
-            class="mx-8 mt-4 rounded-md border border-border bg-surface px-4 py-2 text-sm hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent"
+            class="mx-8 mt-4 rounded-md border border-border bg-surface px-4 py-2 text-sm hover:bg-hover outline-none"
             onclick={() => {
                 errorMessage = null;
                 notesFolderPath = null;

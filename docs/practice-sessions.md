@@ -128,7 +128,7 @@ MathQuill opens as an inline visual composer; Insert equation or Enter inserts `
 Cancel or Escape leaves the answer unchanged. Equation arrows never navigate
 questions. Inserting restores text focus and respects the answer character limit.
 Answers remain plain text with LaTeX for autosave, grading, and KaTeX rendering.
-Inputs and editors have no focus outline; buttons and tabs retain theirs.
+Forms, inputs, editors, buttons, and tabs have no focus outline or focus-only ring.
 MathQuill and jQuery 3 are bundled locally with their required vendor CSS/fonts.
 The MathQuill dependency uses the same jQuery 3 version via an npm override.
 
@@ -256,3 +256,8 @@ sidebar-colored panel, border, 8px corners, 576px width cap, 12–16px padding,
 and vertically centered header above a divider. Activity uses two rows of seven
 compact day tiles. Empty states stay within the panel without nested cards.
 The reusable styling contract is recorded in `1details/stylingRules.md`.
+
+Focus outlines and focus-only field rings are suppressed throughout the app,
+including forms, controls, headings, tab panes, and answer editors. Neutral borders,
+selection styling, text cursors, and keyboard navigation remain. Multiple-choice
+keyboard focus uses its hover background without an accent focus border.

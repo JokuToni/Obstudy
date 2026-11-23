@@ -95,7 +95,7 @@
                     placeholder="/Users/yourname/Documents/MyVault"
                     autocomplete="off"
                     spellcheck="false"
-                    class="min-h-9 w-full rounded-md border border-control-border bg-surface px-3 py-2 font-mono text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-wait disabled:opacity-60"
+                    class="min-h-9 w-full rounded-md border border-control-border bg-surface px-3 py-2 font-mono text-sm text-text-primary placeholder:text-text-muted outline-none disabled:cursor-wait disabled:opacity-60"
                 />
                 <p id="folder-help" class="text-xs/4 text-text-muted">
                     Use the full folder path. Your selection is saved on this
@@ -108,14 +108,14 @@
                     type="button"
                     onclick={chooseFolder}
                     disabled={isBusy}
-                    class="min-h-9 rounded-md border border-control-border bg-surface px-3 py-2 text-[13px]/5 transition-colors hover:bg-hover active:bg-selected focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent motion-reduce:transition-none disabled:cursor-wait disabled:opacity-60"
+                    class="min-h-9 rounded-md border border-control-border bg-surface px-3 py-2 text-[13px]/5 transition-colors hover:bg-hover active:bg-selected outline-none motion-reduce:transition-none disabled:cursor-wait disabled:opacity-60"
                 >
                     {isPicking ? "Choosing folder…" : "Choose folder…"}
                 </button>
                 <button
                     type="submit"
                     disabled={isBusy}
-                    class="min-h-9 rounded-md bg-accent-solid px-4 py-2 text-[13px]/5 font-medium text-on-accent transition-colors hover:bg-accent-solid-hover active:bg-accent-solid-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent motion-reduce:transition-none disabled:cursor-wait disabled:opacity-60"
+                    class="min-h-9 rounded-md bg-accent-solid px-4 py-2 text-[13px]/5 font-medium text-on-accent transition-colors hover:bg-accent-solid-hover active:bg-accent-solid-hover outline-none motion-reduce:transition-none disabled:cursor-wait disabled:opacity-60"
                 >
                     {isSaving ? "Setting up…" : "Save and continue"}
                 </button>

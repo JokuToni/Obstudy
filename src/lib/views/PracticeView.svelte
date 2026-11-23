@@ -554,7 +554,7 @@
                                 >
                                 {#each question.choices as choice, index}<label
                                         class={[
-                                            "flex min-h-12 items-start gap-3 rounded-md border px-4 py-3 text-sm/6 has-focus-visible:border-accent has-focus-visible:bg-hover",
+                                            "flex min-h-12 items-start gap-3 rounded-md border px-4 py-3 text-sm/6 has-focus-visible:bg-hover",
                                             draft.selectedChoiceIndex === index
                                                 ? "border-control-border bg-selected"
                                                 : "border-border bg-surface",

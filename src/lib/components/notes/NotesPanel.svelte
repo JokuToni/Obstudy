@@ -129,8 +129,7 @@
         <details
             class="max-h-40 shrink-0 overflow-y-auto border-t border-border px-3 py-3 text-xs/4 text-warning"
         >
-            <summary
-                class="cursor-pointer focus-visible:outline-2 focus-visible:outline-accent"
+            <summary class="cursor-pointer outline-none"
                 >Sync notices ({warnings.length})</summary
             >
             <ul class="mt-2 space-y-3">
