@@ -232,3 +232,15 @@ additional questions, invalid cards, and historical submissions already answered
 today without a review log, before topic filters and question limits. Unavailable
 or unresolved notes show a status and zero reviews. Rows open the corresponding
 note tab. Totals refresh on saved progress, focus/visibility changes, and midnight.
+
+Overview includes a full-month Review calendar between Today’s reviews and Study
+activity. The Monday-first table shows every date and a numeric remaining-card
+count, including zero, from available Studying notes without unresolved changes.
+Use saved FSRS due dates in the local timezone. Overdue cards roll into today and
+respect the same historical-answer exclusions as Today’s reviews; additional and
+invalid cards are excluded. Each card contributes once at its current due date,
+without predicting later repetitions. Past dates do not show completion history.
+Previous month, Next month, and Today navigate across months and years. The default
+month follows the current date at midnight; an explicitly browsed month stays
+selected. Counts react to refreshed note data and local day changes. Highlight
+today visibly and semantically; expose full dates and counts to screen readers.

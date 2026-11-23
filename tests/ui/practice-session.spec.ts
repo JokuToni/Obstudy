@@ -3454,3 +3454,106 @@ test("Overview shows streaks and today’s per-note reviews, including upcoming 
     await expect(statistic("Study streak")).toHaveText("0 days");
     await expect(statistic("Longest streak")).toHaveText("4 days");
 });
+
+test("Overview calendar shows a complete month, navigates months and years, and follows saved schedules", async ({
+    page,
+}) => {
+    await setup(page);
+    const note = practiceNote(new Date("2026-10-25T12:00:00Z"));
+    note.questionFsrs[3].fsrsData.due = "2026-11-01T10:00:00Z";
+    await page.evaluate((note) => {
+        sessionStorage.setItem("practice-note-test", JSON.stringify(note));
+    }, note);
+    await page.reload();
+    const calendar = page.getByRole("region", {
+        name: "Review calendar",
+        exact: true,
+    });
+    const table = calendar.getByRole("table");
+    const day = (date: string) =>
+        table
+            .locator("td")
+            .filter({ has: page.locator(`time[datetime="${date}"]`) });
+    await expect(table).toHaveAccessibleName(
+        "Scheduled reviews for October 2026",
+    );
+    await expect(table.locator("time")).toHaveCount(31);
+    await expect(table.getByRole("columnheader")).toHaveCount(7);
+    await expect(day("2026-10-24")).toHaveAccessibleName(/: 0 reviews$/);
+    await expect(day("2026-10-25")).toHaveAccessibleName(/: 2 reviews$/);
+    await expect(day("2026-10-25")).toHaveAttribute("aria-current", "date");
+    await expect(
+        calendar.getByText("2 scheduled reviews this month", { exact: true }),
+    ).toBeVisible();
+    for (const colorScheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme });
+        for (const size of [
+            { width: 580, height: 550 },
+            { width: 1200, height: 800 },
+        ]) {
+            await page.setViewportSize(size);
+            await calendar.scrollIntoViewIfNeeded();
+            await page.screenshot({
+                path: `/tmp/obstudy-calendar-${test.info().project.name}-${colorScheme}-${size.width}.png`,
+            });
+            expect(
+                await table.evaluate(
+                    (element) => element.scrollWidth <= element.clientWidth,
+                ),
+            ).toBe(true);
+            expect(
+                await page.evaluate(
+                    () => document.documentElement.scrollWidth <= innerWidth,
+                ),
+            ).toBe(true);
+        }
+    }
+    await calendar
+        .getByRole("button", { name: "Next month", exact: true })
+        .click();
+    await expect(table).toHaveAccessibleName(
+        "Scheduled reviews for November 2026",
+    );
+    await expect(table.locator("time")).toHaveCount(30);
+    await expect(day("2026-11-01")).toHaveAccessibleName(/: 1 review$/);
+    await calendar
+        .getByRole("button", { name: "Next month", exact: true })
+        .click();
+    await calendar
+        .getByRole("button", { name: "Next month", exact: true })
+        .click();
+    await expect(table).toHaveAccessibleName(
+        "Scheduled reviews for January 2027",
+    );
+    await expect(
+        calendar.getByText("0 scheduled reviews this month", { exact: true }),
+    ).toBeVisible();
+    await calendar
+        .getByRole("button", { name: "Previous month", exact: true })
+        .click();
+    await expect(table).toHaveAccessibleName(
+        "Scheduled reviews for December 2026",
+    );
+    await calendar.getByRole("button", { name: "Today", exact: true }).click();
+    await expect(table).toHaveAccessibleName(
+        "Scheduled reviews for October 2026",
+    );
+    await page.evaluate(() => {
+        const note = JSON.parse(sessionStorage.getItem("practice-note-test")!);
+        note.questionFsrs[0].fsrsData.due = "2026-11-01T11:00:00Z";
+        sessionStorage.setItem("practice-note-test", JSON.stringify(note));
+    });
+    await page.reload();
+    await expect(day("2026-10-25")).toHaveAccessibleName(/: 1 review$/);
+    await calendar
+        .getByRole("button", { name: "Next month", exact: true })
+        .click();
+    await expect(day("2026-11-01")).toHaveAccessibleName(/: 2 reviews$/);
+    await calendar.getByRole("button", { name: "Today", exact: true }).click();
+    await page.clock.fastForward(7 * 86400000);
+    await expect(table).toHaveAccessibleName(
+        "Scheduled reviews for November 2026",
+    );
+    await expect(day("2026-11-01")).toHaveAttribute("aria-current", "date");
+    await expect(day("2026-11-01")).toHaveAccessibleName(/: 3 reviews$/);
+});

@@ -1,0 +1,144 @@
+<script lang="ts">
+    import type { SyncedNote } from "$lib/types/notes";
+    import { reviewCalendar } from "$lib/analytics/reviewCalendar";
+    import { button } from "$lib/components/ui/styles";
+
+    let { notes, now }: { notes: SyncedNote[]; now: Date } = $props();
+    let selectedMonth = $state<Date | null>(null);
+    const month = $derived(
+        selectedMonth ?? new Date(now.getFullYear(), now.getMonth(), 1),
+    );
+    const monthLabel = $derived(
+        month.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+    );
+    const calendar = $derived(reviewCalendar(notes, month, now));
+    const weekdays = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ];
+
+    function moveMonth(direction: number): void {
+        selectedMonth = new Date(
+            month.getFullYear(),
+            month.getMonth() + direction,
+            1,
+        );
+    }
+    function dateKey(date: Date): string {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+    function dayLabel(date: Date, count: number): string {
+        return `${date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}: ${count} ${count === 1 ? "review" : "reviews"}`;
+    }
+</script>
+
+<section aria-labelledby="review-calendar-heading">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <h3 id="review-calendar-heading" class="text-base/6 font-semibold">
+            Review calendar
+        </h3>
+        <div class="flex items-center gap-1" aria-label="Calendar navigation">
+            <button
+                type="button"
+                class={button}
+                aria-label="Previous month"
+                onclick={() => moveMonth(-1)}>‹</button
+            >
+            <button
+                type="button"
+                class={button}
+                onclick={() => (selectedMonth = null)}>Today</button
+            >
+            <button
+                type="button"
+                class={button}
+                aria-label="Next month"
+                onclick={() => moveMonth(1)}>›</button
+            >
+        </div>
+    </div>
+    <p class="mt-3 text-sm/5 font-medium" aria-live="polite">{monthLabel}</p>
+    <table
+        class="mt-3 w-full table-fixed border-collapse"
+        aria-label={`Scheduled reviews for ${monthLabel}`}
+    >
+        <thead>
+            <tr>
+                {#each weekdays as weekday}
+                    <th
+                        scope="col"
+                        class="pb-2 text-center text-[11px]/4 font-normal text-text-muted"
+                        ><abbr title={weekday} class="no-underline"
+                            >{weekday.slice(0, 3)}</abbr
+                        ></th
+                    >
+                {/each}
+            </tr>
+        </thead>
+        <tbody>
+            {#each calendar.weeks as week}
+                <tr>
+                    {#each week as day}
+                        <td
+                            aria-label={day
+                                ? dayLabel(day.date, day.count)
+                                : undefined}
+                            aria-current={day?.isToday ? "date" : undefined}
+                            class={[
+                                "border border-border p-0 align-top",
+                                day?.isToday
+                                    ? "bg-selected"
+                                    : day
+                                      ? "bg-surface/40"
+                                      : "",
+                            ]}
+                        >
+                            {#if day}
+                                <div
+                                    class={[
+                                        "flex min-h-16 min-w-0 flex-col justify-between gap-2 p-2 sm:min-h-20 sm:p-3",
+                                        day.isToday
+                                            ? "ring-1 ring-inset ring-accent"
+                                            : "",
+                                    ]}
+                                >
+                                    <time
+                                        datetime={dateKey(day.date)}
+                                        class="text-xs/4 text-text-muted"
+                                        >{day.date.getDate()}<span
+                                            class="sr-only"
+                                            >{day.isToday
+                                                ? ", today"
+                                                : ""}</span
+                                        ></time
+                                    >
+                                    <span
+                                        class={[
+                                            "truncate text-right text-base/5 tabular-nums",
+                                            day.count
+                                                ? "font-medium text-text-primary"
+                                                : "text-text-muted",
+                                        ]}>{day.count}</span
+                                    >
+                                </div>
+                            {/if}
+                        </td>
+                    {/each}
+                </tr>
+            {/each}
+        </tbody>
+    </table>
+    <p class="mt-3 text-xs/5 text-text-secondary">
+        {calendar.total} scheduled {calendar.total === 1 ? "review" : "reviews"} this
+        month
+    </p>
+    <p class="mt-1 text-xs/5 text-text-muted">
+        Current schedules for Studying notes. Overdue reviews are included
+        today. Dates update after you study.
+    </p>
+</section>

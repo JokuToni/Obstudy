@@ -5,6 +5,7 @@
     import { focusRing } from "$lib/components/ui/styles";
     import { studyQuestionsDueToday } from "$lib/exercises/selection";
     import { studyActivity } from "$lib/analytics/overview";
+    import ReviewCalendar from "$lib/components/ReviewCalendar.svelte";
 
     let {
         notes,
@@ -139,6 +140,7 @@
                 </p>
             </div>{/if}
     </section>
+    <ReviewCalendar {notes} {now} />
     <section aria-labelledby="activity-heading">
         <div class="flex flex-wrap items-end justify-between gap-2">
             <h3 id="activity-heading" class="text-base/6 font-semibold">
