@@ -5,7 +5,7 @@
 
 **Yleinen kuvaus:**
 
-**STACK:** Tauri2, svelte, sqlite, openAI api, CodeMirror, Katex, MathQuill (jQuery), Excalidraw (React), tailwindcss, ts-fsrs
+**STACK:** Tauri2, svelte, sqlite, openAI api, CodeMirror, Katex, MathQuill (jQuery), Excalidraw (React), tailwindcss, ts-fsrs; REST API: Node.js, TypeScript, Fastify
 
 Obsidianin kanssa käyttöön suunniteltu sovellus, joka auttaa käyttäjää opiskelemaan ja kertaamaan muistiinpanojen pohjalta.
 
@@ -433,3 +433,10 @@ Existing questions to avoid duplicating (JSON reference data):
 - Kirjasto alkaa tyhjänä; erikseen valittava esimerkkikirjasto on vain paikalliseen kokeiluun eikä sen tapahtumia synkronoida. Ensimmäinen oikea kirjasto korvaa esimerkkidatan.
 - Tulevan palvelimen on ratkaistava eri laitteiden samalle kortille tekemien arviointien järjestys ja yhteinen FSRS-aikataulu. Varsinaista synkronointia ei vielä toteuteta.
 - iOS 16+, pystysuuntainen puhelimen käyttöliittymä. Kehitys-, tallennus- ja synkronointirajapinnan kuvaus: docs/ios.md.
+
+## REST API foundation
+
+- Erillinen Node.js 24 / TypeScript / Fastify -palvelu `restapi/`-kansiossa, oma package.json ja lockfile.
+- Ensimmäinen vaihe sisältää GET /health -reitin, ympäristöasetukset, lokituksen ja kehitys-/build-komennot.
+- Tietokanta, käyttäjä-/laitekohtainen tunnistautuminen ja synkronointireitit toteutetaan seuraavissa vaiheissa. Sovelluksia ei vielä yhdistetä palvelimeen.
+- Käynnistysohjeet: docs/restapi.md.
