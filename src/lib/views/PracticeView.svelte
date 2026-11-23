@@ -367,27 +367,27 @@
 </script>
 
 <section
-    class="flex h-dvh min-h-0 flex-col bg-canvas text-text-primary"
+    class="flex h-dvh min-h-0 flex-col bg-canvas text-[13px]/5 text-text-primary [&_button]:text-xs!"
     aria-label="Practice session"
 >
     <header
-        class="shrink-0 border-b border-border bg-sidebar px-4 py-1 sm:px-6"
+        class="shrink-0 border-b border-border bg-sidebar px-3 py-1 sm:px-4"
     >
         <div class="mx-auto flex min-h-8 max-w-3xl items-center gap-3">
             <div class="flex min-w-0 flex-1 items-baseline gap-3">
                 <h1
-                    class="min-w-0 truncate text-sm/5 font-semibold"
+                    class="min-w-0 truncate text-[13px]/5 font-semibold"
                     title={session.noteTitle}
                 >
                     {session.noteTitle}
                 </h1>
-                <p class="shrink-0 text-xs/4 text-text-muted">
+                <p class="shrink-0 text-[11px]/4 text-text-muted">
                     {session.mode === "study"
                         ? "Study session"
                         : "Practice session"}
                 </p>
             </div>
-            <span role="status" class="text-xs/4 text-text-muted"
+            <span role="status" class="text-[11px]/4 text-text-muted"
                 >{saving
                     ? "Saving…"
                     : errorMessage
@@ -413,7 +413,7 @@
             onpointerdown={cancelResultsScroll}
             tabindex="-1"
             inert={closing}
-            class={["h-full overflow-y-auto px-4 sm:px-6", focusRing]}
+            class={["h-full overflow-y-auto px-3 sm:px-4", focusRing]}
         >
             {#if errorMessage}<div
                     role="alert"
@@ -439,7 +439,7 @@
                 />
             {:else if question}
                 <div
-                    class="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-6 py-4 sm:py-6"
+                    class="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-4 py-3 sm:py-4"
                 >
                     {#if gradingErrors[question.id]}<p
                             role="alert"
@@ -478,7 +478,7 @@
                             class="shrink-0 overflow-hidden rounded-lg border border-border bg-surface"
                             aria-label="Question material"
                         >
-                            <div class="min-w-0 p-4 sm:p-6">
+                            <div class="min-w-0 p-3 sm:p-4">
                                 {#if material.type === "image"}{#if imageFailed}<p
                                             class="py-8 text-center text-sm text-text-muted"
                                         >
@@ -486,7 +486,7 @@
                                         </p>{:else}<img
                                             src={material.source}
                                             alt={material.alt}
-                                            class="mx-auto max-h-80 max-w-full object-contain"
+                                            class="mx-auto max-h-48 max-w-full object-contain"
                                             onerror={() => {
                                                 imageFailed = true;
                                             }}
@@ -496,7 +496,7 @@
                                         mathOnly
                                     />
                                 {:else}<pre
-                                        class="max-h-80 overflow-auto font-mono text-[13px]/6"><code
+                                        class="max-h-48 overflow-auto font-mono text-xs/5"><code
                                             >{material.content}</code
                                         ></pre>{/if}
                             </div>
@@ -529,7 +529,7 @@
                         </section>
                     {/if}
                     <section
-                        class="flex min-h-0 flex-1 flex-col gap-4"
+                        class="flex min-h-0 flex-1 flex-col gap-3"
                         aria-labelledby="practice-question"
                     >
                         <h2
@@ -537,7 +537,7 @@
                             bind:this={questionHeading}
                             tabindex="-1"
                             class={[
-                                "shrink-0 text-base/7 font-medium",
+                                "shrink-0 text-sm/6 font-medium",
                                 focusRing,
                             ]}
                         >
@@ -549,12 +549,12 @@
                                 disabled={draft.revealed || !!session.closedAt}
                             >
                                 <legend
-                                    class="mb-3 text-[13px]/5 text-text-secondary"
+                                    class="mb-3 text-xs/5 text-text-secondary"
                                     >Choose one answer</legend
                                 >
                                 {#each question.choices as choice, index}<label
                                         class={[
-                                            "flex min-h-12 items-start gap-3 rounded-md border px-4 py-3 text-sm/6 has-focus-visible:bg-hover",
+                                            "flex min-h-10 items-start gap-2 rounded-md border px-3 py-2 text-[13px]/5 has-focus-visible:bg-hover",
                                             draft.selectedChoiceIndex === index
                                                 ? "border-control-border bg-selected"
                                                 : "border-border bg-surface",
@@ -570,7 +570,7 @@
                                                 index}
                                             onchange={() => selectChoice(index)}
                                             class={[
-                                                "mt-1 size-4 shrink-0 accent-accent-solid",
+                                                "mt-0.5 size-3.5 shrink-0 accent-accent-solid",
                                                 focusRing,
                                             ]}
                                         /><span class="min-w-0 flex-1"
@@ -590,7 +590,7 @@
                                 >
                                     <label
                                         for="practice-answer"
-                                        class="text-[13px]/5 text-text-secondary"
+                                        class="text-xs/5 text-text-secondary"
                                         >Your answer</label
                                     ><span
                                         class="text-xs tabular-nums text-text-muted"
@@ -747,9 +747,9 @@
     </div>
     {#if !showReview}<footer
             inert={closing}
-            class="shrink-0 border-t border-border bg-sidebar px-4 py-3 sm:px-6"
+            class="shrink-0 border-t border-border bg-sidebar px-3 py-2 sm:px-4"
         >
-            <div class="mx-auto max-w-3xl space-y-3">
+            <div class="mx-auto max-w-3xl space-y-2">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-xs/5 tabular-nums text-text-muted"
                         >{submittedCount} of {session.questions.length} answered</span
@@ -798,23 +798,29 @@
                     {/if}
                     {#if session.closedAt || ((session.reviewedAt || reviewRequest > 0) && draft.revealed)}<button
                             type="button"
-                            class={primaryButton}
+                            class={[primaryButton, "min-h-8! px-3! py-1.5!"]}
                             onclick={forward}>Back to review</button
                         >
                     {:else if draft.revealed}{#if questionIndex + 1 === session.questions.length}<button
                                 type="button"
-                                class={primaryButton}
+                                class={[
+                                    primaryButton,
+                                    "min-h-8! px-3! py-1.5!",
+                                ]}
                                 disabled={saving ||
                                     submittedCount !== session.questions.length}
                                 onclick={forward}>Review answers</button
                             >{:else}<button
                                 type="button"
-                                class={primaryButton}
+                                class={[
+                                    primaryButton,
+                                    "min-h-8! px-3! py-1.5!",
+                                ]}
                                 onclick={forward}>Next question →</button
                             >{/if}
                     {:else}<button
                             type="button"
-                            class={primaryButton}
+                            class={[primaryButton, "min-h-8! px-3! py-1.5!"]}
                             disabled={!canReveal || !!session.closedAt}
                             onclick={forward}>Reveal answer</button
                         >{/if}

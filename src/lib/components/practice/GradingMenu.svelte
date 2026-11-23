@@ -97,7 +97,7 @@
         class="pointer-events-auto relative inset-auto m-0 min-h-0 max-h-full w-full max-w-xs space-y-3 overflow-y-auto rounded-lg border border-control-border bg-surface p-4 text-text-primary shadow-lg"
     >
         <div class="flex items-center justify-between gap-3">
-            <h2 id="grading-menu-title" class="text-sm font-medium">
+            <h2 id="grading-menu-title" class="text-[13px]/5 font-medium">
                 Grade your answer
             </h2>
             <span class="text-xs text-text-muted">↑ ↓ · → Select</span>

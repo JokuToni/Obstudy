@@ -136,7 +136,7 @@ The question-and-answer body keeps a stable height between the header and footer
 Grading controls share the footer navigation row, and grading errors appear in
 the scrolling body. The editor grows into the remaining space below the question.
 At its maximum height the gap above the footer matches horizontal content padding:
-16px in compact windows, 24px otherwise. Further text scrolls inside the editor;
+12px in compact windows, 16px otherwise. Further text scrolls inside the editor;
 its toolbar stays outside the editor’s scroll area.
 
 Freeform answers offer Text / Draw tabs and retain both kinds of content. Draw
@@ -269,3 +269,9 @@ with aligned numeric values, wrapping titles, and a date/time split. Topic butto
 expand a full-width row with a per-date card table. The table scrolls within the
 container at compact widths. Grades, schedule calculations, and empty states retain
 their existing behavior; focus does not draw outlines.
+
+Practice windows default to 480 × 720 logical pixels, scaled proportionally down
+for smaller monitors, with a 360 × 540 minimum. They remain resizable. Questions
+and the answer editor use 14px text, choices/results 13px, controls 12px, and header
+metadata 11px. Compact spacing keeps the footer, editor, and grading controls
+usable in portrait windows. Main-window typography is unchanged.

@@ -433,19 +433,19 @@ pub async fn open_practice_window(
     }
     let (mut connection, _) = crate::database::openDatabase(&folderPath).await?;
     let session = load_session(&mut connection, &exerciseId).await?;
-    let mut width: f64 = 860.0;
-    let mut height: f64 = 780.0;
+    let mut width: f64 = 480.0;
+    let mut height: f64 = 720.0;
     if let Some(monitor) = app
         .get_webview_window("main")
         .and_then(|window| window.current_monitor().ok().flatten())
     {
         let screenWidth = monitor.size().width as f64 / monitor.scale_factor();
         let screenHeight = monitor.size().height as f64 / monitor.scale_factor();
-        width = (screenWidth * 0.58)
-            .min(960.0)
-            .min(screenWidth - 48.0)
-            .max(420.0);
-        height = (screenHeight * 0.86).min(screenHeight - 48.0).max(420.0);
+        let scale = ((screenWidth - 48.0) / width)
+            .min((screenHeight - 48.0) / height)
+            .clamp(0.75, 1.0);
+        width = (width * scale).round();
+        height = (height * scale).round();
     }
     {
         let contexts = app.state::<PracticeWindows>();
@@ -468,7 +468,7 @@ pub async fn open_practice_window(
         session["noteTitle"].as_str().unwrap_or("Practice")
     ))
     .inner_size(width, height)
-    .min_inner_size(420.0, 420.0)
+    .min_inner_size(360.0, 540.0)
     .center()
     .visible(false)
     .background_color(tauri::window::Color(20, 20, 20, 255))

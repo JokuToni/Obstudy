@@ -120,7 +120,7 @@
             Loading equation editor…
         </p>{/if}
     <div
-        class="min-h-16 overflow-x-auto rounded-md border border-control-border bg-surface px-3 py-3 text-xl text-text-primary"
+        class="min-h-16 overflow-x-auto rounded-md border border-control-border bg-surface px-3 py-2 text-lg text-text-primary"
     >
         <span
             bind:this={host}

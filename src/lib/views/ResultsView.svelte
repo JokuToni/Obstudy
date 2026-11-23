@@ -37,7 +37,7 @@
     );
 </script>
 
-<div class="mx-auto w-full max-w-3xl space-y-8 py-6">
+<div class="mx-auto w-full max-w-3xl space-y-6 py-4">
     <div class="space-y-2">
         <p class="text-[13px]/5 text-accent">
             {session.closedAt
@@ -46,8 +46,8 @@
                   ? "Grading pending"
                   : "Session results"}
         </p>
-        <h2 class="text-[22px]/[30px] font-semibold">Review your answers</h2>
-        <p class="text-sm/5 text-text-secondary">
+        <h2 class="text-lg/6 font-semibold">Review your answers</h2>
+        <p class="text-[13px]/5 text-text-secondary">
             {graded.length} graded answers · {points} / {graded.length} points.
             {pending
                 ? `${pending} ${pending === 1 ? "answer still needs" : "answers still need"} a grade.`
@@ -73,7 +73,7 @@
                         onclick={() => onReview(index)}>View question</button
                     >
                 </div>
-                <div class="text-base/7">
+                <div class="text-[13px]/5">
                     <StudyText text={question.text} />
                 </div>
                 <div class="space-y-2">
@@ -81,7 +81,7 @@
                         Your answer
                     </h4>
                     <div
-                        class="space-y-3 rounded-md border border-border bg-surface p-4 text-sm/6"
+                        class="space-y-3 rounded-md border border-border bg-surface p-3 text-[13px]/5"
                     >
                         {#if answer?.text}<StudyText
                                 text={answer.text}
@@ -119,7 +119,7 @@
                         >
                             Example answer
                         </h4>
-                        <div class="text-sm/6">
+                        <div class="text-[13px]/5">
                             <StudyText text={question.exampleAnswer} />
                         </div>
                     </div>{/if}

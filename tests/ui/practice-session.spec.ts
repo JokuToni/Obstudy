@@ -1581,6 +1581,8 @@ test("practice body stays stable while long answers scroll inside a capped edito
     expect((await body.boundingBox())!.height).toBe(originalBody.height);
     const scroller = page.locator(".cm-scroller");
     for (const viewport of [
+        { width: 360, height: 540 },
+        { width: 480, height: 720 },
         { width: 580, height: 550 },
         { width: 860, height: 780 },
         { width: 1200, height: 900 },
@@ -2528,6 +2530,8 @@ test("practice view fits compact and large windows in both themes", async ({
     for (const colorScheme of ["dark", "light"] as const) {
         await page.emulateMedia({ colorScheme });
         for (const [width, height] of [
+            [360, 540],
+            [480, 720],
             [580, 550],
             [860, 780],
             [1200, 900],
