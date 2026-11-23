@@ -165,7 +165,7 @@ function harness(initial = noteFixture()) {
     };
 }
 
-test("basic plan has exact per-topic counts and the agreed rounded format distribution", () => {
+test("basic plan makes every easy question multiple choice and splits medium formats evenly", () => {
     const note = noteFixture();
     const tasks = planBasicQuestions(note);
     const count = (difficulty: number, format?: number) =>
@@ -177,13 +177,16 @@ test("basic plan has exact per-topic counts and the agreed rounded format distri
             )
             .reduce((sum, task) => sum + task.targetCount, 0);
     expect(count(0)).toBe(9);
-    expect(count(0, 0)).toBe(5);
+    expect(count(0, 0)).toBe(9);
+    expect(count(0, 1)).toBe(0);
+    expect(count(1, 0)).toBe(3);
+    expect(count(1, 1)).toBe(3);
     expect(count(1)).toBe(6);
     expect(
         tasks
             .filter((task) => task.difficulty === 1 && task.format === 0)
             .map((task) => task.targetCount),
-    ).toEqual([1, 1]);
+    ).toEqual([2, 1]);
     expect(count(2)).toBe(4);
     expect(count(2, 0)).toBe(0);
     for (const subtopic of ["s1", "s2", "s3"])
@@ -272,6 +275,19 @@ test("initial call generates the full basic set with serialized FSRS cards; next
     ).toBe(true);
     expect(basic.note.questionFsrs).toHaveLength(19);
     expect(
+        basic.note.questions
+            .filter((question) => question.difficulty === 0)
+            .every((question) => question.format === 0),
+    ).toBe(true);
+    for (const format of [0, 1]) {
+        expect(
+            basic.note.questions.filter(
+                (question) =>
+                    question.difficulty === 1 && question.format === format,
+            ),
+        ).toHaveLength(3);
+    }
+    expect(
         h.batches.every((batch) =>
             batch.questions.every(
                 (question) =>
@@ -332,8 +348,8 @@ test("provider failure preserves completed batches and a later call resumes only
     }
     expect(error).toBeInstanceOf(QuestionGenerationError);
     expect(error?.message).toBe("Rate limit reached");
-    expect(error?.result.generatedCount).toBe(2);
-    expect(h.note.questions).toHaveLength(2);
+    expect(error?.result.generatedCount).toBe(3);
+    expect(h.note.questions).toHaveLength(3);
     h.dependencies.promptAi = normalPrompt;
     const resumed = await runQuestionGeneration(
         { questionCount: 1, noteId: "note" },
@@ -341,8 +357,8 @@ test("provider failure preserves completed batches and a later call resumes only
     );
     expect(resumed).toMatchObject({
         mode: "basic",
-        requestedCount: 17,
-        generatedCount: 17,
+        requestedCount: 16,
+        generatedCount: 16,
         complete: true,
     });
     expect(resumed.note.questionFsrs).toHaveLength(19);
@@ -376,7 +392,7 @@ test("only rejected or missing questions are retried and retries are bounded", a
         h.dependencies,
     );
     expect(result.complete).toBe(true);
-    expect(prompts[1]).toContain("Generate 1 easy questions");
+    expect(prompts[1]).toContain("Generate 2 easy questions");
     expect(prompts[1]).toContain("First valid question");
     expect(prompts[1]).toContain("Validation feedback");
     const noContent = harness();
@@ -453,7 +469,7 @@ test("invalid requests and unresolved notes never call AI; cancellation prevents
     expect(invalid.calls).toBe(0);
 });
 
-test("medium format rounding applies across the note instead of rounding every broad topic up", () => {
+test("each medium topic receives equal multiple-choice and free-text question counts", () => {
     const note = noteFixture();
     note.topics = [0, 1, 2].flatMap((i) => [
         { id: `b${i}`, noteId: note.id, title: `Broad ${i}` },
@@ -469,11 +485,13 @@ test("medium format rounding applies across the note instead of rounding every b
         (task) => task.difficulty === 1,
     );
     expect(medium.reduce((sum, task) => sum + task.targetCount, 0)).toBe(6);
-    expect(
-        medium
-            .filter((task) => task.format === 0)
-            .reduce((sum, task) => sum + task.targetCount, 0),
-    ).toBe(2);
+    for (const format of [0, 1]) {
+        expect(
+            medium
+                .filter((task) => task.format === format)
+                .map((task) => task.targetCount),
+        ).toEqual([1, 1, 1]);
+    }
 });
 
 test("progress starts at zero and note updates accompany each persisted batch", async () => {

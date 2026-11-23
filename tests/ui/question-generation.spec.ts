@@ -284,6 +284,21 @@ test("generation service uses the shared AI IPC, persists basic cards, and exclu
         generatedCount: 7,
     });
     expect(result.basic.note.questionFsrs).toHaveLength(7);
+    const basicQuestions = result.basic.note
+        .questions as SyncedNote["questions"];
+    expect(
+        basicQuestions
+            .filter((question) => question.difficulty === 0)
+            .every((question) => question.format === 0),
+    ).toBe(true);
+    for (const format of [0, 1]) {
+        expect(
+            basicQuestions.filter(
+                (question) =>
+                    question.difficulty === 1 && question.format === format,
+            ),
+        ).toHaveLength(1);
+    }
     expect(result.concurrentError).toContain("already being generated");
     expect(result.additional).toMatchObject({
         mode: "additional",
@@ -433,9 +448,9 @@ test("note tab shows saved progress, survives closing the tab, and offers additi
         name: "Question generation progress",
     });
     await expect(bar).toHaveAttribute("max", "7");
-    await expect(bar).toHaveAttribute("value", "2");
+    await expect(bar).toHaveAttribute("value", "3");
     await expect(
-        page.getByText("2 of 7 saved · 29%", { exact: true }),
+        page.getByText("3 of 7 saved · 43%", { exact: true }),
     ).toBeVisible();
     await expect(
         page.getByRole("button", { name: "Generating…", exact: true }),
@@ -445,11 +460,11 @@ test("note tab shows saved progress, survives closing the tab, and offers additi
             .getByText("Questions", { exact: true })
             .locator("..")
             .locator("dd"),
-    ).toHaveText("2");
+    ).toHaveText("3");
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await page.getByRole("button", { name: "Close Sets", exact: true }).click();
     await openNote(page);
-    await expect(bar).toHaveAttribute("value", "2");
+    await expect(bar).toHaveAttribute("value", "3");
     await releaseGeneration(page);
     await expect(
         page.getByText("Generated 7 basic questions.", { exact: true }),
@@ -553,12 +568,12 @@ test("partial basic generation keeps saved questions visible and resumes the mis
         page.getByText(/Request ID: req-generation-test/),
     ).toBeVisible();
     await expect(
-        page.getByText("2 of 7 saved · 29%", { exact: true }),
+        page.getByText("3 of 7 saved · 43%", { exact: true }),
     ).toBeVisible();
     await expect(generate).toBeEnabled();
     await generate.click();
     await expect(
-        page.getByText("Generated 5 basic questions.", { exact: true }),
+        page.getByText("Generated 4 basic questions.", { exact: true }),
     ).toBeVisible();
     await expect(
         page

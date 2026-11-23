@@ -123,29 +123,24 @@ export function planBasicQuestions(note: SyncedNote): GenerationTask[] {
         (topic): topic is BroadTopic => !isSubtopic(topic),
     );
     const tasks: GenerationTask[] = [];
-    subtopics.forEach((subtopic, index) => {
-        const multipleChoiceCount = index % 2 === 0 ? 2 : 1;
-        const context = topicContext(note, [subtopic]);
+    subtopics.forEach((subtopic) => {
         tasks.push(
-            task(`easy:${subtopic.id}`, 0, 0, multipleChoiceCount, context),
-        );
-        tasks.push(
-            task(`easy:${subtopic.id}`, 0, 1, 3 - multipleChoiceCount, context),
+            task(
+                `easy:${subtopic.id}`,
+                0,
+                0,
+                3,
+                topicContext(note, [subtopic]),
+            ),
         );
     });
-    let mediumCount = 0;
-    let mediumMultipleChoiceCount = 0;
     for (const broadTopic of broadTopics) {
         const children = subtopics.filter(
             (topic) => topic.broadTopicId === broadTopic.id,
         );
         if (!children.length) continue;
         const count = children.length * 2;
-        mediumCount += count;
-        const nextMultipleChoiceCount = Math.round(mediumCount / 3);
-        const multipleChoiceCount =
-            nextMultipleChoiceCount - mediumMultipleChoiceCount;
-        mediumMultipleChoiceCount = nextMultipleChoiceCount;
+        const multipleChoiceCount = count / 2;
         const context = [broadTopic, ...children];
         tasks.push(
             task(`medium:${broadTopic.id}`, 1, 0, multipleChoiceCount, context),

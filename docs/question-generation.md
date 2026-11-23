@@ -42,10 +42,9 @@ const result = await generateQuestions(
 
 The first call creates the full basic question set for the note. It ignores the
 requested count, topics, format, and difficulty for that set. Easy questions total
-three per subtopic, with multiple-choice counts alternating two and one across
-subtopics. Medium questions total twice each broad topic's subtopic count, with
-one third of the total medium count rounded to the nearest integer being multiple
-choice, distributed across broad topics. Hard questions
+three per subtopic and are all multiple choice. Medium questions total twice
+each broad topic's subtopic count, split equally between multiple choice and
+free text within that broad topic. This count is always even. Hard questions
 total twice the number of broad topics and are all free text. Each basic question
 has `isBasicQuestion: true` and a new `ts-fsrs` card stored atomically with it.
 
@@ -135,3 +134,8 @@ excluded from those details. Recovery tests use simulated streams, not paid
 live requests.
 
 Reference: [OpenAI Responses streaming events](https://developers.openai.com/api/reference/resources/responses/streaming-events).
+
+The basic-format ratios apply to newly planned basic questions. Existing saved
+questions and their review history are retained; generation fills any missing
+slots under the current targets. Explicit format choices for additional questions
+and fresh Practice sessions continue to apply.

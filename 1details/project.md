@@ -249,8 +249,8 @@ Existing questions to avoid duplicating (JSON reference data):
 
 **luoKysymyksiä(määrä: numero, muistiinpanoId, aiheet[], kysymysMuoto?, vaikeusTaso?)**:
 - Jos muistiinpanolla ei ole vielä kysymyksiä aletaan generoimaan peruskysymykset eli 0 tason kysymyksiä 3 kysymyst per ala-aihe, 1 tason kysymyksiä laajemmasta aiheen alaiaheiden määrä x2, 2 tason kysymyksiä 2per laajempi aihe.
-    - 0 tason kysymyksistö 50 % monivalintoja 50% vapaa kirjotusta
-    - 1 tason kysymyksistä 33% monivalintoja 66% Vapaa kirjoitusta
+    - 0 tason peruskysymykset ovat kaikki monivalintoja (100 %)
+    - 1 tason peruskysymyksistä 50 % monivalintoja ja 50 % vapaakirjoitusta kussakin laajemmassa aiheessa
     - 2 tason kysymyksistä kaikki vapaa kirjoitusta
 - Kysymysten promptit on Ohjeet ja säännöt osiossa
 
