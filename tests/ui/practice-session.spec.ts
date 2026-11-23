@@ -3416,6 +3416,23 @@ test("Overview shows streaks and today’s per-note reviews, including upcoming 
             await page.screenshot({
                 path: `/tmp/obstudy-overview-${test.info().project.name}-${colorScheme}-${size.width}.png`,
             });
+            for (const name of ["Today’s reviews", "Study activity"]) {
+                const panel = overview.getByRole("region", {
+                    name,
+                    exact: true,
+                });
+                await panel.scrollIntoViewIfNeeded();
+                const box = await panel.boundingBox();
+                expect(box!.width).toBeLessThanOrEqual(600);
+                expect(
+                    await panel.evaluate(
+                        (element) => element.scrollWidth <= element.clientWidth,
+                    ),
+                ).toBe(true);
+                await page.screenshot({
+                    path: `/tmp/obstudy-panel-${name === "Study activity" ? "activity" : "reviews"}-${test.info().project.name}-${colorScheme}-${size.width}.png`,
+                });
+            }
             expect(
                 await page.evaluate(
                     () => document.documentElement.scrollWidth <= innerWidth,

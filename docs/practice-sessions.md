@@ -249,3 +249,10 @@ The review calendar uses a compact bordered sidebar-colored panel, up to 576px
 wide, with 12–16px padding. Align its title and month controls on a single centered
 32px header row above a divider. Day cells are approximately 48px high, keeping
 the full month readable while separating it from the surrounding Overview content.
+
+Today’s reviews, Review calendar, and Study activity share `tabSection`,
+`tabSectionHeader`, and `tabSectionTitle` styles. Each uses the same compact
+sidebar-colored panel, border, 8px corners, 576px width cap, 12–16px padding,
+and vertically centered header above a divider. Activity uses two rows of seven
+compact day tiles. Empty states stay within the panel without nested cards.
+The reusable styling contract is recorded in `1details/stylingRules.md`.

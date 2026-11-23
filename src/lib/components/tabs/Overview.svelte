@@ -2,7 +2,12 @@
     import { onMount } from "svelte";
     import type { SyncedNote } from "$lib/types/notes";
     import { noteTitle } from "$lib/types/workspace";
-    import { focusRing } from "$lib/components/ui/styles";
+    import {
+        focusRing,
+        tabSection,
+        tabSectionHeader,
+        tabSectionTitle,
+    } from "$lib/components/ui/styles";
     import { studyQuestionsDueToday } from "$lib/exercises/selection";
     import { studyActivity } from "$lib/analytics/overview";
     import ReviewCalendar from "$lib/components/ReviewCalendar.svelte";
@@ -84,14 +89,10 @@
             </div>
         {/each}
     </dl>
-    <section aria-labelledby="due-heading">
-        <div
-            class="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3"
-        >
-            <h3 id="due-heading" class="text-base/6 font-semibold">
-                Today’s reviews
-            </h3>
-            <span class="text-xs text-text-muted"
+    <section aria-labelledby="due-heading" class={tabSection}>
+        <div class={tabSectionHeader}>
+            <h3 id="due-heading" class={tabSectionTitle}>Today’s reviews</h3>
+            <span class="text-right text-xs/5 text-text-muted"
                 >{totalDueToday} remaining</span
             >
         </div>
@@ -103,7 +104,7 @@
                             type="button"
                             onclick={() => onOpenNote(item.note.id)}
                             class={[
-                                "flex w-full items-center justify-between gap-3 rounded px-1 py-3 text-left hover:bg-hover",
+                                "flex w-full items-center justify-between gap-3 rounded px-1 py-2.5 text-left hover:bg-hover",
                                 focusRing,
                             ]}
                             aria-label={`Open ${noteTitle(item.note)}`}
@@ -141,40 +142,40 @@
             </div>{/if}
     </section>
     <ReviewCalendar {notes} {now} />
-    <section aria-labelledby="activity-heading">
-        <div class="flex flex-wrap items-end justify-between gap-2">
-            <h3 id="activity-heading" class="text-base/6 font-semibold">
+    <section aria-labelledby="activity-heading" class={tabSection}>
+        <div class={tabSectionHeader}>
+            <h3 id="activity-heading" class={tabSectionTitle}>
                 Study activity
             </h3>
-            <span class="text-xs/5 text-text-muted"
+            <span class="text-right text-xs/5 text-text-muted"
                 >{activity.todayCount} graded {activity.todayCount === 1
                     ? "answer"
                     : "answers"} today</span
             >
         </div>
-        <p class="mt-1 text-xs/5 text-text-muted">
+        <p class="mt-3 text-xs/5 text-text-muted">
             Graded answers in Study or Practice count toward your streak.
         </p>
         {#if activity.total}
             <ol
                 aria-label="Activity over the past 14 days"
-                class="mt-4 grid grid-cols-7 gap-2 sm:grid-cols-14"
+                class="mt-3 grid grid-cols-7 gap-2"
             >
                 {#each activity.recent as day}
                     <li
                         title={`${dayLabel(day.date)}: ${day.count} graded answers`}
                         aria-label={`${dayLabel(day.date)}: ${day.count} graded answers`}
                         class={[
-                            "flex min-w-0 flex-col items-center gap-1 rounded-md border px-1 py-2",
+                            "flex min-h-12 min-w-0 flex-col items-center justify-between gap-1 rounded-md border px-1 py-1.5",
                             day.isToday ? "border-accent" : "border-border",
                             day.count ? "bg-selected" : "bg-surface",
                         ]}
                     >
                         <time
                             datetime={`${day.date.getFullYear()}-${String(day.date.getMonth() + 1).padStart(2, "0")}-${String(day.date.getDate()).padStart(2, "0")}`}
-                            class="text-xs/4 text-text-muted"
+                            class="text-[11px]/4 text-text-muted"
                             >{day.date.getDate()}</time
-                        ><span class="text-sm/5 font-medium tabular-nums"
+                        ><span class="text-[13px]/4 font-medium tabular-nums"
                             >{day.count}</span
                         >
                     </li>
@@ -184,9 +185,7 @@
                 Past 14 days · {activity.recentCount} graded answers
             </p>
         {:else}
-            <div
-                class="mt-4 rounded-lg border border-border bg-surface px-6 py-6 text-center"
-            >
+            <div class="py-6">
                 <p class="text-sm text-text-secondary">No activity yet</p>
                 <p class="mt-2 text-xs/4 text-text-muted">
                     Answer and grade a question to start your streak.

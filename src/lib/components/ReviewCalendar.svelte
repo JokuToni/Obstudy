@@ -1,7 +1,12 @@
 <script lang="ts">
     import type { SyncedNote } from "$lib/types/notes";
     import { reviewCalendar } from "$lib/analytics/reviewCalendar";
-    import { button } from "$lib/components/ui/styles";
+    import {
+        button,
+        tabSection,
+        tabSectionHeader,
+        tabSectionTitle,
+    } from "$lib/components/ui/styles";
 
     const calendarButton = `${button} inline-flex h-8 items-center justify-center px-2! py-0! text-xs!`;
 
@@ -39,17 +44,9 @@
     }
 </script>
 
-<section
-    aria-labelledby="review-calendar-heading"
-    class="w-full max-w-xl rounded-lg border border-border bg-sidebar p-3 sm:p-4"
->
-    <div
-        class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border pb-3"
-    >
-        <h3
-            id="review-calendar-heading"
-            class="m-0 flex min-h-8 items-center text-sm/5 font-semibold"
-        >
+<section aria-labelledby="review-calendar-heading" class={tabSection}>
+    <div class={tabSectionHeader}>
+        <h3 id="review-calendar-heading" class={tabSectionTitle}>
             Review calendar
         </h3>
         <div
