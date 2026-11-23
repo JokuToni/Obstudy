@@ -1,11 +1,10 @@
 <script lang="ts">
-    import { topicProgress } from "$lib/analytics/topics";
+    import TopicReviewSchedule from "$lib/components/TopicReviewSchedule.svelte";
     import { onMount, tick } from "svelte";
     import type { SyncedNote } from "$lib/types/notes";
     import { noteTitle } from "$lib/types/workspace";
     import {
         button,
-        focusRing,
         input,
         menuItem,
         primaryButton,
@@ -253,88 +252,7 @@
         Unfinished drafts are saved separately and do not count as submitted
         answers.
     </p>
-    <section aria-label="Topic progress" class="space-y-3">
-        <div>
-            <h3 class="text-sm font-semibold">Topics and review schedule</h3>
-            <p class="mt-1 text-xs/5 text-text-muted">
-                Grades use the latest 50 graded answers per topic, or all
-                available answers.
-            </p>
-        </div>
-        {#each topicProgress(note) as topic (topic.id)}
-            <details class="group rounded-md border border-border bg-surface">
-                <summary
-                    class={[
-                        "flex cursor-pointer list-none items-center justify-between gap-3 rounded-md p-3 hover:bg-hover",
-                        focusRing,
-                    ]}
-                >
-                    <span class="min-w-0 flex-1"
-                        ><span class="block break-words text-sm font-medium"
-                            >{topic.title}</span
-                        >
-                        <span class="mt-1 block text-xs/5 text-text-muted"
-                            >{topic.dueToday} due today · {topic.total}
-                            {topic.total === 1
-                                ? "card"
-                                : "cards"}{#if topic.next}
-                                · Next: {topic.next.toLocaleString(undefined, {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                })}{/if}</span
-                        ></span
-                    >
-                    <span class="shrink-0 text-right"
-                        ><span
-                            class="block text-lg font-semibold tabular-nums"
-                            aria-label={`${topic.title} grade ${topic.grade}`}
-                            >{topic.grade}</span
-                        >
-                        <span class="block text-xs/5 text-text-muted"
-                            >{topic.average === null
-                                ? "No grades yet"
-                                : `${Math.round(topic.average * 100)}% · ${topic.count}/50 answers`}</span
-                        ></span
-                    >
-                    <svg
-                        class="size-4 shrink-0 text-text-muted group-open:rotate-180"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg
-                    >
-                </summary>
-                <div
-                    class="space-y-1 border-t border-border px-3 py-2"
-                    aria-label={`${topic.title} review schedule`}
-                >
-                    {#each topic.days as day}<div
-                            class="flex items-center justify-between gap-3 text-xs/5 text-text-secondary"
-                        >
-                            <span
-                                >{day.date.toLocaleDateString(undefined, {
-                                    weekday: "short",
-                                    month: "short",
-                                    day: "numeric",
-                                    year: "numeric",
-                                })}</span
-                            ><span class="tabular-nums"
-                                >{day.count}
-                                {day.count === 1 ? "card" : "cards"}</span
-                            >
-                        </div>
-                    {:else}<p class="text-xs/5 text-text-muted">
-                            No scheduled cards.
-                        </p>{/each}
-                </div>
-            </details>
-        {:else}<p class="text-sm text-text-muted">
-                No broad topics yet.
-            </p>{/each}
-    </section>
+    <TopicReviewSchedule {note} />
     {#if !note.questions.length}<p class="text-sm text-text-muted">
             No questions have been generated for this note yet.
         </p>{/if}

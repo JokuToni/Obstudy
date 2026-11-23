@@ -321,7 +321,7 @@ Existing questions to avoid duplicating (JSON reference data):
 - ts-fsrs 5.4.2 laskee seuraavan korttitilan (retention 0.9, oletusoppimisaskeleet, enable_fuzz false). Kortti ja arviointiloki tallennetaan samassa transaktiossa vastauksen kanssa, kerran per kysymys ja istunto. Rinnakkaiset istunnot käyttävät uusinta korttitilaa. Lopullisen kertauksen pisteet ja muistamisen arvio lukitaan.
 - Oppimis- ja uudelleenoppimiskortit tulevat mukaan vasta tarkkana erääntymisaikanaan ja voivat palata samana päivänä. Harjoittele-tila ei muuta FSRS-aikatauluja. Historiallisia arvioita ei ajasteta uudelleen pelkän avaamisen takia.
 - Vastausten arviointi tulosnäkymässä päivittää myös FSRS-aikataulun automaattisesti. Aiemmasta versiosta jääneet arvioidut mutta ajastamattomat vastaukset ajastetaan istunnon uudelleenavauksessa. Jo ajastetut kertaukset ja niiden historia säilyvät.
-- Muistiinpanon välilehdellä näytetään jokainen laajempi aihe, erääntyneiden ja kaikkien korttien määrät, seuraava kertauspäivä ja avattava päiväkohtainen aikataulu.
+- Muistiinpanon Topics and review schedule on erillinen pyöristetty paneeli, jossa on taulukon sarakkeet Topic, Due today, Cards, Next review ja Grade. Aiheen painike avaa päiväkohtaisen kertausaikataulun taulukon alle omalle rivilleen. Kapeassa ikkunassa vain taulukon alue vierittyy vaakasuunnassa.
 - Aihekohtainen arvosana käyttää viimeisimpiä 50 arvioitua vastausta molemmista tiloista. Jos vastauksia on vähemmän, jaetaan niiden omalla määrällä. Kysymyksen alkuperäinen aihejäsenyys säilyy istunnon snapshotissa.
 - A+ >=97%, A >=93%, A− >=90%, B+ >=87%, B >=83%, B− >=80%, C+ >=77%, C >=73%, C− >=70%, D+ >=67%, D >=63%, D− >=60%, F <60%. Ilman arvioita näytetään viiva.
 

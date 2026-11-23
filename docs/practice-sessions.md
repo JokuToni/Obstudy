@@ -261,3 +261,10 @@ Focus outlines and focus-only field rings are suppressed throughout the app,
 including forms, controls, headings, tab panes, and answer editors. Neutral borders,
 selection styling, text cursors, and keyboard navigation remain. Multiple-choice
 keyboard focus uses its hover background without an accent focus border.
+
+The note’s Topics and review schedule section is a separate shared-style panel.
+Its semantic table has Topic, Due today, Cards, Next review, and Grade columns,
+with aligned numeric values, wrapping titles, and a date/time split. Topic buttons
+expand a full-width row with a per-date card table. The table scrolls within the
+panel at compact widths. Grades, schedule calculations, and empty states retain
+their existing behavior; focus does not draw outlines.

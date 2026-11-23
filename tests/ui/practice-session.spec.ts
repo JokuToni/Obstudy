@@ -3598,3 +3598,113 @@ test("Overview calendar shows a complete month, navigates months and years, and 
     await expect(day("2026-11-01")).toHaveAttribute("aria-current", "date");
     await expect(day("2026-11-01")).toHaveAccessibleName(/: 3 reviews$/);
 });
+
+test("note topic schedules use a separate table panel with expandable dates and compact scrolling", async ({
+    page,
+}) => {
+    await setup(page);
+    const note = practiceNote(new Date("2026-10-25T12:00:00Z"));
+    const topicTitle = "Intervals and endpoints with a longer topic title";
+    note.topics[0].title = topicTitle;
+    note.topics.push({
+        id: "empty-topic",
+        noteId: note.id,
+        title: "Empty topic",
+    });
+    note.topicGrades = [
+        { topicId: "broad", answerCount: 2, averagePoints: 0.75 },
+    ];
+    await page.evaluate(
+        (note) =>
+            sessionStorage.setItem("practice-note-test", JSON.stringify(note)),
+        note,
+    );
+    await page.reload();
+    await selectNote(page);
+    const panel = page.getByRole("region", {
+        name: "Topic progress",
+        exact: true,
+    });
+    const table = panel.getByRole("table", {
+        name: "Topics and review schedule",
+        exact: true,
+    });
+    await expect(table.getByRole("columnheader")).toHaveText([
+        "Topic",
+        "Due today",
+        "Cards",
+        "Next review",
+        "Grade",
+    ]);
+    const row = table.getByRole("row").filter({
+        has: page.getByRole("button", {
+            name: `${topicTitle} review schedule`,
+            exact: true,
+        }),
+    });
+    await expect(row.getByRole("cell").nth(0)).toHaveText("2");
+    await expect(row.getByRole("cell").nth(1)).toHaveText("2");
+    await expect(
+        panel.getByLabel(`${topicTitle} grade C`, { exact: true }),
+    ).toBeVisible();
+    await expect(
+        panel.getByText("75% · 2/50 answers", { exact: true }),
+    ).toBeVisible();
+    const expand = panel.getByRole("button", {
+        name: `${topicTitle} review schedule`,
+        exact: true,
+    });
+    await expand.focus();
+    await page.keyboard.press("Enter");
+    await expect(expand).toHaveAttribute("aria-expanded", "true");
+    const dates = panel.getByRole("table", {
+        name: `${topicTitle} reviews by date`,
+        exact: true,
+    });
+    await expect(dates).toBeVisible();
+    await expect(dates.locator("tbody tr")).toHaveCount(2);
+    await page.keyboard.press("Enter");
+    await expect(expand).toHaveAttribute("aria-expanded", "false");
+    await expect(dates).toBeHidden();
+    await panel
+        .getByRole("button", {
+            name: "Empty topic review schedule",
+            exact: true,
+        })
+        .click();
+    await expect(
+        panel.getByText("No scheduled cards.", { exact: true }),
+    ).toBeVisible();
+    for (const colorScheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme });
+        for (const size of [
+            { width: 580, height: 550 },
+            { width: 1200, height: 800 },
+        ]) {
+            await page.setViewportSize(size);
+            await panel.scrollIntoViewIfNeeded();
+            await page.screenshot({
+                path: `/tmp/obstudy-topic-table-${test.info().project.name}-${colorScheme}-${size.width}.png`,
+            });
+            expect(
+                await page.evaluate(
+                    () => document.documentElement.scrollWidth <= innerWidth,
+                ),
+            ).toBe(true);
+            expect(
+                await panel.evaluate(
+                    (element) => element.scrollWidth <= element.clientWidth,
+                ),
+            ).toBe(true);
+            const viewport = panel.getByRole("region", {
+                name: "Topic review table",
+                exact: true,
+            });
+            expect(
+                await viewport.evaluate(
+                    (element) => element.scrollWidth > element.clientWidth,
+                ),
+            ).toBe(size.width === 580);
+        }
+    }
+});
