@@ -1588,7 +1588,14 @@ test("practice body stays stable while long answers scroll inside a capped edito
         { width: 1200, height: 900 },
     ]) {
         await page.setViewportSize(viewport);
+        await answer.fill("");
+        const emptyEditor = (await page
+            .locator("[data-answer-editor]")
+            .boundingBox())!;
         await answer.fill("Short answer");
+        expect(
+            (await page.locator("[data-answer-editor]").boundingBox())!.height,
+        ).toBe(emptyEditor.height);
         const before = (await body.boundingBox())!;
         await answer.fill("Line\n".repeat(80));
         await expect
@@ -1601,6 +1608,7 @@ test("practice body stays stable while long answers scroll inside a capped edito
         const editor = (await page
             .locator("[data-answer-editor]")
             .boundingBox())!;
+        expect(editor.height).toBe(emptyEditor.height);
         const footer = (await page.locator("footer").boundingBox())!;
         const sidePadding = await page
             .getByRole("region", { name: "Practice session", exact: true })

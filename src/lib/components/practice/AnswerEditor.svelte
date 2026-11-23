@@ -265,7 +265,7 @@
 
 <div
     data-answer-editor
-    class="flex min-h-24 min-w-0 max-h-full flex-col rounded-md border border-border bg-surface"
+    class="flex min-h-24 min-w-0 max-h-full flex-1 flex-col rounded-md border border-border bg-surface"
 >
     <div
         data-answer-editor-control
