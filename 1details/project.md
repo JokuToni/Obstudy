@@ -307,7 +307,7 @@ Existing questions to avoid duplicating (JSON reference data):
 
 **Harjoitusikkunan koko ja teksti:**
 - Harjoitusikkuna aukeaa pystysuuntaisena, oletuskoko 480 × 720 loogista pikseliä. Pienemmällä näytöllä kokoa pienennetään suhteessa niin, että näytön reunoille jää tilaa. Vähimmäiskoko on 360 × 540 ja ikkunan kokoa voi muuttaa.
-- Kysymysten ja vastauseditorin teksti on 14 px, monivalintojen ja tulosten 13 px ja painikkeiden 12 px. Pääikkunan tekstikoko säilyy.
+- Kysymysteksti on 14 px ja vapaamuotoisen vastauseditorin teksti 11 px (riviväli 18 px). Monivalintojen ja tulosten teksti on 13 px ja painikkeiden 12 px. Pääikkunan tekstikoko säilyy.
 
 **Harjoitusnäkymän vastauseditori:**
 - Vapaamuotoisissa vastauksissa on Text- ja Draw-välilehdet. Niiden vaihtaminen säilyttää tekstin ja piirroksen, ja molemmat tallennetaan vastaukseen. Excalidraw-piirtoeditorissa on aluksi vain pieni työkalupalkki (valinta, kynä, muodot, nuoli, viiva, teksti ja pyyhekumi sekä Clear). Sivupaneelit ja alapalkki ovat piilotettuja.
