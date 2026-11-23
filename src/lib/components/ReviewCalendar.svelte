@@ -78,7 +78,7 @@
     </div>
     <p class="mt-3 text-xs/5 font-medium" aria-live="polite">{monthLabel}</p>
     <table
-        class="mt-2 w-full table-fixed border-collapse"
+        class="mt-2 w-full table-fixed border-separate border-spacing-0"
         aria-label={`Scheduled reviews for ${monthLabel}`}
     >
         <thead>
@@ -94,7 +94,9 @@
                 {/each}
             </tr>
         </thead>
-        <tbody>
+        <tbody
+            class="[&>tr:first-child>td]:border-t [&>tr:first-child>td:first-child]:rounded-tl-lg [&>tr:first-child>td:last-child]:rounded-tr-lg [&>tr:last-child>td:first-child]:rounded-bl-lg [&>tr:last-child>td:last-child]:rounded-br-lg"
+        >
             {#each calendar.weeks as week}
                 <tr>
                     {#each week as day}
@@ -104,7 +106,7 @@
                                 : undefined}
                             aria-current={day?.isToday ? "date" : undefined}
                             class={[
-                                "border border-border p-0 align-top",
+                                "overflow-hidden border-r border-b border-border p-0 align-top first:border-l",
                                 day?.isToday
                                     ? "bg-selected"
                                     : day
