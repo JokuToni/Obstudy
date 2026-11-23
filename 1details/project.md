@@ -5,7 +5,7 @@
 
 **Yleinen kuvaus:**
 
-**STACK:** Tauri2, svelte, sqlite, openAI api, CodeMirror, Katex, MathQuill (jQuery), Excalidraw (React), tailwindcss, ts-fsrs; REST API: Node.js, TypeScript, Fastify
+**STACK:** Tauri2, svelte, sqlite, openAI api, CodeMirror, Katex, MathQuill (jQuery), Excalidraw (React), tailwindcss, ts-fsrs; REST API: Node.js, TypeScript, Fastify, SQLite
 
 Obsidianin kanssa käyttöön suunniteltu sovellus, joka auttaa käyttäjää opiskelemaan ja kertaamaan muistiinpanojen pohjalta.
 
@@ -429,14 +429,19 @@ Existing questions to avoid duplicating (JSON reference data):
 - Rajattu iOS-sovellus: Study, Practice, valmiit kysymykset, monivalinta- ja tekstivastaukset, esimerkkivastauksen näyttö, itsearviointi, tulokset ja kesken jääneen harjoituksen jatkaminen.
 - Ei muistiinpanojen muokkaamista, kysymysten generointia, tekoälyasetuksia, piirroseditoria tai Obsidian-kansion valintaa puhelimessa.
 - Vastaukset, luonnokset ja FSRS-kortit tallennetaan sovelluksen omaan paikalliseen SQLite-tietokantaan. Study päivittää FSRS-aikataulun arvosanasta; Practice ei muuta sitä.
-- Synkronoinnin palvelin ja tunnistautuminen päätetään myöhemmin. Versionoitu MobileSyncTransport-rajapinta erottaa verkkototeutuksen käyttöliittymästä. Pysyvät tapahtumatunnisteet ja outbox mahdollistavat turvallisen uudelleenyrityksen.
+- Synkronoinnin palvelin ja tunnistautuminen on toteutettu REST API -osiossa; sovellusten kytkeminen tehdään erikseen. Versionoitu MobileSyncTransport-rajapinta erottaa verkkototeutuksen käyttöliittymästä. Pysyvät tapahtumatunnisteet ja outbox mahdollistavat turvallisen uudelleenyrityksen.
 - Kirjasto alkaa tyhjänä; erikseen valittava esimerkkikirjasto on vain paikalliseen kokeiluun eikä sen tapahtumia synkronoida. Ensimmäinen oikea kirjasto korvaa esimerkkidatan.
-- Tulevan palvelimen on ratkaistava eri laitteiden samalle kortille tekemien arviointien järjestys ja yhteinen FSRS-aikataulu. Varsinaista synkronointia ei vielä toteuteta.
+- Tulevan palvelimen on ratkaistava eri laitteiden samalle kortille tekemien arviointien järjestys ja yhteinen FSRS-aikataulu. Palvelimen synkronointiprotokolla on toteutettu; sovellusten verkkoyhteys puuttuu vielä.
 - iOS 16+, pystysuuntainen puhelimen käyttöliittymä. Kehitys-, tallennus- ja synkronointirajapinnan kuvaus: docs/ios.md.
 
-## REST API foundation
+## REST API
 
 - Erillinen Node.js 24 / TypeScript / Fastify -palvelu `restapi/`-kansiossa, oma package.json ja lockfile.
-- Ensimmäinen vaihe sisältää GET /health -reitin, ympäristöasetukset, lokituksen ja kehitys-/build-komennot.
-- Tietokanta, käyttäjä-/laitekohtainen tunnistautuminen ja synkronointireitit toteutetaan seuraavissa vaiheissa. Sovelluksia ei vielä yhdistetä palvelimeen.
+- GET /health, GET /ready, GET /openapi.json, ympäristöasetukset, lokitus, pyyntörajat, CORS sekä kehitys-/build- ja Docker-käynnistys.
+- SQLite säilyttää käyttäjät, laiteistunnot, versionoidut kirjastot, vastaukset, FSRS-kortit ja synkronointitapahtumat. Palvelimen oma tiedosto on oletuksena restapi/data/obstudy-api.db; sovellusten paikalliset kannat säilyvät erillisinä. Migraatiot suoritetaan transaktiossa ja niiden tarkistussummat validoidaan.
+- Sähköposti-/salasanatunnistautuminen, suolattu scrypt-salasana, tietokantaan tiivistetyt peruutettavat Bearer-laiteistunnot. Rekisteröinnin voi estää ympäristöasetuksella. Salasanan vaihtaminen peruuttaa kaikki istunnot.
+- GET/PUT /v1/library julkaisee ja lataa kirjaston version tarkistuksella. POST /v1/sync vastaanottaa enintään 500 tapahtuman atomisen erän, kuittaa tunnisteet ja palauttaa sivutetut muutokset sekä palvelimen FSRS-aikataulut. Uudelleenyritys samoilla tapahtumilla ei tuplaa vastauksia.
+- Palvelin laskee FSRS-aikataulut alkuperäisestä tuodusta kortista vastausajan ja vastaustunnisteen mukaisessa järjestyksessä, myös myöhässä saapuville offline-vastauksille. Harjoittele-tila ei muuta aikataulua. Tuotua korttihistoriaa aikaisempi kertaus palauttaa ristiriidan; vanhan historian tuonti vaatii erillisen suunnitelman.
+- GET /v1/answers ja /v1/reviews palauttavat sivutetun historian. Laitteen poisto peruuttaa sen istunnot mutta säilyttää opiskeluhistorian. Tilin poistaminen salasanavahvistuksella poistaa kaiken palvelindatan.
+- Palvelin on toteutettu; työpöytä- ja iOS-sovellusten kirjautumis- ja synkronointikäyttöliittymät eivät vielä ole yhteydessä siihen.
 - Käynnistysohjeet: docs/restapi.md.

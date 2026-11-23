@@ -52,11 +52,13 @@ saved with an optimistic revision check. Answers, FSRS changes, sessions, and
 outgoing events are committed together; failed writes do not publish new state to
 the UI. Browser preview uses an equivalent IndexedDB repository.
 
-Implement `MobileSyncTransport.exchange` for the eventual server, then supply it
-through the `syncTransport` prop of `MobileApp`. The existing optional Sync button
-will invoke it. Endpoint URLs, authentication, server storage, background syncing,
-and desktop uploads are deliberately undecided. No network adapter is enabled by
-default, so personal desktop questions are not transferred to the phone yet.
+The server contract, accounts, and SQLite storage are implemented in `restapi/`
+(see `docs/restapi.md`). Implement an HTTP `MobileSyncTransport.exchange` adapter
+and pass it through the `syncTransport` prop of `MobileApp`; the existing optional
+Sync button will invoke it. Server URL configuration, protected token storage,
+login UI, cross-device answer ingestion, background syncing, and desktop uploads
+still need app integration. No network adapter is enabled by default, so personal
+desktop questions are not transferred to the phone yet.
 
 Each exchange sends the device ID, last cursor, and unacknowledged events. It
 returns a new cursor, acknowledged event IDs, and optionally a replacement catalog.
@@ -65,13 +67,13 @@ and review logs. Acknowledgements and catalog changes are persisted atomically.
 Answers created during a transfer stay queued. Failed transfers keep stable event
 IDs for retry. Sample events never enter this queue.
 
-The server must authenticate devices, deduplicate events by ID, acknowledge only
-durably accepted events, validate schema versions, and issue stable catalog
-revisions and cursors. It must define canonical ordering/recomputation for reviews
-of the same card on multiple offline devices. The client preserves pending local
-card changes until acknowledgement and then accepts server cards; cross-device
-conflict resolution is not implemented here. Do not blindly overwrite a card with
-whichever device uploads last.
+The server authenticates devices, deduplicates events by ID, acknowledges only
+durably accepted events, validates schema versions, and issues catalog revisions
+and cursors. It replays offline reviews by timestamp and answer ID to produce a
+shared schedule. The client preserves pending local card changes until
+acknowledgement and then accepts server cards. Original client review cards in
+the event feed are provisional; use the server catalog as the authoritative
+schedule. The app does not perform cross-device reconciliation itself.
 
 Text and math remain available offline after catalog download. Remote HTTPS images
 are not cached yet. A production synchronization design should add media caching,

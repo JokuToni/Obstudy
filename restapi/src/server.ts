@@ -1,9 +1,19 @@
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { createDatabase, migrate } from "./database.js";
 
 async function start(): Promise<void> {
     const config = loadConfig();
-    const app = buildApp(config);
+    const database = createDatabase(config);
+    try {
+        await migrate(database);
+    } catch {
+        await database.close();
+        throw new Error(
+            "Database initialization failed. Check file permissions and migration history.",
+        );
+    }
+    const app = buildApp(config, database);
     let stopping = false;
 
     async function shutdown(): Promise<void> {

@@ -1,0 +1,18 @@
+services:
+    api:
+        build: .
+        restart: unless-stopped
+        environment:
+            NODE_ENV: production
+            HOST: 0.0.0.0
+            DATABASE_PATH: /app/data/obstudy-api.db
+            REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+            SESSION_DAYS: ${SESSION_DAYS:-30}
+            LOG_LEVEL: ${LOG_LEVEL:-info}
+            CORS_ORIGINS: ${CORS_ORIGINS:-}
+        ports:
+            - "127.0.0.1:3000:3000"
+        volumes:
+            - database:/app/data
+volumes:
+    database:
