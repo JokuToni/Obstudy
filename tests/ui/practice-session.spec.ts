@@ -3493,6 +3493,30 @@ test("Overview calendar shows a complete month, navigates months and years, and 
         ]) {
             await page.setViewportSize(size);
             await calendar.scrollIntoViewIfNeeded();
+            const headingBox = await calendar
+                .getByRole("heading", { name: "Review calendar", exact: true })
+                .boundingBox();
+            const navigationBox = await calendar
+                .getByRole("group", {
+                    name: "Calendar navigation",
+                    exact: true,
+                })
+                .boundingBox();
+            const calendarBox = await calendar.boundingBox();
+            const rowBox = await table
+                .locator("tbody tr")
+                .first()
+                .boundingBox();
+            expect(
+                Math.abs(
+                    headingBox!.y +
+                        headingBox!.height / 2 -
+                        navigationBox!.y -
+                        navigationBox!.height / 2,
+                ),
+            ).toBeLessThan(1);
+            expect(calendarBox!.width).toBeLessThanOrEqual(600);
+            expect(rowBox!.height).toBeLessThan(60);
             await page.screenshot({
                 path: `/tmp/obstudy-calendar-${test.info().project.name}-${colorScheme}-${size.width}.png`,
             });

@@ -3,6 +3,8 @@
     import { reviewCalendar } from "$lib/analytics/reviewCalendar";
     import { button } from "$lib/components/ui/styles";
 
+    const calendarButton = `${button} inline-flex h-8 items-center justify-center px-2! py-0! text-xs!`;
+
     let { notes, now }: { notes: SyncedNote[]; now: Date } = $props();
     let selectedMonth = $state<Date | null>(null);
     const month = $derived(
@@ -37,34 +39,46 @@
     }
 </script>
 
-<section aria-labelledby="review-calendar-heading">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <h3 id="review-calendar-heading" class="text-base/6 font-semibold">
+<section
+    aria-labelledby="review-calendar-heading"
+    class="w-full max-w-xl rounded-lg border border-border bg-sidebar p-3 sm:p-4"
+>
+    <div
+        class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border pb-3"
+    >
+        <h3
+            id="review-calendar-heading"
+            class="m-0 flex min-h-8 items-center text-sm/5 font-semibold"
+        >
             Review calendar
         </h3>
-        <div class="flex items-center gap-1" aria-label="Calendar navigation">
+        <div
+            role="group"
+            class="flex h-8 items-center gap-1"
+            aria-label="Calendar navigation"
+        >
             <button
                 type="button"
-                class={button}
+                class={calendarButton}
                 aria-label="Previous month"
                 onclick={() => moveMonth(-1)}>‹</button
             >
             <button
                 type="button"
-                class={button}
+                class={calendarButton}
                 onclick={() => (selectedMonth = null)}>Today</button
             >
             <button
                 type="button"
-                class={button}
+                class={calendarButton}
                 aria-label="Next month"
                 onclick={() => moveMonth(1)}>›</button
             >
         </div>
     </div>
-    <p class="mt-3 text-sm/5 font-medium" aria-live="polite">{monthLabel}</p>
+    <p class="mt-3 text-xs/5 font-medium" aria-live="polite">{monthLabel}</p>
     <table
-        class="mt-3 w-full table-fixed border-collapse"
+        class="mt-2 w-full table-fixed border-collapse"
         aria-label={`Scheduled reviews for ${monthLabel}`}
     >
         <thead>
@@ -101,7 +115,7 @@
                             {#if day}
                                 <div
                                     class={[
-                                        "flex min-h-16 min-w-0 flex-col justify-between gap-2 p-2 sm:min-h-20 sm:p-3",
+                                        "flex min-h-12 min-w-0 flex-col justify-between gap-1 p-1.5",
                                         day.isToday
                                             ? "ring-1 ring-inset ring-accent"
                                             : "",
@@ -109,7 +123,7 @@
                                 >
                                     <time
                                         datetime={dateKey(day.date)}
-                                        class="text-xs/4 text-text-muted"
+                                        class="text-[11px]/4 text-text-muted"
                                         >{day.date.getDate()}<span
                                             class="sr-only"
                                             >{day.isToday
@@ -119,7 +133,7 @@
                                     >
                                     <span
                                         class={[
-                                            "truncate text-right text-base/5 tabular-nums",
+                                            "truncate text-right text-[13px]/4 tabular-nums",
                                             day.count
                                                 ? "font-medium text-text-primary"
                                                 : "text-text-muted",
@@ -133,7 +147,7 @@
             {/each}
         </tbody>
     </table>
-    <p class="mt-3 text-xs/5 text-text-secondary">
+    <p class="mt-2 text-xs/5 text-text-secondary">
         {calendar.total} scheduled {calendar.total === 1 ? "review" : "reviews"} this
         month
     </p>

@@ -244,3 +244,8 @@ Previous month, Next month, and Today navigate across months and years. The defa
 month follows the current date at midnight; an explicitly browsed month stays
 selected. Counts react to refreshed note data and local day changes. Highlight
 today visibly and semantically; expose full dates and counts to screen readers.
+
+The review calendar uses a compact bordered sidebar-colored panel, up to 576px
+wide, with 12–16px padding. Align its title and month controls on a single centered
+32px header row above a divider. Day cells are approximately 48px high, keeping
+the full month readable while separating it from the surrounding Overview content.
