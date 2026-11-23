@@ -4,11 +4,12 @@
     import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
     import { currentMonitor, LogicalSize } from "@tauri-apps/api/window";
     import "../app.css";
+    import { isIosBuild } from "$lib/mobile/runtime";
 
     let { children } = $props();
 
     onMount(() => {
-        if (!isTauri()) return;
+        if (isIosBuild || !isTauri()) return;
 
         const appWindow = getCurrentWebviewWindow();
 

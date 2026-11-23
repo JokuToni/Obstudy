@@ -1,0 +1,8 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "mobile",
+    "description": "Limited mobile study app with app-private persistence",
+    "windows": ["main"],
+    "platforms": ["iOS", "android"],
+    "permissions": ["core:default"]
+}

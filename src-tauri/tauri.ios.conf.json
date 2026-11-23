@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schema.tauri.app/config/2",
+    "identifier": "com.obstudy.mobile",
+    "build": {
+        "beforeDevCommand": "npm run dev:ios",
+        "beforeBuildCommand": "npm run build:ios"
+    },
+    "app": {
+        "windows": [
+            {
+                "label": "main",
+                "title": "Obstudy",
+                "visible": true,
+                "dragDropEnabled": false,
+                "backgroundColor": "#141414"
+            }
+        ]
+    },
+    "bundle": {
+        "iOS": {
+            "minimumSystemVersion": "16.0"
+        }
+    }
+}

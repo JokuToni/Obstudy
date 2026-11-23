@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
+    import MobileApp from "$lib/mobile/MobileApp.svelte";
+    import { isIosBuild } from "$lib/mobile/runtime";
     import { fetchObsidianNotes } from "$lib/services/notes";
     import type { NoteSyncResult } from "$lib/types/notes";
     import { getNotesFolderPath } from "$lib/services/settings";
@@ -7,6 +9,7 @@
     import HomeView from "$lib/views/HomeView.svelte";
     import PracticeSession from "$lib/components/practice/PracticeSession.svelte";
 
+    let mobile = $state(isIosBuild);
     let notesFolderPath = $state<string | null>(null);
     let noteSync = $state<NoteSyncResult>({ notes: [], warnings: [] });
     let loadingMessage = $state("Loading settings…");
@@ -42,6 +45,13 @@
     }
 
     onMount(() => {
+        mobile =
+            isIosBuild ||
+            (import.meta.env.DEV &&
+                new URLSearchParams(window.location.search).has(
+                    "mobile-preview",
+                ));
+        if (mobile) return;
         practiceExerciseId = new URLSearchParams(window.location.search).get(
             "practice",
         );
@@ -54,7 +64,10 @@
 </script>
 
 <main class="min-h-dvh bg-canvas text-text-primary">
-    {#if practiceExerciseId}<PracticeSession exerciseId={practiceExerciseId} />
+    {#if mobile}<MobileApp />
+    {:else if practiceExerciseId}<PracticeSession
+            exerciseId={practiceExerciseId}
+        />
     {:else if isLoading}
         <p role="status" class="p-8 text-text-secondary">{loadingMessage}</p>
     {:else if errorMessage}

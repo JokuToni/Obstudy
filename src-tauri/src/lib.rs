@@ -1,10 +1,18 @@
+#[cfg(not(mobile))]
 mod ai;
+#[cfg(not(mobile))]
 mod database;
+#[cfg(not(mobile))]
 mod exercises;
+#[cfg(not(mobile))]
 mod notes;
+#[cfg(not(mobile))]
 mod questions;
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[cfg(any(mobile, test))]
+mod mobile;
+
+#[cfg(not(mobile))]
 pub fn run() {
     tauri::Builder::default()
         .manage(std::sync::Arc::new(ai::AiState::default()))
@@ -47,4 +55,17 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Obstudy");
+}
+
+#[cfg(mobile)]
+#[tauri::mobile_entry_point]
+pub fn run() {
+    tauri::Builder::default()
+        .manage(mobile::MobileStorage::default())
+        .invoke_handler(tauri::generate_handler![
+            mobile::mobile_load_state,
+            mobile::mobile_save_state,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running Obstudy mobile");
 }

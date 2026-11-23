@@ -423,3 +423,13 @@ Existing questions to avoid duplicating (JSON reference data):
     - vastauksienMäärä: numero
     - opiskeluPutki: numero
     - korkeinOpiskeluPutki: numero
+
+## iOS companion
+
+- Rajattu iOS-sovellus: Study, Practice, valmiit kysymykset, monivalinta- ja tekstivastaukset, esimerkkivastauksen näyttö, itsearviointi, tulokset ja kesken jääneen harjoituksen jatkaminen.
+- Ei muistiinpanojen muokkaamista, kysymysten generointia, tekoälyasetuksia, piirroseditoria tai Obsidian-kansion valintaa puhelimessa.
+- Vastaukset, luonnokset ja FSRS-kortit tallennetaan sovelluksen omaan paikalliseen SQLite-tietokantaan. Study päivittää FSRS-aikataulun arvosanasta; Practice ei muuta sitä.
+- Synkronoinnin palvelin ja tunnistautuminen päätetään myöhemmin. Versionoitu MobileSyncTransport-rajapinta erottaa verkkototeutuksen käyttöliittymästä. Pysyvät tapahtumatunnisteet ja outbox mahdollistavat turvallisen uudelleenyrityksen.
+- Kirjasto alkaa tyhjänä; erikseen valittava esimerkkikirjasto on vain paikalliseen kokeiluun eikä sen tapahtumia synkronoida. Ensimmäinen oikea kirjasto korvaa esimerkkidatan.
+- Tulevan palvelimen on ratkaistava eri laitteiden samalle kortille tekemien arviointien järjestys ja yhteinen FSRS-aikataulu. Varsinaista synkronointia ei vielä toteuteta.
+- iOS 16+, pystysuuntainen puhelimen käyttöliittymä. Kehitys-, tallennus- ja synkronointirajapinnan kuvaus: docs/ios.md.

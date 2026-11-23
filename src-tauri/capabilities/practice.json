@@ -10,5 +10,6 @@
         "core:window:allow-destroy",
         "core:window:allow-set-background-color",
         "core:webview:allow-set-webview-background-color"
-    ]
+    ],
+    "platforms": ["macOS", "windows", "linux"]
 }
