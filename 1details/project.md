@@ -436,7 +436,7 @@ Existing questions to avoid duplicating (JSON reference data):
 
 ## REST API
 
-- Erillinen Node.js 24 / TypeScript / Fastify -palvelu `restapi/`-kansiossa, oma package.json ja lockfile.
+- Erillinen Node.js 24 / TypeScript / Fastify -palvelu `restapi/`-Git-submoduulissa. API:n oma yksityinen repository on JokuToni/Obstudy-restapi; sillä on oma package.json, lockfile ja commit-historia. Obstudy säilyttää viittauksen valittuun API-commitiin.
 - GET /health, GET /ready, GET /openapi.json, ympäristöasetukset, lokitus, pyyntörajat, CORS sekä kehitys-/build- ja Docker-käynnistys.
 - SQLite säilyttää käyttäjät, laiteistunnot, versionoidut kirjastot, vastaukset, FSRS-kortit ja synkronointitapahtumat. Palvelimen oma tiedosto on oletuksena restapi/data/obstudy-api.db; sovellusten paikalliset kannat säilyvät erillisinä. Migraatiot suoritetaan transaktiossa ja niiden tarkistussummat validoidaan.
 - Sähköposti-/salasanatunnistautuminen, suolattu scrypt-salasana, tietokantaan tiivistetyt peruutettavat Bearer-laiteistunnot. Rekisteröinnin voi estää ympäristöasetuksella. Salasanan vaihtaminen peruuttaa kaikki istunnot.
@@ -452,3 +452,9 @@ Existing questions to avoid duplicating (JSON reference data):
 - Vite/SvelteKit lukee juuren tiedoston. Vain PUBLIC_- ja VITE_-etuliitteillä tarkoitetut julkiset arvot saa tuoda käyttöliittymään. PUBLIC_API_BASE_URL on varattu tulevaa sovellusten verkkoyhteyttä varten, eikä vielä kytke niitä palvelimeen.
 - REST API:n dev/start/migrate lukevat ensin juuren .env:n ja sitten mahdollisen restapi/.env:n palvelukohtaisina ohituksina. Komentoympäristön muuttujat ovat etusijalla.
 - Docker Compose lukee saman juuren .env:n mutta asettaa kontille oman kuunteluosoitteen, sisäisen portin ja pysyvän tietokantapolun. Ohje: docs/environment.md.
+
+## API repository workflow
+
+- API-muutokset commitoidaan restapi-submoduulin omaan repositoryyn. API-commit on julkaistava sinne ennen kuin sitä käyttävä Obstudy-viittaus pusketaan.
+- Obstudyyn commitoidaan restapi-viittauksen päivitys erikseen. Käytä olemassa olevassa checkoutissa git submodule update --init --recursive.
+- Railway kytketään suoraan Obstudy-restapi-repositoryyn, jolloin Root Directory on /. Tarkemmat ohjeet: docs/repositories.md ja restapi/docs/api.md.

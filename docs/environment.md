@@ -27,11 +27,13 @@ npm --prefix restapi run dev
 npm run dev
 ```
 
-These are separate processes. The shared file does not start the API automatically.
+Initialize the API submodule first with `git submodule update --init --recursive`
+when using a fresh checkout. These are separate processes. The shared file does not start the API automatically.
 Restart each development process after editing environment configuration. Public
 frontend values are compiled into builds, so rebuild when changing them for release.
 
-Docker Compose also loads the root `.env`:
+Docker Compose 2.24+ loads the optional root `.env` and then an optional
+`restapi/.env`, so a standalone API checkout also works:
 
 ```sh
 docker compose -f restapi/compose.yaml up --build -d

@@ -1,0 +1,4 @@
+[submodule "restapi"]
+	path = restapi
+	url = https://github.com/JokuToni/Obstudy-restapi.git
+	branch = main
