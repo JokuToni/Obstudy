@@ -445,3 +445,10 @@ Existing questions to avoid duplicating (JSON reference data):
 - GET /v1/answers ja /v1/reviews palauttavat sivutetun historian. Laitteen poisto peruuttaa sen istunnot mutta säilyttää opiskeluhistorian. Tilin poistaminen salasanavahvistuksella poistaa kaiken palvelindatan.
 - Palvelin on toteutettu; työpöytä- ja iOS-sovellusten kirjautumis- ja synkronointikäyttöliittymät eivät vielä ole yhteydessä siihen.
 - Käynnistysohjeet: docs/restapi.md.
+
+## Shared environment configuration
+
+- Projektin juuren .env on yhteinen paikallinen ympäristöasetustiedosto. Varsinaista .env-tiedostoa ei lisätä Gitiin; juuren .env.example sisältää turvalliset esimerkkiasetukset.
+- Vite/SvelteKit lukee juuren tiedoston. Vain PUBLIC_- ja VITE_-etuliitteillä tarkoitetut julkiset arvot saa tuoda käyttöliittymään. PUBLIC_API_BASE_URL on varattu tulevaa sovellusten verkkoyhteyttä varten, eikä vielä kytke niitä palvelimeen.
+- REST API:n dev/start/migrate lukevat ensin juuren .env:n ja sitten mahdollisen restapi/.env:n palvelukohtaisina ohituksina. Komentoympäristön muuttujat ovat etusijalla.
+- Docker Compose lukee saman juuren .env:n mutta asettaa kontille oman kuunteluosoitteen, sisäisen portin ja pysyvän tietokantapolun. Ohje: docs/environment.md.

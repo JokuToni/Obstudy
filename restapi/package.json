@@ -8,11 +8,11 @@
         "node": ">=24.10.0 <25"
     },
     "scripts": {
-        "dev": "node --env-file-if-exists=.env --import tsx --watch src/server.ts",
+        "dev": "node --env-file-if-exists=../.env --env-file-if-exists=.env --import tsx --watch src/server.ts",
         "check": "tsc --noEmit && tsc -p tsconfig.test.json",
         "build": "tsc",
-        "start": "node --env-file-if-exists=.env dist/server.js",
-        "migrate": "node --env-file-if-exists=.env --import tsx src/migrate.ts",
+        "start": "node --env-file-if-exists=../.env --env-file-if-exists=.env dist/server.js",
+        "migrate": "node --env-file-if-exists=../.env --env-file-if-exists=.env --import tsx src/migrate.ts",
         "test": "node --import tsx --test tests/*.test.ts"
     },
     "devDependencies": {
