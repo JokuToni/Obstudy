@@ -15,7 +15,7 @@ export class NativeMobileRepository implements MobileRepository {
     }
 }
 
-/** Durable browser preview adapter; the native iOS app uses SQLite. */
+/** Durable browser adapter for the web app and preview; native iOS uses SQLite. */
 export class BrowserMobileRepository implements MobileRepository {
     constructor(private scope = "current") {}
     private async open(): Promise<IDBDatabase> {

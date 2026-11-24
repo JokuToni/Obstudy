@@ -54,3 +54,12 @@ access that private repository, and set Root Directory to `/`. Its Dockerfile is
 at the repository root. Existing volume and database settings stay the same; keep
 the volume attached to the existing service when changing its source repository.
 Set the health check to `/ready` and deploy the API repository's main branch.
+
+## Combined web app deployment
+
+The parent root Dockerfile now builds both the mobile web frontend and the pinned
+API checkout. To host the Home Screen app, use the parent GitHub Actions deployment
+workflow instead of the API-only automatic Railway deployment described above.
+The private submodule is fetched with an explicitly configured read token; Railway
+receives the complete source through its CLI. Keep the existing persistent volume.
+See [web-app.md](web-app.md) for the one-time service and Actions setup.

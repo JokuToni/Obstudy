@@ -469,3 +469,11 @@ Existing questions to avoid duplicating (JSON reference data):
 - Muistiinpanojen ongelmia odottavat aiheet säilyttävät viimeksi julkaistun versionsa. Arkistointi ja aihemuutokset eivät muuta aikaisempien vastausten alkuperäisiä kysymyksiä.
 - Kertausaikataulun resetointi on pysyvä jonotettu API-operaatio. Vanha historia säilyy, mutta ennen resetointia annettu myöhässä saapuva vastaus ei palauta vanhaa aikataulua.
 - Migraatiot lisätään uusina: desktop 0012_cloud_sync / 0013_cloud_history_indexes, iOS 0002_account_cache ja API 0002_imported_history / 0003_card_resets. Ohjeet: docs/cloud-sync.md.
+
+## Installable phone web app
+
+- Puhelimen rajattu Study/Practice-käyttöliittymä toimii myös Svelte-pohjaisena PWA:na. Tauri-työpöytä ja native iOS säilyvät erillisinä kohteina.
+- Fastify palvelee web-käyttöliittymän juuresta ja REST API:n /v1-polusta samassa HTTPS-originissa. Web-build käyttää omaa originiaan; PUBLIC_API_BASE_URL on native-sovelluksille.
+- Web-kirjautuminen käyttää HttpOnly/Secure/SameSite=Strict-cookiea, tarkkaa WEB_ORIGIN-asetusta ja CSRF-otsakkeita. Bearer-token ei tallennu selaimen localStorageen tai IndexedDB:hen. API-migraatio 0004_browser_sessions erottaa web- ja native-istunnot.
+- IndexedDB säilyttää tilikohtaisen kirjaston, harjoitukset ja vastaus-outboxin. Service worker välimuistittaa vain julkiset sovellustiedostot, ei API-vastauksia. Päivitys tarjotaan kotinäkymässä; se ei vaihda versiota harjoituksen aikana tai muiden välilehtien ollessa auki.
+- Parent-repon Dockerfile kokoaa webin ja pinnatun API-alirepon. GitHub Actions voi julkaista main-pushit nykyiseen Railway-palveluun, kun tokenit ja asetukset on määritetty. API-alirepon itsenäinen Dockerfile pysyy API-only-versiona. Ohjeet: docs/web-app.md.

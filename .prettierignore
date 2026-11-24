@@ -5,3 +5,7 @@ src-tauri/target
 src-tauri/gen
 package-lock.json
 1details
+
+.svelte-kit-web/
+build-web/
+test-results-web/

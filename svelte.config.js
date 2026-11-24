@@ -5,11 +5,19 @@
 import adapter from "@sveltejs/adapter-static";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
+const webBuild = process.env.OBSTUDY_WEB === "1";
+
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
     preprocess: vitePreprocess(),
     kit: {
+        outDir: webBuild ? ".svelte-kit-web" : ".svelte-kit",
+        files: {
+            routes: webBuild ? "src/webRoutes" : "src/routes",
+        },
         adapter: adapter({
+            pages: webBuild ? "build-web" : "build",
+            assets: webBuild ? "build-web" : "build",
             fallback: "index.html",
         }),
     },

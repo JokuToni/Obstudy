@@ -1,0 +1,55 @@
+name: Deploy phone web app and API
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: obstudy-production
+    cancel-in-progress: false
+
+jobs:
+    deploy:
+        # Enable after Railway's existing GitHub auto-deploy is disabled and secrets are configured.
+        if: vars.WEB_DEPLOY_ENABLED == 'true'
+        runs-on: ubuntu-latest
+        environment: production
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  submodules: recursive
+                  token: ${{ secrets.API_REPOSITORY_TOKEN }}
+                  persist-credentials: false
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "24"
+                  cache: npm
+                  cache-dependency-path: |
+                      package-lock.json
+                      restapi/package-lock.json
+            - run: npm ci
+            - run: npm --prefix restapi ci
+            - run: npm run check
+            - run: npm --prefix restapi run check
+            - run: npm --prefix restapi test
+            - run: npm run test:unit
+            - run: npx playwright install --with-deps chromium
+            - run: npm run test:web -- --project chromium
+            - run: npm run build:web
+            - name: Verify production origin
+              env:
+                  WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
+              run: |
+                  node --input-type=module -e 'const value = process.env.WEB_ORIGIN; const url = new URL(value); if (url.protocol !== "https:" || url.origin !== value) throw new Error("Configure WEB_ORIGIN as an exact HTTPS origin.");'
+            - name: Deploy both components to the existing Railway service
+              env:
+                  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+                  RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID }}
+              run: |
+                  test -n "$RAILWAY_TOKEN"
+                  test -n "$RAILWAY_SERVICE_ID"
+                  npx --yes @railway/cli@5.75.0 up --service "$RAILWAY_SERVICE_ID" --ci

@@ -19,7 +19,10 @@
         "build:ios": "vite build --mode ios",
         "ios:init": "tauri ios init",
         "ios:dev": "tauri ios dev",
-        "ios:build": "tauri ios build"
+        "ios:build": "tauri ios build",
+        "dev:web": "node scripts/runWeb.mjs dev",
+        "build:web": "node scripts/runWeb.mjs build",
+        "test:web": "playwright test --config playwright.web.config.ts"
     },
     "license": "MIT",
     "dependencies": {

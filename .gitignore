@@ -16,3 +16,7 @@ dist/
 
 # Excalidraw fonts copied from the installed package for offline use.
 /static/excalidraw/
+
+.svelte-kit-web/
+build-web/
+test-results-web/

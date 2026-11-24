@@ -11,7 +11,7 @@ again; no token is written to browser localStorage or IndexedDB.
 ## Connect devices
 
 1. Deploy the updated API first. `/v1/capabilities` reports history-import,
-   schedule-reset, and byte-paging support. The API's OpenAPI version is 1.1.0.
+   schedule-reset, and byte-paging support. The API's OpenAPI version is 1.2.0.
    New migrations add historical-import flags and reset tracking; existing data
    is retained. The desktop reports a clear update message against older servers.
 2. Set PUBLIC_API_BASE_URL to the server's HTTPS base address, without /v1.
@@ -115,3 +115,10 @@ non-local preview overrides are rejected and release builds ignore the parameter
 Both static frontend builds and the desktop Rust core are checked locally. Native
 iOS signing, Keychain authorization on a device, and Simulator execution require
 full Xcode and must be verified in that environment.
+
+## Phone web client
+
+The installable web target shares the mobile study/sync service. It uses its own
+origin, HttpOnly cookie authentication and account-scoped IndexedDB. Preview mode
+still uses memory-only bearer tokens; native credentials stay in Keychain. See
+[web-app.md](web-app.md) for installation, offline updates and combined deployment.

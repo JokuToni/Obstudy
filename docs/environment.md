@@ -48,3 +48,13 @@ published port. HTTPS routing is configured separately on the deployment host.
 A hosting service building only `restapi/` should inject environment variables
 through its configuration. The root `.env` is outside that Docker build context
 and is never copied into the image. No secrets are included in the example file.
+
+## Hosted phone web app
+
+The installable web build uses its own origin for /v1 requests, regardless of
+PUBLIC_API_BASE_URL. WEB_ORIGIN configures the API's allowed browser origin; use
+the exact HTTPS address without a trailing slash (HTTP localhost is allowed for
+development). WEB_DIRECTORY optionally points to compiled static files. The root
+Dockerfile sets it to /app/public. Both Docker contexts exclude local .env files.
+The GitHub deployment workflow uses Actions secrets and Railway runtime variables,
+not the local .env. See [web-app.md](web-app.md) for setup.

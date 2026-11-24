@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import * as publicEnvironment from "$env/static/public";
+import { isWebBuild } from "$lib/mobile/runtime";
 import type { CloudResponse, CloudSession } from "./types";
 
 export class CloudError extends Error {
@@ -11,6 +12,8 @@ export class CloudError extends Error {
     }
 }
 export function serverUrl(): string | null {
+    if (isWebBuild && typeof window !== "undefined")
+        return window.location.origin;
     const preview =
         import.meta.env.DEV && typeof window !== "undefined"
             ? new URLSearchParams(window.location.search).get("api-preview")
@@ -47,12 +50,14 @@ export function serverUrl(): string | null {
         );
     return url.origin;
 }
+let webAccount: CloudSession | null = null;
 let previewSession: (CloudSession & { token: string }) | null = null;
 let previewDeviceId: string | null = null;
 export async function getCloudSession(): Promise<CloudSession | null> {
     const base = serverUrl();
     if (!base) return null;
     if (isTauri()) return invoke("cloud_get_session", { serverUrl: base });
+    if (isWebBuild) return restoreWebSession();
     return previewSession
         ? {
               userId: previewSession.userId,
@@ -94,11 +99,21 @@ async function browserRequest(
 ): Promise<CloudResponse> {
     const response = await fetch(`${serverUrl()}${path}`, {
         method,
+        credentials: isWebBuild ? "same-origin" : "omit",
+        cache: "no-store",
         headers: {
             ...(body === undefined
                 ? {}
                 : { "Content-Type": "application/json" }),
-            ...(authenticated && previewSession
+            ...(isWebBuild
+                ? {
+                      "X-Obstudy-Web": "1",
+                      ...(webAccount
+                          ? { "X-Obstudy-Account": webAccount.userId }
+                          : {}),
+                  }
+                : {}),
+            ...(!isWebBuild && authenticated && previewSession
                 ? { Authorization: `Bearer ${previewSession.token}` }
                 : {}),
         },
@@ -174,17 +189,29 @@ export async function signIn(
         localStorage.getItem("obstudy-preview-device") ?? crypto.randomUUID();
     localStorage.setItem("obstudy-preview-device", previewDeviceId);
     const response = await browserRequest(
-        `/v1/auth/${register ? "register" : "login"}`,
+        `/v1/${isWebBuild ? "web/" : ""}auth/${register ? "register" : "login"}`,
         "POST",
         {
             email,
             password,
             deviceId: previewDeviceId,
-            deviceName: "Obstudy browser preview",
+            deviceName: isWebBuild
+                ? "Obstudy web app"
+                : "Obstudy browser preview",
         },
         false,
     );
     const result = readResponse(response) as CloudSession & { token: string };
+    if (isWebBuild) {
+        const session = {
+            userId: result.userId,
+            deviceId: result.deviceId,
+            email: result.email,
+            expiresAt: result.expiresAt,
+        };
+        rememberWebSession(session);
+        return session;
+    }
     previewSession = { ...result, email };
     return {
         userId: result.userId,
@@ -196,7 +223,20 @@ export async function signIn(
 export async function signOut(): Promise<void> {
     const base = serverUrl();
     if (isTauri() && base) await invoke("cloud_sign_out", { serverUrl: base });
-    else {
+    else if (isWebBuild) {
+        // HttpOnly cookies can only be cleared by the server. Keep the account visible on failure.
+        try {
+            await cloudRequest("/v1/web/auth/logout", "POST", undefined, false);
+        } catch (error) {
+            if (error instanceof CloudError) throw error;
+            throw new Error(
+                "Connect to the internet to sign out. Your account is still signed in.",
+            );
+        }
+        localStorage.removeItem(webSessionKey);
+        webAccount = null;
+        previewSession = null;
+    } else {
         try {
             await cloudRequest("/v1/auth/logout", "POST", undefined, false);
         } catch {
@@ -204,5 +244,48 @@ export async function signOut(): Promise<void> {
         } finally {
             previewSession = null;
         }
+    }
+}
+
+const webSessionKey = "obstudy-web-account";
+function rememberWebSession(session: CloudSession): void {
+    webAccount = session;
+    // Non-secret account metadata lets the correct offline cache reopen; no credential is stored here.
+    localStorage.setItem(webSessionKey, JSON.stringify(session));
+}
+async function restoreWebSession(): Promise<CloudSession | null> {
+    try {
+        const response = await browserRequest(
+            "/v1/web/auth/session",
+            "GET",
+            undefined,
+            true,
+        );
+        if (response.status === 401) {
+            localStorage.removeItem(webSessionKey);
+            webAccount = null;
+            return null;
+        }
+        const session = readResponse(response) as CloudSession;
+        rememberWebSession(session);
+        return session;
+    } catch (error) {
+        if (error instanceof CloudError && error.status < 500) throw error;
+        const cached = localStorage.getItem(webSessionKey);
+        if (cached) {
+            try {
+                const session = JSON.parse(cached) as CloudSession;
+                if (
+                    typeof session.userId === "string" &&
+                    typeof session.deviceId === "string" &&
+                    typeof session.email === "string" &&
+                    Date.parse(session.expiresAt) > Date.now()
+                )
+                    return (webAccount = session);
+            } catch {
+                /* Ignore invalid metadata; saved answers remain in IndexedDB. */
+            }
+        }
+        return null;
     }
 }

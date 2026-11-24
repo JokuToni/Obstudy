@@ -87,3 +87,10 @@ npm run test:ui -- tests/ui/mobile-study.spec.ts
 npm run build:ios
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
+
+## Installable web alternative
+
+The same study UI also runs as a Home Screen web app served by the API. It uses
+secure browser cookies and IndexedDB instead of native Keychain/SQLite, with no
+Apple signing requirement. The native iOS target remains available. See
+[web-app.md](web-app.md) for installation, offline behavior and deployment.
