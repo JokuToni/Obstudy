@@ -8,8 +8,8 @@ cp .env.example .env
 ```
 
 Vite/SvelteKit reads this file from the project root for desktop, iOS, and browser
-frontend builds. `PUBLIC_API_BASE_URL` is available as public build configuration
-for the future server connection; the login/sync screens are not wired to it yet.
+frontend builds. `PUBLIC_API_BASE_URL` configures desktop and iOS sign-in and study-data sync.
+It is compiled into static app builds; see `docs/cloud-sync.md` for setup.
 Do not put credentials in variables prefixed with `PUBLIC_` or `VITE_`, because
 those prefixes are intended for client-visible configuration. API tokens and vault
 paths continue to use the existing device-specific storage.

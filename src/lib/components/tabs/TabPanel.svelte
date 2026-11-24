@@ -1,4 +1,5 @@
 <script lang="ts">
+    import DesktopAccount from "$lib/cloud/DesktopAccount.svelte";
     import { tick, untrack } from "svelte";
     import QuickTweak from "./QuickTweak.svelte";
     import Overview from "./Overview.svelte";
@@ -113,7 +114,11 @@
             next = tabs[(index - 1 + tabs.length) % tabs.length];
         else if (event.key === "Home") next = tabs[0];
         else if (event.key === "End") next = tabs[tabs.length - 1];
-        else if (event.key === "Delete" && tab !== "overview") {
+        else if (
+            event.key === "Delete" &&
+            tab !== "overview" &&
+            tab !== "account"
+        ) {
             closeTab(tab);
             await tick();
             document.getElementById(`tab-${activeTab}`)?.focus();
@@ -277,6 +282,7 @@
                                 onManage={onManageQuestions}
                                 onConfigureAi={() => openTab("ai")}
                             />{/if}
+                    {:else if tab === "account"}<DesktopAccount />
                     {:else if tab === "settings"}<PracticeSettings
                             note={selectedNote}
                             {studyMode}

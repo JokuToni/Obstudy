@@ -1,3 +1,4 @@
+import { syncBatch } from "../cloud/batch";
 import type { Answer, PracticeSettings, StudyMode } from "../types";
 import type { SyncedNote } from "../types/notes";
 import type { ExerciseDraftAnswer, ExerciseSession } from "../types/exercises";
@@ -31,7 +32,7 @@ export function mobileNote(
     const questionIds = new Set(set.questions.map((question) => question.id));
     return {
         id: set.id,
-        isStudying: true,
+        isStudying: set.isStudying !== false,
         isAvailable: true,
         file: { path: `${set.title}.md`, text: "" },
         topics: set.topics,
@@ -62,6 +63,7 @@ export class MobileStudyService {
         private repository: MobileRepository,
         private now = () => new Date(),
         private id: () => string = () => crypto.randomUUID(),
+        private deviceId: string | null = null,
     ) {}
     get state(): MobileState {
         if (!this.current) throw new Error("Load study data first.");
@@ -85,7 +87,7 @@ export class MobileStudyService {
         this.revision = stored.revision;
         this.current = stored.state ?? {
             schemaVersion: 1,
-            deviceId: this.id(),
+            deviceId: this.deviceId ?? this.id(),
             catalog: null,
             cards: [],
             answers: [],
@@ -99,6 +101,17 @@ export class MobileStudyService {
                 this.revision,
                 this.current,
             );
+        if (this.deviceId && this.current.deviceId !== this.deviceId) {
+            if (this.current.outbox.length)
+                throw new Error(
+                    "This cache has unsynced answers from another device. Use the original device identity to sync them.",
+                );
+            this.current.deviceId = this.deviceId;
+            this.revision = await this.repository.save(
+                this.revision,
+                this.current,
+            );
+        }
         return this.state;
     }
     private mutate<T>(operation: (state: MobileState) => T): Promise<T> {
@@ -143,6 +156,10 @@ export class MobileStudyService {
         return this.mutate((state) => {
             const set = state.catalog?.sets.find((set) => set.id === setId);
             if (!set) throw new Error("This study set is no longer available.");
+            if (mode === "study" && set.isStudying === false)
+                throw new Error(
+                    "This note is not in Studying. Use Practice or move it on desktop.",
+                );
             const settings: PracticeSettings = {
                 ...defaultPracticeSettings,
                 difficulties: [0, 1, 2],
@@ -390,33 +407,99 @@ export class MobileStudyService {
             throw new Error("Synchronization is already in progress.");
         this.synchronizing = true;
         try {
-            const snapshot = this.state;
-            const sent = new Set(snapshot.outbox.map((event) => event.id));
-            const response = await transport.exchange({
-                schemaVersion: 1,
-                deviceId: snapshot.deviceId,
-                cursor: snapshot.syncCursor,
-                events: snapshot.outbox,
-            });
-            if (
-                typeof response.cursor !== "string" ||
-                !Array.isArray(response.acknowledgedIds) ||
-                response.acknowledgedIds.some((id) => !sent.has(id))
-            )
-                throw new Error("Invalid synchronization acknowledgement.");
-            if (response.catalog) validateCatalog(response.catalog);
-            await this.mutate((state) => {
-                const acknowledged = new Set(response.acknowledgedIds);
-                state.outbox = state.outbox.filter(
-                    (event) => !acknowledged.has(event.id),
+            const initialIds = new Set(
+                this.state.outbox.map((event) => event.id),
+            );
+            for (let page = 0; page < 1000; page++) {
+                const snapshot = this.state;
+                const outgoing = syncBatch(
+                    snapshot.outbox.filter((event) => initialIds.has(event.id)),
                 );
+                const sent = new Set(outgoing.map((event) => event.id));
+                const response = await transport.exchange({
+                    schemaVersion: 1,
+                    deviceId: snapshot.deviceId,
+                    cursor: snapshot.syncCursor,
+                    events: outgoing,
+                });
                 if (
-                    response.catalog &&
-                    response.catalog.revision !== state.catalog?.revision
+                    typeof response.cursor !== "string" ||
+                    !Array.isArray(response.acknowledgedIds) ||
+                    response.acknowledgedIds.some((id) => !sent.has(id)) ||
+                    (response.hasMore &&
+                        response.cursor === snapshot.syncCursor)
                 )
-                    applyCatalog(state, response.catalog);
-                state.syncCursor = response.cursor;
-            });
+                    throw new Error("Invalid synchronization acknowledgement.");
+                if (outgoing.length && !response.acknowledgedIds.length)
+                    throw new Error(
+                        "The server did not acknowledge pending changes. Try again.",
+                    );
+                if (response.catalog) validateCatalog(response.catalog);
+                const changes = response.events ?? [];
+                if (!Array.isArray(changes))
+                    throw new Error("Invalid synchronized history.");
+                for (const change of changes) {
+                    if (
+                        !change.event ||
+                        ![
+                            "answer.graded",
+                            "review.applied",
+                            "session.closed",
+                        ].includes(change.event.kind)
+                    )
+                        throw new Error("Invalid synchronized event.");
+                    if (change.event.kind === "answer.graded") {
+                        const { answer, question, noteId } =
+                            change.event.payload;
+                        if (
+                            !answer ||
+                            !question ||
+                            answer.questionId !== question.id ||
+                            noteId !== question.noteId ||
+                            ![0, 0.5, 1].includes(answer.points as number)
+                        )
+                            throw new Error("Invalid synchronized answer.");
+                    }
+                }
+                await this.mutate((state) => {
+                    const acknowledged = new Set(response.acknowledgedIds);
+                    state.outbox = state.outbox.filter(
+                        (event) => !acknowledged.has(event.id),
+                    );
+                    if (
+                        response.catalog &&
+                        response.catalog.revision !== state.catalog?.revision
+                    )
+                        applyCatalog(state, response.catalog);
+                    const known = new Set(
+                        state.answers.map((answer) => answer.id),
+                    );
+                    const reviewed = new Set(state.reviewedAnswerIds);
+                    for (const change of changes)
+                        if (change.event.kind === "answer.graded") {
+                            const { answer, question } = change.event.payload;
+                            if (!known.has(answer.id)) {
+                                state.answers.push(structuredClone(answer));
+                                known.add(answer.id);
+                            }
+                            if (
+                                answer.mode === "study" &&
+                                question.isBasicQuestion
+                            )
+                                reviewed.add(answer.id);
+                        }
+                    state.reviewedAnswerIds = [...reviewed];
+                    state.syncCursor = response.cursor;
+                });
+                if (
+                    !response.hasMore &&
+                    !this.state.outbox.some((event) => initialIds.has(event.id))
+                )
+                    return;
+            }
+            throw new Error(
+                "More history is available. Sync again to continue.",
+            );
         } finally {
             this.synchronizing = false;
         }

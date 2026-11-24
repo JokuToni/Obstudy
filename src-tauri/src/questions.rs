@@ -329,6 +329,10 @@ async fn apply_question_action(
             if basicQuestions.is_empty() {
                 return Err("This note has no basic questions to reset.".into());
             }
+            let resetIds: Vec<String> = basicQuestions
+                .iter()
+                .filter_map(|question| question["id"].as_str().map(str::to_string))
+                .collect();
             for question in basicQuestions {
                 let questionId = question["id"]
                     .as_str()
@@ -336,6 +340,8 @@ async fn apply_question_action(
                 sqlx::query("INSERT INTO questionFsrs (questionId, fsrsData) VALUES (?, ?) ON CONFLICT(questionId) DO UPDATE SET fsrsData = excluded.fsrsData")
                     .bind(questionId).bind(card.to_string()).execute(&mut *connection).await.map_err(storage_error)?;
             }
+            let operation = json!({"id":uuid::Uuid::new_v4().to_string(),"questionIds":resetIds});
+            sqlx::query("UPDATE cloudState SET document=json_set(document,'$.resetQueue',json_insert(COALESCE(json_extract(document,'$.resetQueue'),'[]'),'$[#]',json(?))),revision=revision+1 WHERE id=1").bind(operation.to_string()).execute(&mut *connection).await.map_err(storage_error)?;
         }
     }
     load_note(connection, noteId).await
@@ -741,6 +747,52 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(cards, 1);
+        });
+    }
+    #[test]
+    fn connected_resets_queue_an_operation_and_reject_stale_sync_commits() {
+        tauri::async_runtime::block_on(async {
+            let (root, mut connection, initial) = fixture().await;
+            save_batch(&mut connection, &batch(&initial, true))
+                .await
+                .unwrap();
+            let saved = load_note(&mut connection, "note").await.unwrap();
+            let state = json!({"schemaVersion":1,"knownAnswerIds":[]});
+            sqlx::query("INSERT INTO cloudState(id,userId,serverUrl,revision,document) VALUES (1,'account','https://api.example.com',1,?)").bind(state.to_string()).execute(&mut connection).await.unwrap();
+            apply_question_action(
+                &mut connection,
+                "note",
+                QuestionAction::Reset,
+                &current_ids(&saved),
+                Some(&new_card()),
+            )
+            .await
+            .unwrap();
+            let row = sqlx::query("SELECT revision,document FROM cloudState WHERE id=1")
+                .fetch_one(&mut connection)
+                .await
+                .unwrap();
+            assert_eq!(row.get::<i64, _>("revision"), 2);
+            let cached: Value = serde_json::from_str(&row.get::<String, _>("document")).unwrap();
+            assert_eq!(
+                cached["resetQueue"][0]["questionIds"][0],
+                saved["questions"][0]["id"]
+            );
+            assert!(
+                crate::cloud_desktop::cloud_desktop_commit(
+                    root.to_str().unwrap().into(),
+                    "account".into(),
+                    "https://api.example.com".into(),
+                    1,
+                    state,
+                    None,
+                    vec![]
+                )
+                .await
+                .is_err()
+            );
+            connection.close().await.unwrap();
+            std::fs::remove_dir_all(root).unwrap();
         });
     }
 }

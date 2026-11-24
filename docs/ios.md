@@ -52,13 +52,12 @@ saved with an optimistic revision check. Answers, FSRS changes, sessions, and
 outgoing events are committed together; failed writes do not publish new state to
 the UI. Browser preview uses an equivalent IndexedDB repository.
 
-The server contract, accounts, and SQLite storage are implemented in `restapi/`
-(see `docs/restapi.md`). Implement an HTTP `MobileSyncTransport.exchange` adapter
-and pass it through the `syncTransport` prop of `MobileApp`; the existing optional
-Sync button will invoke it. Server URL configuration, protected token storage,
-login UI, cross-device answer ingestion, background syncing, and desktop uploads
-still need app integration. No network adapter is enabled by default, so personal
-desktop questions are not transferred to the phone yet.
+The API and both app transports are implemented. Set PUBLIC_API_BASE_URL in the
+root .env, deploy API 1.1.0, then sign into the same account on desktop and iOS.
+Desktop publishes the study library; the phone downloads it and exchanges graded
+answers and canonical cards. Native tokens use Keychain and each mobile account
+has its own durable cache. Sync failures leave practice available offline.
+See docs/cloud-sync.md for setup, migration behavior, and development checks.
 
 Each exchange sends the device ID, last cursor, and unacknowledged events. It
 returns a new cursor, acknowledged event IDs, and optionally a replacement catalog.

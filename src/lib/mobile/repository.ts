@@ -2,16 +2,22 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { MobileRepository, MobileState, StoredMobileState } from "./types";
 
 export class NativeMobileRepository implements MobileRepository {
+    constructor(private scope = "") {}
     load(): Promise<StoredMobileState> {
-        return invoke("mobile_load_state");
+        return invoke("mobile_load_state", { scope: this.scope });
     }
     save(expectedRevision: number, state: MobileState): Promise<number> {
-        return invoke("mobile_save_state", { expectedRevision, state });
+        return invoke("mobile_save_state", {
+            expectedRevision,
+            state,
+            scope: this.scope,
+        });
     }
 }
 
 /** Durable browser preview adapter; the native iOS app uses SQLite. */
 export class BrowserMobileRepository implements MobileRepository {
+    constructor(private scope = "current") {}
     private async open(): Promise<IDBDatabase> {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open("obstudy-mobile-preview", 1);
@@ -26,7 +32,9 @@ export class BrowserMobileRepository implements MobileRepository {
         try {
             return await new Promise((resolve, reject) => {
                 const transaction = database.transaction("state", "readonly");
-                const request = transaction.objectStore("state").get("current");
+                const request = transaction
+                    .objectStore("state")
+                    .get(this.scope);
                 transaction.oncomplete = () =>
                     resolve(request.result ?? { revision: 0, state: null });
                 transaction.onerror = () => reject(transaction.error);
@@ -46,7 +54,7 @@ export class BrowserMobileRepository implements MobileRepository {
             return await new Promise((resolve, reject) => {
                 const transaction = database.transaction("state", "readwrite");
                 const store = transaction.objectStore("state");
-                const request = store.get("current");
+                const request = store.get(this.scope);
                 let conflict = false;
                 request.onsuccess = () => {
                     if ((request.result?.revision ?? 0) !== expectedRevision) {
@@ -59,7 +67,7 @@ export class BrowserMobileRepository implements MobileRepository {
                             revision: expectedRevision + 1,
                             state: structuredClone(state),
                         },
-                        "current",
+                        this.scope,
                     );
                 };
                 transaction.oncomplete = () => resolve(expectedRevision + 1);
@@ -78,8 +86,8 @@ export class BrowserMobileRepository implements MobileRepository {
         }
     }
 }
-export function mobileRepository(): MobileRepository {
+export function mobileRepository(scope = ""): MobileRepository {
     return isTauri()
-        ? new NativeMobileRepository()
-        : new BrowserMobileRepository();
+        ? new NativeMobileRepository(scope)
+        : new BrowserMobileRepository(scope || "current");
 }

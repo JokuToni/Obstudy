@@ -1,4 +1,8 @@
 <script lang="ts">
+    import {
+        startDesktopSync,
+        desktopAccount,
+    } from "$lib/cloud/desktopController";
     import { setNoteStudying } from "$lib/services/notes";
     import ReviewNoteChanges from "$lib/components/notes/ReviewNoteChanges.svelte";
     import type { NoteSyncResult, SyncedNote } from "$lib/types/notes";
@@ -64,6 +68,7 @@
         moveError = null;
         try {
             await setNoteStudying(noteId, isStudying);
+            window.dispatchEvent(new Event("obstudy-cloud-changed"));
             noteSync = {
                 ...noteSync,
                 notes: noteSync.notes.map((item) =>
@@ -270,6 +275,7 @@
         note: SyncedNote,
         includeSyncIssues = false,
     ): void {
+        window.dispatchEvent(new Event("obstudy-cloud-changed"));
         // Preserve other workspace changes made while an AI request was running.
         noteSync = {
             ...noteSync,
@@ -460,6 +466,9 @@
     }
     onMount(() => {
         void refreshAiConfiguration();
+        const stopCloudSync = startDesktopSync();
+        const cloudSynced = () => void refreshNoteProgress();
+        window.addEventListener("obstudy-cloud-synced", cloudSynced);
         const onFocus = () => {
             void refreshNoteProgress();
         };
@@ -471,6 +480,7 @@
                 "study-progress-updated",
                 (event) => {
                     void refreshNoteProgress(event.payload.noteId);
+                    window.dispatchEvent(new Event("obstudy-cloud-changed"));
                 },
             )
                 .then((unlisten) => {
@@ -483,6 +493,8 @@
                 });
         return () => {
             disposed = true;
+            stopCloudSync();
+            window.removeEventListener("obstudy-cloud-synced", cloudSynced);
             window.removeEventListener("focus", onFocus);
             stopListening?.();
         };
@@ -506,6 +518,7 @@
         <div class="flex min-h-0 min-w-0 flex-1 flex-col">
             <TabPanel
                 noteWarning={progressError ??
+                    (activeTab === "account" ? null : $desktopAccount.error) ??
                     (selectedNote
                         ? (selectedNote.parseError ??
                           selectedNote.parseWarnings.join(" "))

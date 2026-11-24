@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type { Snippet } from "svelte";
     import { onMount, untrack } from "svelte";
     import StudyText from "$lib/components/practice/StudyText.svelte";
     import ExitConfirmation from "$lib/components/practice/ExitConfirmation.svelte";
@@ -16,12 +17,29 @@
 
     let {
         syncTransport = null,
-    }: { syncTransport?: MobileSyncTransport | null } = $props();
-    const service = new MobileStudyService(mobileRepository());
+        accountScope = "",
+        deviceId,
+        accountPanel,
+    }: {
+        syncTransport?: MobileSyncTransport | null;
+        accountScope?: string;
+        deviceId?: string;
+        accountPanel?: Snippet;
+    } = $props();
+    const service = untrack(
+        () =>
+            new MobileStudyService(
+                mobileRepository(accountScope),
+                () => new Date(),
+                () => crypto.randomUUID(),
+                deviceId ?? null,
+            ),
+    );
     const touchButton = `${button} min-h-11! px-3! text-sm!`;
     const touchPrimary = `${primaryButton} min-h-11! text-sm!`;
     let studyData = $state<MobileState | null>(null);
     let loading = $state(true);
+    let syncing = $state(false);
     let error = $state<string | null>(null);
     let busy = $state(false);
     let saveCount = $state(0);
@@ -58,7 +76,7 @@
         studyData?.catalog?.sets.find((set) => set.id === selectedSetId),
     );
     const ready = $derived(
-        studyData && selectedSet
+        studyData && selectedSet && selectedSet.isStudying !== false
             ? readyStudyQuestions(mobileNote(studyData, selectedSet), now)
                   .questions.length
             : 0,
@@ -93,10 +111,29 @@
         try {
             studyData = await service.load();
             error = null;
+            if (syncTransport) void synchronize();
         } catch (caught) {
             error = message(caught);
         } finally {
             loading = false;
+        }
+    }
+    async function synchronize(): Promise<void> {
+        if (!syncTransport || syncing || !studyData) return;
+        syncing = true;
+        let succeeded = false;
+        try {
+            await flushDraft();
+            await service.synchronize(syncTransport);
+            studyData = service.state;
+            error = null;
+            now = new Date();
+            succeeded = true;
+        } catch (caught) {
+            error = message(caught);
+        } finally {
+            syncing = false;
+            if (succeeded && service.state.outbox.length) void synchronize();
         }
     }
     function flushDraft(): Promise<void> {
@@ -150,6 +187,7 @@
             error = message(caught);
         } finally {
             busy = false;
+            if (syncTransport) void synchronize();
         }
     }
     function resume(id: string): void {
@@ -234,10 +272,18 @@
         document.addEventListener("visibilitychange", update);
         window.addEventListener("pagehide", update);
         window.addEventListener("blur", update);
-        const clock = setInterval(() => (now = new Date()), 60000);
+        const onOnline = () => void synchronize();
+        window.addEventListener("online", onOnline);
+        window.addEventListener("focus", onOnline);
+        const clock = setInterval(() => {
+            now = new Date();
+            if (!busy && !saving) void synchronize();
+        }, 60000);
         return () => {
             clearTimeout(timer);
             clearInterval(clock);
+            window.removeEventListener("online", onOnline);
+            window.removeEventListener("focus", onOnline);
             document.removeEventListener("visibilitychange", update);
             window.removeEventListener("pagehide", update);
             window.removeEventListener("blur", update);
@@ -268,9 +314,8 @@
         {#if !session && syncTransport}<button
                 type="button"
                 class={touchButton}
-                disabled={busy || loading}
-                onclick={() => act(() => service.synchronize(syncTransport!))}
-                >Sync</button
+                disabled={busy || loading || syncing}
+                onclick={synchronize}>Sync</button
             >{/if}
         {#if session}<button
                 type="button"
@@ -299,6 +344,7 @@
                 Your study data could not be loaded.
             </p>
         {:else if !session}
+            {@render accountPanel?.()}
             {#if studyData.sessions.some((session) => !session.closedAt)}<section
                     class="mb-6 space-y-2"
                     aria-label="Unfinished sessions"

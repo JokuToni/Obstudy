@@ -5,6 +5,7 @@ import type { ExerciseSession } from "../types/exercises";
 export interface MobileStudySet {
     id: string;
     title: string;
+    isStudying?: boolean;
     topics: Topic[];
     questions: Question[];
     cards: QuestionFsrs[];
@@ -85,5 +86,7 @@ export interface MobileSyncTransport {
         cursor: string;
         acknowledgedIds: string[];
         catalog?: MobileCatalog;
+        events?: { sequence: string; event: MobileEvent }[];
+        hasMore?: boolean;
     }>;
 }

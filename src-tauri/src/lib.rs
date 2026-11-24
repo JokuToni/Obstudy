@@ -1,5 +1,8 @@
 #[cfg(not(mobile))]
 mod ai;
+mod cloud;
+#[cfg(not(mobile))]
+mod cloud_desktop;
 #[cfg(not(mobile))]
 mod database;
 #[cfg(not(mobile))]
@@ -24,6 +27,12 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
+            cloud::cloud_get_session,
+            cloud::cloud_sign_in,
+            cloud::cloud_request,
+            cloud::cloud_sign_out,
+            cloud_desktop::cloud_desktop_snapshot,
+            cloud_desktop::cloud_desktop_commit,
             database::initialize_database,
             exercises::save_practice_settings,
             exercises::create_exercise,
@@ -63,6 +72,10 @@ pub fn run() {
     tauri::Builder::default()
         .manage(mobile::MobileStorage::default())
         .invoke_handler(tauri::generate_handler![
+            cloud::cloud_get_session,
+            cloud::cloud_sign_in,
+            cloud::cloud_request,
+            cloud::cloud_sign_out,
             mobile::mobile_load_state,
             mobile::mobile_save_state,
         ])

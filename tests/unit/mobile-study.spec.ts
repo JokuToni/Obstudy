@@ -354,3 +354,56 @@ test("sessions keep their original question versions when a new catalog arrives"
     ).rejects.toThrow("unsupported version");
     expect(service.state).toEqual(before);
 });
+
+test("cloud pages merge remote answers without duplicate history and reject invalid events before acknowledgement", async () => {
+    const { service } = await setup();
+    const session = await service.startSession("sample-intervals", "study", 3);
+    await service.saveAnswer(session.id, choice(session));
+    const original = service.state;
+    const ownEvent = original.outbox.find(
+        (event) => event.kind === "answer.graded",
+    )!;
+    if (ownEvent.kind !== "answer.graded") throw new Error("Missing answer");
+    const remote = structuredClone(ownEvent);
+    remote.id = "remote-event";
+    remote.payload.answer.id = "remote-answer";
+    let page = 0;
+    await service.synchronize({
+        exchange: async (request) => ({
+            cursor: String(++page),
+            acknowledgedIds: request.events.map((event) => event.id),
+            events: [{ sequence: String(page), event: remote }],
+            hasMore: page === 1,
+        }),
+    });
+    expect(service.state.answers).toHaveLength(2);
+    expect(service.state.reviewedAnswerIds).toContain("remote-answer");
+    expect(service.state.syncCursor).toBe("2");
+    const bad = structuredClone(remote);
+    bad.payload.answer.points = 2;
+    const before = service.state;
+    await expect(
+        service.synchronize({
+            exchange: async () => ({
+                cursor: "3",
+                acknowledgedIds: [],
+                events: [{ sequence: "3", event: bad }],
+            }),
+        }),
+    ).rejects.toThrow("Invalid synchronized answer");
+    expect(service.state).toEqual(before);
+});
+
+test("notes outside Studying remain available for Practice but cannot create Study sessions", async () => {
+    const { service } = await setup();
+    const catalog = testCatalog(now);
+    catalog.sets[0].isStudying = false;
+    await service.installCatalog(catalog);
+    await expect(
+        service.startSession(catalog.sets[0].id, "study", 1),
+    ).rejects.toThrow("not in Studying");
+    expect(
+        (await service.startSession(catalog.sets[0].id, "practice", 1))
+            .questions,
+    ).toHaveLength(1);
+});

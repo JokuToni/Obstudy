@@ -429,9 +429,9 @@ Existing questions to avoid duplicating (JSON reference data):
 - Rajattu iOS-sovellus: Study, Practice, valmiit kysymykset, monivalinta- ja tekstivastaukset, esimerkkivastauksen näyttö, itsearviointi, tulokset ja kesken jääneen harjoituksen jatkaminen.
 - Ei muistiinpanojen muokkaamista, kysymysten generointia, tekoälyasetuksia, piirroseditoria tai Obsidian-kansion valintaa puhelimessa.
 - Vastaukset, luonnokset ja FSRS-kortit tallennetaan sovelluksen omaan paikalliseen SQLite-tietokantaan. Study päivittää FSRS-aikataulun arvosanasta; Practice ei muuta sitä.
-- Synkronoinnin palvelin ja tunnistautuminen on toteutettu REST API -osiossa; sovellusten kytkeminen tehdään erikseen. Versionoitu MobileSyncTransport-rajapinta erottaa verkkototeutuksen käyttöliittymästä. Pysyvät tapahtumatunnisteet ja outbox mahdollistavat turvallisen uudelleenyrityksen.
+- Synkronoinnin palvelin ja tunnistautuminen on toteutettu REST API -osiossa; sovellukset käyttävät sitä Account and sync -toiminnon kautta. Versionoitu MobileSyncTransport-rajapinta erottaa verkkototeutuksen käyttöliittymästä. Pysyvät tapahtumatunnisteet ja outbox mahdollistavat turvallisen uudelleenyrityksen.
 - Kirjasto alkaa tyhjänä; erikseen valittava esimerkkikirjasto on vain paikalliseen kokeiluun eikä sen tapahtumia synkronoida. Ensimmäinen oikea kirjasto korvaa esimerkkidatan.
-- Tulevan palvelimen on ratkaistava eri laitteiden samalle kortille tekemien arviointien järjestys ja yhteinen FSRS-aikataulu. Palvelimen synkronointiprotokolla on toteutettu; sovellusten verkkoyhteys puuttuu vielä.
+- Tulevan palvelimen on ratkaistava eri laitteiden samalle kortille tekemien arviointien järjestys ja yhteinen FSRS-aikataulu. Työpöytä- ja iOS-sovellukset käyttävät yhteistä REST API:a tilin kirjautumiseen, kysymyskirjastoon, vastaushistoriaan ja FSRS-aikatauluihin. Paikalliset kannat säilyvät offline-käyttöä varten.
 - iOS 16+, pystysuuntainen puhelimen käyttöliittymä. Kehitys-, tallennus- ja synkronointirajapinnan kuvaus: docs/ios.md.
 
 ## REST API
@@ -443,13 +443,13 @@ Existing questions to avoid duplicating (JSON reference data):
 - GET/PUT /v1/library julkaisee ja lataa kirjaston version tarkistuksella. POST /v1/sync vastaanottaa enintään 500 tapahtuman atomisen erän, kuittaa tunnisteet ja palauttaa sivutetut muutokset sekä palvelimen FSRS-aikataulut. Uudelleenyritys samoilla tapahtumilla ei tuplaa vastauksia.
 - Palvelin laskee FSRS-aikataulut alkuperäisestä tuodusta kortista vastausajan ja vastaustunnisteen mukaisessa järjestyksessä, myös myöhässä saapuville offline-vastauksille. Harjoittele-tila ei muuta aikataulua. Tuotua korttihistoriaa aikaisempi kertaus palauttaa ristiriidan; vanhan historian tuonti vaatii erillisen suunnitelman.
 - GET /v1/answers ja /v1/reviews palauttavat sivutetun historian. Laitteen poisto peruuttaa sen istunnot mutta säilyttää opiskeluhistorian. Tilin poistaminen salasanavahvistuksella poistaa kaiken palvelindatan.
-- Palvelin on toteutettu; työpöytä- ja iOS-sovellusten kirjautumis- ja synkronointikäyttöliittymät eivät vielä ole yhteydessä siihen.
+- Sovellusten Account and sync -käyttöliittymä ja REST API -yhteys on toteutettu. Native-tunnukset säilyvät käyttöjärjestelmän suojatussa tunnusvarastossa, eivät frontendin tallennustilassa.
 - Käynnistysohjeet: docs/restapi.md.
 
 ## Shared environment configuration
 
 - Projektin juuren .env on yhteinen paikallinen ympäristöasetustiedosto. Varsinaista .env-tiedostoa ei lisätä Gitiin; juuren .env.example sisältää turvalliset esimerkkiasetukset.
-- Vite/SvelteKit lukee juuren tiedoston. Vain PUBLIC_- ja VITE_-etuliitteillä tarkoitetut julkiset arvot saa tuoda käyttöliittymään. PUBLIC_API_BASE_URL on varattu tulevaa sovellusten verkkoyhteyttä varten, eikä vielä kytke niitä palvelimeen.
+- Vite/SvelteKit lukee juuren tiedoston. Vain PUBLIC_- ja VITE_-etuliitteillä tarkoitetut julkiset arvot saa tuoda käyttöliittymään. PUBLIC_API_BASE_URL määrittää sovellusten kirjautumis- ja synkronointipalvelimen. Julkaisubuild pitää rakentaa uudelleen osoitteen muuttuessa.
 - REST API:n dev/start/migrate lukevat ensin juuren .env:n ja sitten mahdollisen restapi/.env:n palvelukohtaisina ohituksina. Komentoympäristön muuttujat ovat etusijalla.
 - Docker Compose lukee saman juuren .env:n mutta asettaa kontille oman kuunteluosoitteen, sisäisen portin ja pysyvän tietokantapolun. Ohje: docs/environment.md.
 
@@ -458,3 +458,14 @@ Existing questions to avoid duplicating (JSON reference data):
 - API-muutokset commitoidaan restapi-submoduulin omaan repositoryyn. API-commit on julkaistava sinne ennen kuin sitä käyttävä Obstudy-viittaus pusketaan.
 - Obstudyyn commitoidaan restapi-viittauksen päivitys erikseen. Käytä olemassa olevassa checkoutissa git submodule update --init --recursive.
 - Railway kytketään suoraan Obstudy-restapi-repositoryyn, jolloin Root Directory on /. Tarkemmat ohjeet: docs/repositories.md ja restapi/docs/api.md.
+
+## Shared study data and app sync
+
+- Työpöytä säilyttää Obsidian-skannauksen ja kysymysten generoinnin paikallisena. API toimii yhteisen kysymyskirjaston, arvioidun vastaushistorian ja FSRS-aikataulujen auktoriteettina.
+- Työpöydän Account and sync -välilehti avataan muiden välilehtien tavoin, mutta synkronointi toimii sen ollessa suljettuna. Synkronoidaan kirjautuessa, ikkunaan palatessa, yhteyden palautuessa, paikallisten päivitysten jälkeen ja minuutin välein. iOS synkronoi myös vastaustoimintojen jälkeen.
+- Nykyiset arvioidut vastaukset tuodaan ensimmäisellä yhdistämisellä idempotenttina historiana ilman FSRS-arvioiden toistamista; korttien nykytila on lähtötaso. Myöhemmät vastaukset siirretään pysyvästä outboxista tunnisteineen.
+- Palvelin- ja tilikohtainen iOS-välimuisti erottaa käyttäjien tiedot. Työpöydän muistiinpanokanta sidotaan ensimmäiseen tiliin ja palvelimeen; toisen tilin yhdistämisestä ilmoitetaan virhe.
+- Muistiinpanon Opiskelussa-tila siirtyy kirjastossa. Ei opiskelussa -muistiinpanoa saa harjoitella puhelimessa, mutta siitä ei aloiteta Study-istuntoa.
+- Muistiinpanojen ongelmia odottavat aiheet säilyttävät viimeksi julkaistun versionsa. Arkistointi ja aihemuutokset eivät muuta aikaisempien vastausten alkuperäisiä kysymyksiä.
+- Kertausaikataulun resetointi on pysyvä jonotettu API-operaatio. Vanha historia säilyy, mutta ennen resetointia annettu myöhässä saapuva vastaus ei palauta vanhaa aikataulua.
+- Migraatiot lisätään uusina: desktop 0012_cloud_sync / 0013_cloud_history_indexes, iOS 0002_account_cache ja API 0002_imported_history / 0003_card_resets. Ohjeet: docs/cloud-sync.md.

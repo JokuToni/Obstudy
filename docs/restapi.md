@@ -118,7 +118,7 @@ choices, example answers, or grading criteria require a new ID. Topic assignment
 and summary statistics may change without a new question ID. Historical answers
 keep their original question/topic snapshot. Library uploads seed new cards but
 cannot reset existing server schedules. A schedule-reset operation is intentionally
-not exposed by the library endpoint.
+not exposed by the library endpoint; use POST /v1/cards/reset instead.
 
 ## Sync
 
@@ -182,9 +182,9 @@ replays from the beginning. Returned catalogs contain the latest schedules even 
 the event feed is paginated. Original event review cards are provisional and must
 not overwrite those schedules. Use `/v1/reviews` for canonical review logs.
 
-The existing mobile service accepts the cursor, acknowledgements, and catalog.
-Its transport/login UI and consumption of cross-device answer events still need
-to be wired into the apps; no desktop or iOS UI is changed by this API work.
+Desktop and iOS consume acknowledgements, paginated answer events, and canonical
+catalogs through Account and sync. See docs/cloud-sync.md for app setup and the
+API 1.1.0 history-import and schedule-reset additions.
 
 ## FSRS and history
 

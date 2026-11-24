@@ -31,6 +31,8 @@ export function validateCatalog(
             typeof set.id !== "string" ||
             !set.id ||
             ids.has(set.id) ||
+            (set.isStudying !== undefined &&
+                typeof set.isStudying !== "boolean") ||
             typeof set.title !== "string" ||
             !set.title.trim() ||
             !Array.isArray(set.topics) ||

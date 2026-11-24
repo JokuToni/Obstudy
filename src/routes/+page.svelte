@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import MobileApp from "$lib/mobile/MobileApp.svelte";
+    import MobileShell from "$lib/cloud/MobileShell.svelte";
     import { isIosBuild } from "$lib/mobile/runtime";
     import { fetchObsidianNotes } from "$lib/services/notes";
     import type { NoteSyncResult } from "$lib/types/notes";
@@ -64,7 +64,7 @@
 </script>
 
 <main class="min-h-dvh bg-canvas text-text-primary">
-    {#if mobile}<MobileApp />
+    {#if mobile}<MobileShell />
     {:else if practiceExerciseId}<PracticeSession
             exerciseId={practiceExerciseId}
         />

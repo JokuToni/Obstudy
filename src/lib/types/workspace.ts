@@ -1,11 +1,13 @@
 import type { SyncedNote } from "./notes";
 
-export type WorkspaceTab = "overview" | "settings" | "ai" | `note:${string}`;
+export type WorkspaceTab =
+    "overview" | "settings" | "ai" | "account" | `note:${string}`;
 
 export const workspaceTabs: { id: WorkspaceTab; label: string }[] = [
     { id: "overview", label: "Overview" },
     { id: "settings", label: "Practice settings" },
     { id: "ai", label: "AI integrations" },
+    { id: "account", label: "Account and sync" },
 ];
 
 export function noteTitle(note: SyncedNote): string {

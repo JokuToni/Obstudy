@@ -71,6 +71,47 @@ async fn save(path: &Path, expectedRevision: i64, state: Value) -> Result<i64, S
     }
     Ok(expectedRevision + 1)
 }
+async fn load_scoped(path: &Path, scope: &str) -> Result<Value, String> {
+    if scope.is_empty() {
+        return load(path).await;
+    }
+    let mut connection = open(path).await?;
+    let row = sqlx::query("SELECT revision,document FROM mobileAccountState WHERE scope=?")
+        .bind(scope)
+        .fetch_optional(&mut connection)
+        .await
+        .map_err(|e| e.to_string())?;
+    if let Some(row) = row {
+        Ok(
+            json!({"revision":row.get::<i64,_>("revision"),"state":serde_json::from_str::<Value>(&row.get::<String,_>("document")).map_err(|_|"Invalid account cache.")?}),
+        )
+    } else {
+        Ok(json!({"revision":0,"state":null}))
+    }
+}
+async fn save_scoped(
+    path: &Path,
+    scope: &str,
+    expectedRevision: i64,
+    state: Value,
+) -> Result<i64, String> {
+    if scope.is_empty() {
+        return save(path, expectedRevision, state).await;
+    }
+    if state["schemaVersion"] != 1
+        || state["deviceId"].as_str().is_none_or(str::is_empty)
+        || expectedRevision < 0
+    {
+        return Err("Unsupported account cache.".into());
+    }
+    let mut connection = open(path).await?;
+    let result=if expectedRevision==0 {sqlx::query("INSERT OR IGNORE INTO mobileAccountState(scope,revision,document) VALUES (?,1,?)").bind(scope).bind(state.to_string()).execute(&mut connection).await}
+    else {sqlx::query("UPDATE mobileAccountState SET revision=revision+1,document=? WHERE scope=? AND revision=?").bind(state.to_string()).bind(scope).bind(expectedRevision).execute(&mut connection).await}.map_err(|e|e.to_string())?;
+    if result.rows_affected() != 1 {
+        return Err("Study data changed elsewhere. Reload before continuing.".into());
+    }
+    Ok(expectedRevision + 1)
+}
 #[cfg(mobile)]
 fn storagePath(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     app.path()
@@ -83,9 +124,10 @@ fn storagePath(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 pub async fn mobile_load_state(
     app: tauri::AppHandle,
     storage: tauri::State<'_, MobileStorage>,
+    scope: Option<String>,
 ) -> Result<Value, String> {
     let _guard = storage.0.lock().await;
-    load(&storagePath(&app)?).await
+    load_scoped(&storagePath(&app)?, &scope.unwrap_or_default()).await
 }
 #[cfg(mobile)]
 #[tauri::command]
@@ -94,13 +136,45 @@ pub async fn mobile_save_state(
     storage: tauri::State<'_, MobileStorage>,
     expectedRevision: i64,
     state: Value,
+    scope: Option<String>,
 ) -> Result<i64, String> {
     let _guard = storage.0.lock().await;
-    save(&storagePath(&app)?, expectedRevision, state).await
+    save_scoped(
+        &storagePath(&app)?,
+        &scope.unwrap_or_default(),
+        expectedRevision,
+        state,
+    )
+    .await
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn account_caches_are_isolated_and_reject_stale_writes() {
+        tauri::async_runtime::block_on(async {
+            let path = std::env::temp_dir()
+                .join(format!("obstudy-account-cache-{}.db", uuid::Uuid::new_v4()));
+            let state =
+                json!({"schemaVersion":1,"deviceId":"device","answers":[{"id":"private-answer"}]});
+            assert_eq!(
+                save_scoped(&path, "account-a", 0, state.clone())
+                    .await
+                    .unwrap(),
+                1
+            );
+            assert_eq!(
+                load_scoped(&path, "account-b").await.unwrap()["state"],
+                Value::Null
+            );
+            assert_eq!(
+                load_scoped(&path, "account-a").await.unwrap()["state"],
+                state
+            );
+            assert!(save_scoped(&path, "account-a", 0, state).await.is_err());
+            std::fs::remove_file(path).unwrap();
+        });
+    }
     #[test]
     fn mobile_storage_is_durable_and_rejects_stale_writes() {
         tauri::async_runtime::block_on(async {
