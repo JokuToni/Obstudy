@@ -5,6 +5,12 @@ accounts, device sessions, library versions, graded answers, review history, and
 sync events in SQLite. Desktop and iOS local databases remain independent.
 The API does not read a vault or store AI-provider credentials.
 
+# OBSTUDY SERVER SSH
+
+
+
+
+
 ## Run locally
 
 ```sh
