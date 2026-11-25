@@ -486,3 +486,9 @@ Existing questions to avoid duplicating (JSON reference data):
 - Kortti seuraa sormea. Toiminto vahvistuu vasta sormen noustessa, kun etäisyys on vähintään 28 % sisältöleveydestä (enintään 120 px). Lyhyt pyyhkäisy, peruutus tai palaaminen kynnyksen alle palauttaa kortin ilman tallennusta tai siirtymistä.
 - Eteenpäin-painike ja vahvistettu pyyhkäisy käyttävät samaa liukusiirtymää. Oikea vastaus vieritetään näkyviin pehmeästi. Itsearvioinnin tallennuksen jälkeen siirrytään automaattisesti seuraavaan kysymykseen tai viimeisestä tuloksiin. Tallennusvirhe estää siirtymisen. Tulossivun jälkiarviointi säilyttää tuloslistan.
 - Pystysuuntainen vieritys, tekstikentän muokkaus, kontrollit ja selaimen reunapyyhkäisyt säilyvät. Reduced motion poistaa automaattiset liukusiirtymät ja pehmeän vierityksen.
+
+## Phone button haptics
+
+- Puhelinkäyttöliittymän painikkeet antavat kevyen yleispalautteen. iOS käyttää käyttäjän aidon kosketuksen välittävää läpinäkyvää label-elementtiä ja piilotettua natiivia switch-kontrollia. Muissa tuetuissa selaimissa käytetään yhtä 8 ms värinää; ilman tukea painikkeet toimivat normaalisti.
+- Palaute koskee myös myöhemmin luotuja painikkeita. Disabled-painikkeet eivät anna palautetta. Painikkeen tai sen vanhemman `data-haptics="off"` mahdollistaa myöhemmän toimintokohtaisen hienosäädön. Ei automaattisia tai pyyhkäisyyn liitettyjä pulsseja tässä vaiheessa.
+- Toteutus on yhteisen puhelinkuoren Svelte actionissa `service/web/src/lib/haptics/buttons.ts`, ilman uutta riippuvuutta. Lomakkeiden, näppäimistön, vierityksen ja pyyhkäisyjen normaali toiminta säilytetään. Todellinen tuntuma tarkistetaan fyysisellä iPhonella.
