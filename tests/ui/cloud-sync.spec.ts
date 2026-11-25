@@ -110,9 +110,7 @@ test("iOS signs in, downloads questions, saves an answer to the API, and isolate
         .getByRole("button", { name: "Start session", exact: true })
         .click();
     await page.getByRole("radio", { name: "A", exact: true }).click();
-    await page
-        .getByRole("button", { name: "Reveal answer", exact: true })
-        .click();
+
     await expect
         .poll(
             async () =>

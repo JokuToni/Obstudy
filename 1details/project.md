@@ -490,5 +490,11 @@ Existing questions to avoid duplicating (JSON reference data):
 ## Phone button haptics
 
 - Puhelinkäyttöliittymän painikkeet antavat kevyen yleispalautteen. iOS käyttää käyttäjän aidon kosketuksen välittävää läpinäkyvää label-elementtiä ja piilotettua natiivia switch-kontrollia. Muissa tuetuissa selaimissa käytetään yhtä 8 ms värinää; ilman tukea painikkeet toimivat normaalisti.
-- Palaute koskee myös myöhemmin luotuja painikkeita. Disabled-painikkeet eivät anna palautetta. Painikkeen tai sen vanhemman `data-haptics="off"` mahdollistaa myöhemmän toimintokohtaisen hienosäädön. Ei automaattisia tai pyyhkäisyyn liitettyjä pulsseja tässä vaiheessa.
+- Palaute koskee myös myöhemmin luotuja painikkeita. Disabled-painikkeet eivät anna palautetta. Painikkeen tai sen vanhemman `data-haptics="off"` mahdollistaa myöhemmän toimintokohtaisen hienosäädön. Pyyhkäisypalaute määritellään alempana Phone answer selection and stable layout -osiossa.
 - Toteutus on yhteisen puhelinkuoren Svelte actionissa `service/web/src/lib/haptics/buttons.ts`, ilman uutta riippuvuutta. Lomakkeiden, näppäimistön, vierityksen ja pyyhkäisyjen normaali toiminta säilytetään. Todellinen tuntuma tarkistetaan fyysisellä iPhonella.
+
+## Phone answer selection and stable layout
+
+- Monivalinnan valitseminen lähettää vastauksen heti, tallentaa ja pisteyttää sen sekä näyttää oikean vastauksen. Valintoja ei voi vaihtaa lähetyksen jälkeen. Seuraava pyyhkäisy tai painike siirtää seuraavaan kysymykseen. Tekstivastausten lähetys säilyy ennallaan.
+- Monivalinnan kosketus käyttää iOS:n natiivia switch-palautetta ja oikeaa radio-kontrollia. Muissa värinää tukevissa selaimissa valinta antaa 8 ms pulssin. Pyyhkäisy antaa ensimmäisen kynnyksen ylityksessä 5 ms pulssin ja vahvistetussa vapautuksessa 8 ms pulssin; saman eleen edestakainen liike ei toista kynnyspulssia. iOS:n selain ei tue ohjelmallisia pyyhkäisyvärinöitä; niitä ei luvata natiivin kosketuspalautteen perusteella.
+- Puhelinkuori pysyy näkyvässä viewportissa myös Safarin palkkien ja näppäimistön muuttuessa. Ylä- ja alapalkki pysyvät paikallaan, vain keskimmäinen sisältöalue vierii. Safe area huomioidaan. Dokumentin vieritys estetään vain puhelinkuoren ollessa käytössä.

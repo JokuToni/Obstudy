@@ -73,17 +73,13 @@ test("phone shell is limited, saves draft answers across reloads, self grades, a
         .poll(async () => (await stored(page)).answers[0]?.points)
         .toBe(0.5);
     await page.getByRole("radio").first().check();
-    await page
-        .getByRole("button", { name: "Reveal answer", exact: true })
-        .click();
+
     await expect(
         page.getByText("Graded · 1 / 1", { exact: true }),
     ).toBeVisible();
     await nextQuestion(page);
     await page.getByRole("radio").nth(2).check();
-    await page
-        .getByRole("button", { name: "Reveal answer", exact: true })
-        .click();
+
     await page
         .getByRole("button", { name: "Review answers", exact: true })
         .click();
@@ -114,15 +110,11 @@ test("phone exit keeps graded work and discards ungraded answers only after conf
     // The shuffled Practice order may start with either question type.
     if (await page.getByRole("radio").count()) {
         await page.getByRole("radio").first().check();
-        await page
-            .getByRole("button", { name: "Reveal answer", exact: true })
-            .click();
+
         await nextQuestion(page);
         if (await page.getByRole("radio").count()) {
             await page.getByRole("radio").first().check();
-            await page
-                .getByRole("button", { name: "Reveal answer", exact: true })
-                .click();
+
             await nextQuestion(page);
         }
     }
