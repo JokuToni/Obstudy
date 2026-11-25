@@ -11,6 +11,14 @@ async function stored(page: Page): Promise<MobileState> {
         return (await new BrowserMobileRepository().load()).state;
     });
 }
+async function nextQuestion(page: Page) {
+    await page
+        .getByRole("button", { name: "Next question", exact: true })
+        .click();
+    await expect(
+        page.getByRole("region", { name: "Current question", exact: true }),
+    ).toHaveAttribute("aria-busy", "false");
+}
 async function openSample(page: Page, mode: "Study" | "Practice" = "Study") {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/?mobile-preview");
@@ -60,12 +68,10 @@ test("phone shell is limited, saves draft answers across reloads, self grades, a
     await page
         .getByRole("button", { name: "Partly correct", exact: true })
         .click();
-    await expect(
-        page.getByText("Graded · 0.5 / 1", { exact: true }),
-    ).toBeVisible();
-    await page
-        .getByRole("button", { name: "Next question", exact: true })
-        .click();
+    await expect(page.getByRole("radio").first()).toBeVisible();
+    await expect
+        .poll(async () => (await stored(page)).answers[0]?.points)
+        .toBe(0.5);
     await page.getByRole("radio").first().check();
     await page
         .getByRole("button", { name: "Reveal answer", exact: true })
@@ -73,9 +79,7 @@ test("phone shell is limited, saves draft answers across reloads, self grades, a
     await expect(
         page.getByText("Graded · 1 / 1", { exact: true }),
     ).toBeVisible();
-    await page
-        .getByRole("button", { name: "Next question", exact: true })
-        .click();
+    await nextQuestion(page);
     await page.getByRole("radio").nth(2).check();
     await page
         .getByRole("button", { name: "Reveal answer", exact: true })
@@ -113,17 +117,13 @@ test("phone exit keeps graded work and discards ungraded answers only after conf
         await page
             .getByRole("button", { name: "Reveal answer", exact: true })
             .click();
-        await page
-            .getByRole("button", { name: "Next question", exact: true })
-            .click();
+        await nextQuestion(page);
         if (await page.getByRole("radio").count()) {
             await page.getByRole("radio").first().check();
             await page
                 .getByRole("button", { name: "Reveal answer", exact: true })
                 .click();
-            await page
-                .getByRole("button", { name: "Next question", exact: true })
-                .click();
+            await nextQuestion(page);
         }
     }
     await page

@@ -479,3 +479,10 @@ Existing questions to avoid duplicating (JSON reference data):
 - Obstudy-service-repon oma Dockerfile kokoaa sekä web-käyttöliittymän että API:n. Railway julkaisee tämän repositoryn main-pushit suoraan. Parent-repon erillistä web-buildia tai julkaisutokeneita ei tarvita. Ohjeet: service/docs/web-app.md.
 - Jaettu puhelimen käyttöliittymä, tyypit, opiskelulogiikka ja värit ovat service/web/src-kansiossa. Työpöytä ja native iOS käyttävät samoja toteutuksia TypeScript-välitysmoduulien ja $study-komponenttialiaksen kautta.
 - Web-rakennus käyttää SvelteKit 3:a omassa npm-workspacessaan. Native-projektin SvelteKit 2 säilyy; service rakentuu itsenäisesti ilman parent-repoa.
+
+## Phone practice navigation
+
+- Puhelimen web- ja native iOS -harjoituksessa vasemmalle pyyhkäisy vastaa Reveal answer / Next question -toimintoa. Arvioimaton vastaus näytetään ensin, ja seuraava pyyhkäisy siirtyy eteenpäin. Tyhjää vastausta ei lähetetä.
+- Kortti seuraa sormea. Toiminto vahvistuu vasta sormen noustessa, kun etäisyys on vähintään 28 % sisältöleveydestä (enintään 120 px). Lyhyt pyyhkäisy, peruutus tai palaaminen kynnyksen alle palauttaa kortin ilman tallennusta tai siirtymistä.
+- Eteenpäin-painike ja vahvistettu pyyhkäisy käyttävät samaa liukusiirtymää. Oikea vastaus vieritetään näkyviin pehmeästi. Itsearvioinnin tallennuksen jälkeen siirrytään automaattisesti seuraavaan kysymykseen tai viimeisestä tuloksiin. Tallennusvirhe estää siirtymisen. Tulossivun jälkiarviointi säilyttää tuloslistan.
+- Pystysuuntainen vieritys, tekstikentän muokkaus, kontrollit ja selaimen reunapyyhkäisyt säilyvät. Reduced motion poistaa automaattiset liukusiirtymät ja pehmeän vierityksen.
