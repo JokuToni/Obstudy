@@ -5,9 +5,9 @@ import process from "node:process";
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
     plugins: [tailwindcss(), sveltekit()],
-    cacheDir: mode === "web" ? "node_modules/.vite-web" : "node_modules/.vite",
+    resolve: { dedupe: ["svelte", "@tauri-apps/api", "ts-fsrs"] },
 
     // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
     //
@@ -17,16 +17,6 @@ export default defineConfig(({ mode }) => ({
     server: {
         port: 1420,
         strictPort: true,
-        proxy:
-            mode === "web"
-                ? {
-                      "/v1": {
-                          target:
-                              process.env.WEB_DEV_API_TARGET ||
-                              "http://127.0.0.1:3000",
-                      },
-                  }
-                : undefined,
         host: host || "127.0.0.1",
         hmr: host
             ? {
@@ -39,9 +29,8 @@ export default defineConfig(({ mode }) => ({
             // 3. tell Vite to ignore watching `src-tauri`
             ignored: [
                 "**/src-tauri/**",
-                ...(mode === "web"
-                    ? ["**/.svelte-kit/**", "**/build/**"]
-                    : ["**/.svelte-kit-web/**", "**/build-web/**"]),
+                "**/service/web/.svelte-kit/**",
+                "**/service/public/**",
             ],
         },
     },

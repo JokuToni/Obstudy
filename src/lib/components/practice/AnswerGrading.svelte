@@ -5,7 +5,7 @@
     } from "$lib/types/exercises";
     import { hasDrawing, drawingAiReason } from "$lib/drawing/answers";
     import { button } from "$lib/components/ui/styles";
-    import StudyText from "./StudyText.svelte";
+    import StudyText from "$study/components/practice/StudyText.svelte";
     let {
         answer,
         busy = false,

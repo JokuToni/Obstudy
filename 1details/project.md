@@ -436,9 +436,9 @@ Existing questions to avoid duplicating (JSON reference data):
 
 ## REST API
 
-- Erillinen Node.js 24 / TypeScript / Fastify -palvelu `restapi/`-Git-submoduulissa. API:n oma yksityinen repository on JokuToni/Obstudy-restapi; sillä on oma package.json, lockfile ja commit-historia. Obstudy säilyttää viittauksen valittuun API-commitiin.
+- Erillinen Node.js 24 / TypeScript / Fastify -palvelu `service/`-Git-submoduulissa. API:n oma yksityinen repository on JokuToni/obstudy-service; sillä on oma package.json, lockfile ja commit-historia. Obstudy säilyttää viittauksen valittuun API-commitiin.
 - GET /health, GET /ready, GET /openapi.json, ympäristöasetukset, lokitus, pyyntörajat, CORS sekä kehitys-/build- ja Docker-käynnistys.
-- SQLite säilyttää käyttäjät, laiteistunnot, versionoidut kirjastot, vastaukset, FSRS-kortit ja synkronointitapahtumat. Palvelimen oma tiedosto on oletuksena restapi/data/obstudy-api.db; sovellusten paikalliset kannat säilyvät erillisinä. Migraatiot suoritetaan transaktiossa ja niiden tarkistussummat validoidaan.
+- SQLite säilyttää käyttäjät, laiteistunnot, versionoidut kirjastot, vastaukset, FSRS-kortit ja synkronointitapahtumat. Palvelimen oma tiedosto on oletuksena service/data/obstudy-api.db; sovellusten paikalliset kannat säilyvät erillisinä. Migraatiot suoritetaan transaktiossa ja niiden tarkistussummat validoidaan.
 - Sähköposti-/salasanatunnistautuminen, suolattu scrypt-salasana, tietokantaan tiivistetyt peruutettavat Bearer-laiteistunnot. Rekisteröinnin voi estää ympäristöasetuksella. Salasanan vaihtaminen peruuttaa kaikki istunnot.
 - GET/PUT /v1/library julkaisee ja lataa kirjaston version tarkistuksella. POST /v1/sync vastaanottaa enintään 500 tapahtuman atomisen erän, kuittaa tunnisteet ja palauttaa sivutetut muutokset sekä palvelimen FSRS-aikataulut. Uudelleenyritys samoilla tapahtumilla ei tuplaa vastauksia.
 - Palvelin laskee FSRS-aikataulut alkuperäisestä tuodusta kortista vastausajan ja vastaustunnisteen mukaisessa järjestyksessä, myös myöhässä saapuville offline-vastauksille. Harjoittele-tila ei muuta aikataulua. Tuotua korttihistoriaa aikaisempi kertaus palauttaa ristiriidan; vanhan historian tuonti vaatii erillisen suunnitelman.
@@ -450,14 +450,14 @@ Existing questions to avoid duplicating (JSON reference data):
 
 - Projektin juuren .env on yhteinen paikallinen ympäristöasetustiedosto. Varsinaista .env-tiedostoa ei lisätä Gitiin; juuren .env.example sisältää turvalliset esimerkkiasetukset.
 - Vite/SvelteKit lukee juuren tiedoston. Vain PUBLIC_- ja VITE_-etuliitteillä tarkoitetut julkiset arvot saa tuoda käyttöliittymään. PUBLIC_API_BASE_URL määrittää sovellusten kirjautumis- ja synkronointipalvelimen. Julkaisubuild pitää rakentaa uudelleen osoitteen muuttuessa.
-- REST API:n dev/start/migrate lukevat ensin juuren .env:n ja sitten mahdollisen restapi/.env:n palvelukohtaisina ohituksina. Komentoympäristön muuttujat ovat etusijalla.
+- REST API:n dev/start/migrate lukevat ensin juuren .env:n ja sitten mahdollisen service/.env:n palvelukohtaisina ohituksina. Komentoympäristön muuttujat ovat etusijalla.
 - Docker Compose lukee saman juuren .env:n mutta asettaa kontille oman kuunteluosoitteen, sisäisen portin ja pysyvän tietokantapolun. Ohje: docs/environment.md.
 
 ## API repository workflow
 
 - API-muutokset commitoidaan restapi-submoduulin omaan repositoryyn. API-commit on julkaistava sinne ennen kuin sitä käyttävä Obstudy-viittaus pusketaan.
 - Obstudyyn commitoidaan restapi-viittauksen päivitys erikseen. Käytä olemassa olevassa checkoutissa git submodule update --init --recursive.
-- Railway kytketään suoraan Obstudy-restapi-repositoryyn, jolloin Root Directory on /. Tarkemmat ohjeet: docs/repositories.md ja restapi/docs/api.md.
+- Railway kytketään suoraan Obstudy-service-repositoryyn, jolloin Root Directory on /. Tarkemmat ohjeet: docs/repositories.md ja service/docs/api.md.
 
 ## Shared study data and app sync
 
@@ -476,4 +476,6 @@ Existing questions to avoid duplicating (JSON reference data):
 - Fastify palvelee web-käyttöliittymän juuresta ja REST API:n /v1-polusta samassa HTTPS-originissa. Web-build käyttää omaa originiaan; PUBLIC_API_BASE_URL on native-sovelluksille.
 - Web-kirjautuminen käyttää HttpOnly/Secure/SameSite=Strict-cookiea, tarkkaa WEB_ORIGIN-asetusta ja CSRF-otsakkeita. Bearer-token ei tallennu selaimen localStorageen tai IndexedDB:hen. API-migraatio 0004_browser_sessions erottaa web- ja native-istunnot.
 - IndexedDB säilyttää tilikohtaisen kirjaston, harjoitukset ja vastaus-outboxin. Service worker välimuistittaa vain julkiset sovellustiedostot, ei API-vastauksia. Päivitys tarjotaan kotinäkymässä; se ei vaihda versiota harjoituksen aikana tai muiden välilehtien ollessa auki.
-- Parent-repon Dockerfile kokoaa webin ja pinnatun API-alirepon. GitHub Actions voi julkaista main-pushit nykyiseen Railway-palveluun, kun tokenit ja asetukset on määritetty. API-alirepon itsenäinen Dockerfile pysyy API-only-versiona. Ohjeet: docs/web-app.md.
+- Obstudy-service-repon oma Dockerfile kokoaa sekä web-käyttöliittymän että API:n. Railway julkaisee tämän repositoryn main-pushit suoraan. Parent-repon erillistä web-buildia tai julkaisutokeneita ei tarvita. Ohjeet: service/docs/web-app.md.
+- Jaettu puhelimen käyttöliittymä, tyypit, opiskelulogiikka ja värit ovat service/web/src-kansiossa. Työpöytä ja native iOS käyttävät samoja toteutuksia TypeScript-välitysmoduulien ja $study-komponenttialiaksen kautta.
+- Web-rakennus käyttää SvelteKit 3:a omassa npm-workspacessaan. Native-projektin SvelteKit 2 säilyy; service rakentuu itsenäisesti ilman parent-repoa.

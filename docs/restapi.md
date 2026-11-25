@@ -1,6 +1,6 @@
 # Obstudy REST API
 
-The independent Node.js 24 / TypeScript / Fastify service in `restapi/` persists
+The independent Node.js 24 / TypeScript / Fastify service in `service/` persists
 accounts, device sessions, library versions, graded answers, review history, and
 sync events in SQLite. Desktop and iOS local databases remain independent.
 The API does not read a vault or store AI-provider credentials.
@@ -8,13 +8,13 @@ The API does not read a vault or store AI-provider credentials.
 ## Run locally
 
 ```sh
-cd restapi
+cd service
 npm ci
 cp .env.example .env
 npm run dev
 ```
 
-The server creates `restapi/data/obstudy-api.db` by default. Set `DATABASE_PATH` in
+The server creates `service/data/obstudy-api.db` by default. Set `DATABASE_PATH` in
 `.env` to choose a different file. This is the server database, separate from each
 app's local database. No external database service is required. Node's built-in
 `node:sqlite` handles storage.
@@ -243,7 +243,7 @@ Docker installed. The Node service itself is integration-tested against on-disk 
 
 ## Integration tests
 
-Run from `restapi/`:
+Run from `service/`:
 
 ```sh
 npm test

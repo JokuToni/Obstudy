@@ -5,7 +5,7 @@
         ExerciseSession,
         AnswerGrade,
     } from "$lib/types/exercises";
-    import StudyText from "$lib/components/practice/StudyText.svelte";
+    import StudyText from "$study/components/practice/StudyText.svelte";
     import DrawingEditor from "$lib/components/practice/DrawingEditor.svelte";
     import { hasAnswer, hasDrawing } from "$lib/drawing/answers";
     import type { DrawingAnswer } from "$lib/types/exercises";

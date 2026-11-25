@@ -14,15 +14,15 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "test:ui": "playwright test",
-        "test:unit": "playwright test --config playwright.unit.config.ts",
+        "test:unit": "playwright test --config playwright.unit.config.ts && npm --prefix service run test:web:unit",
         "dev:ios": "vite dev --mode ios",
         "build:ios": "vite build --mode ios",
         "ios:init": "tauri ios init",
         "ios:dev": "tauri ios dev",
         "ios:build": "tauri ios build",
-        "dev:web": "node scripts/runWeb.mjs dev",
-        "build:web": "node scripts/runWeb.mjs build",
-        "test:web": "playwright test --config playwright.web.config.ts"
+        "dev:web": "npm --prefix service run dev:web",
+        "build:web": "npm --prefix service run build",
+        "test:web": "npm --prefix service run test:web --"
     },
     "license": "MIT",
     "dependencies": {

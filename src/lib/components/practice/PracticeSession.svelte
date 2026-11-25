@@ -9,7 +9,7 @@
     } from "$lib/services/exercises";
     import { hasAnswer } from "$lib/drawing/answers";
     import { automaticGrade, gradeWithAi } from "$lib/grading/answers";
-    import ExitConfirmation from "./ExitConfirmation.svelte";
+    import ExitConfirmation from "$study/components/practice/ExitConfirmation.svelte";
     import PracticeView from "$lib/views/PracticeView.svelte";
     import type {
         ExerciseDraftAnswer,

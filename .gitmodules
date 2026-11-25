@@ -1,4 +1,4 @@
 [submodule "restapi"]
-	path = restapi
-	url = https://github.com/JokuToni/Obstudy-restapi.git
+	path = service
+	url = https://github.com/JokuToni/obstudy-service.git
 	branch = main

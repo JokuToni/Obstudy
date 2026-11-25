@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import MobileShell from "$lib/cloud/MobileShell.svelte";
+    import MobileShell from "$study/cloud/MobileShell.svelte";
     import { isIosBuild } from "$lib/mobile/runtime";
     import { fetchObsidianNotes } from "$lib/services/notes";
     import type { NoteSyncResult } from "$lib/types/notes";

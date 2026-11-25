@@ -1,5 +1,5 @@
 <script lang="ts">
-    import AccountPanel from "./AccountPanel.svelte";
+    import AccountPanel from "$study/cloud/AccountPanel.svelte";
     import {
         desktopAccount,
         connectDesktopAccount,

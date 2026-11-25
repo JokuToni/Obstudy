@@ -9,3 +9,5 @@ package-lock.json
 .svelte-kit-web/
 build-web/
 test-results-web/
+
+service/

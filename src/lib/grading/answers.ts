@@ -3,18 +3,7 @@ import type { Question } from "$lib/types";
 import type { AnswerGrade, ExerciseDraftAnswer } from "$lib/types/exercises";
 import { promptAi } from "../services/ai";
 
-export function automaticGrade(
-    question: Question,
-    answer: ExerciseDraftAnswer,
-): AnswerGrade | null {
-    if (question.format !== 0 || !answer.revealed) return null;
-    return {
-        points:
-            answer.selectedChoiceIndex === question.correctChoiceIndex ? 1 : 0,
-        source: "automatic",
-        feedback: "",
-    };
-}
+export { automaticGrade } from "./automatic";
 
 export function parseAiGrade(text: string, model: string): AnswerGrade {
     const cleaned = text

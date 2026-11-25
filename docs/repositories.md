@@ -1,65 +1,47 @@
-# API repository and submodule
+# Obstudy service repository
 
-The API lives in the private repository
-[Obstudy-restapi](https://github.com/JokuToni/Obstudy-restapi). Obstudy includes a
-pinned checkout at `restapi/` through Git submodules. The API's earlier commits
-were extracted with their history. Its files are no longer tracked individually
-by the parent repository; Obstudy tracks the selected API commit instead.
+The private [Obstudy-service](https://github.com/JokuToni/obstudy-service) repository
+contains the Fastify API, phone web app, shared study code and complete Docker
+build. It was renamed from Obstudy-restapi. This parent repository includes a
+pinned checkout at service/; the historical internal Git submodule name remains
+restapi, while its path and URL use the new service name.
 
-Clone with the API included:
+Clone the native app with shared code included:
 
 ```sh
 git clone --recurse-submodules https://github.com/JokuToni/Obstudy.git
 ```
 
-For an existing checkout:
+For an existing checkout after pulling the rename:
 
 ```sh
+git submodule sync --recursive
 git submodule update --init --recursive
-npm --prefix restapi ci
+npm ci
+npm --prefix service ci
 ```
 
-Access to the private API repository is required. A submodule normally checks out
-a detached commit. Before editing the API, switch to its main branch:
+If Git leaves an empty old restapi/ folder after changing revisions, inspect it
+before removing it; do not discard any local changes or database files. Git moves
+the tracked submodule to service/ in this change. Existing service databases and
+local environment files remain ignored and are preserved by the directory move.
+
+Work on backend or phone UI inside service/. Commit there, then update the parent
+submodule pointer separately. Push the service commit before publishing a parent
+commit that references it. A parent push alone does not publish service changes.
+A normal submodule checkout may be detached; switch to main before new edits.
 
 ```sh
-cd restapi
+cd service
 git switch main
-git pull --ff-only origin main
+npm run check
+npm test
+npm run test:web
 ```
 
-Run API checks and commit API changes inside `restapi/`. Push the API commit before
-publishing a parent commit that references it. Back in Obstudy, stage `restapi` and
-commit the updated pointer. Parent and API commits are separate operations; a push
-of the parent does not push API commits.
-
-To update the parent checkout to the latest published API main branch:
-
-```sh
-git submodule update --remote --merge restapi
-git add restapi
-```
-
-Review and commit the resulting pointer change. Ordinary clones and CI should use
-`git submodule update --init --recursive` to reproduce the pinned version rather
-than automatically tracking the newest API commit.
-
-Local dependencies, build output, SQLite files, and environment files remain
-ignored within the API repository. The shared Obstudy `.env` still works when the
-API is embedded; a standalone API checkout can use its own `.env`. See
-`restapi/docs/api.md` for the API contract and standalone setup.
-
-For Railway, connect **Obstudy-restapi** directly, allow the Railway GitHub app to
-access that private repository, and set Root Directory to `/`. Its Dockerfile is
-at the repository root. Existing volume and database settings stay the same; keep
-the volume attached to the existing service when changing its source repository.
-Set the health check to `/ready` and deploy the API repository's main branch.
-
-## Combined web app deployment
-
-The parent root Dockerfile now builds both the mobile web frontend and the pinned
-API checkout. To host the Home Screen app, use the parent GitHub Actions deployment
-workflow instead of the API-only automatic Railway deployment described above.
-The private submodule is fetched with an explicitly configured read token; Railway
-receives the complete source through its CLI. Keep the existing persistent volume.
-See [web-app.md](web-app.md) for the one-time service and Actions setup.
+Railway deploys Obstudy-service directly at Root Directory /. Its Dockerfile
+builds the API and frontend without the parent repository. Keep the existing
+persistent database volume and service domain. See
+[service/docs/web-app.md](../service/docs/web-app.md) for deployment and iPhone
+installation. The old parent workflow requiring Railway/GitHub deployment tokens
+has been removed; normal service GitHub pushes can trigger Railway auto-deploys.

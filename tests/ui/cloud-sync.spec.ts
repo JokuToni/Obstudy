@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createEmptyCard } from "ts-fsrs";
-import { buildApp } from "../../restapi/src/app";
-import { loadConfig } from "../../restapi/src/config";
-import { createDatabase, migrate } from "../../restapi/src/database";
+import { buildApp } from "../../service/src/app";
+import { loadConfig } from "../../service/src/config";
+import { createDatabase, migrate } from "../../service/src/database";
 
 const temporary = mkdtempSync(join(tmpdir(), "obstudy-app-cloud-"));
 const config = loadConfig({

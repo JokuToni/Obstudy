@@ -1,7 +1,2 @@
-import { cloudRequest } from "./client";
-import type { MobileSyncTransport } from "../mobile/types";
-import type { CloudExchange } from "./types";
-export const httpSyncTransport: MobileSyncTransport = {
-    exchange: (request) =>
-        cloudRequest<CloudExchange>("/v1/sync", "POST", request),
-};
+// Shared study implementation is owned by Obstudy-service.
+export * from "../../../service/web/src/lib/cloud/transport";

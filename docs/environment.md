@@ -15,15 +15,15 @@ those prefixes are intended for client-visible configuration. API tokens and vau
 paths continue to use the existing device-specific storage.
 
 The API's `dev`, `start`, and `migrate` scripts load `../.env` first and then an
-optional `restapi/.env` for service-local overrides. Shell/hosting environment
+optional `service/.env` for service-local overrides. Shell/hosting environment
 variables override both. A fresh setup only needs the root file; the service-local
 example remains available for independent API deployments. API scripts run with
-`restapi/` as their working directory, so the default relative DATABASE_PATH
-continues to resolve to `restapi/data/obstudy-api.db`.
+`service/` as their working directory, so the default relative DATABASE_PATH
+continues to resolve to `service/data/obstudy-api.db`.
 
 ```sh
 # From the repository root:
-npm --prefix restapi run dev
+npm --prefix service run dev
 npm run dev
 ```
 
@@ -33,10 +33,10 @@ Restart each development process after editing environment configuration. Public
 frontend values are compiled into builds, so rebuild when changing them for release.
 
 Docker Compose 2.24+ loads the optional root `.env` and then an optional
-`restapi/.env`, so a standalone API checkout also works:
+`service/.env`, so a standalone API checkout also works:
 
 ```sh
-docker compose -f restapi/compose.yaml up --build -d
+docker compose -f service/compose.yaml up --build -d
 ```
 
 Compose fixes the container's HOST to 0.0.0.0, internal PORT to 3000,
@@ -45,7 +45,7 @@ come from the shared file. The published port remains localhost:3000 and data
 persists in its named volume. Edit Compose's port mapping if you need a different
 published port. HTTPS routing is configured separately on the deployment host.
 
-A hosting service building only `restapi/` should inject environment variables
+A hosting service building only `service/` should inject environment variables
 through its configuration. The root `.env` is outside that Docker build context
 and is never copied into the image. No secrets are included in the example file.
 
@@ -54,7 +54,7 @@ and is never copied into the image. No secrets are included in the example file.
 The installable web build uses its own origin for /v1 requests, regardless of
 PUBLIC_API_BASE_URL. WEB_ORIGIN configures the API's allowed browser origin; use
 the exact HTTPS address without a trailing slash (HTTP localhost is allowed for
-development). WEB_DIRECTORY optionally points to compiled static files. The root
-Dockerfile sets it to /app/public. Both Docker contexts exclude local .env files.
-The GitHub deployment workflow uses Actions secrets and Railway runtime variables,
+development). WEB_DIRECTORY optionally points to compiled static files. The service
+Dockerfile sets it to /app/public. The service Docker context excludes local .env files.
+Railway deploys the self-contained service repository, using runtime variables,
 not the local .env. See [web-app.md](web-app.md) for setup.

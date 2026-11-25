@@ -6,7 +6,7 @@
     } from "$lib/types/exercises";
     import DrawingPreview from "$lib/components/practice/DrawingPreview.svelte";
     import { hasDrawing, hasAnswer } from "$lib/drawing/answers";
-    import StudyText from "$lib/components/practice/StudyText.svelte";
+    import StudyText from "$study/components/practice/StudyText.svelte";
     import AnswerGrading from "$lib/components/practice/AnswerGrading.svelte";
     import { button, primaryButton } from "$lib/components/ui/styles";
     let {
