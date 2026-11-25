@@ -22,7 +22,10 @@
         "ios:build": "tauri ios build",
         "dev:web": "npm --prefix service run dev:web",
         "build:web": "npm --prefix service run build",
-        "test:web": "npm --prefix service run test:web --"
+        "test:web": "npm --prefix database-service run build && npm --prefix service run test:web --",
+        "dev:database": "npm --prefix database-service run dev",
+        "build:database": "npm --prefix database-service run build",
+        "test:database": "npm --prefix database-service test"
     },
     "license": "MIT",
     "dependencies": {

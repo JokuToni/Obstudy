@@ -1,24 +1,10 @@
-# Phone web app
+# Obstudy phone web app
 
-The complete web app and backend live in the standalone
-[Obstudy-service](https://github.com/JokuToni/obstudy-service) repository, checked
-out here as the service/ submodule. Its own Dockerfile builds and serves both.
-Railway should deploy that repository directly; the former parent deployment
-workflow and combined parent Dockerfile have been removed.
+The shared phone interface and public gateway live in service/. The SQLite owner
+runs separately in database-service/. The public domain and iPhone installation
+flow stay the same.
 
-See [service deployment and installation instructions](../service/docs/web-app.md).
-
-From this parent checkout, the convenience commands are:
-
-```sh
-npm --prefix service ci
-npm run build:web
-WEB_ORIGIN=http://127.0.0.1:3000 npm --prefix service start
-npm run test:web
-```
-
-The native apps reuse service/web/src/lib components and study logic. Root
-TypeScript forwarding modules and the $study Svelte alias preserve their imports;
-there is only one implementation. The web app builds to service/public/, while
-native builds still use build/. Desktop-only Obsidian scanning, question
-generation, AI integrations and native window handling remain in this repository.
+See [the service's web app guide](../service/docs/web-app.md) for development,
+installation, offline behavior and UI checks. Before deploying the database
+separation, follow [the cutover guide](database-service.md) to preserve existing
+accounts, sessions and study history.

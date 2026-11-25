@@ -8,6 +8,10 @@ macOS/iOS). Only account metadata reaches the frontend. Browser preview uses
 fetch and keeps its token in memory, so reloading the preview requires signing in
 again; no token is written to browser localStorage or IndexedDB.
 
+The public service now delegates storage and domain transactions to the private
+SQLite service. See [database-service.md](database-service.md) for deployment;
+PUBLIC_API_BASE_URL remains the gateway address.
+
 ## Connect devices
 
 1. Deploy the updated API first. `/v1/capabilities` reports history-import,
@@ -103,7 +107,7 @@ shapes remain supported. Catalog sets now optionally carry isStudying.
 ## Verification and development
 
 Run npm run check, npm run test:unit, cargo test --manifest-path src-tauri/Cargo.toml,
-and the UI tests. The cloud UI tests start an isolated real SQLite API and exercise
+and the UI tests. The cloud UI tests start an isolated SQLite owner and HTTP gateway and exercise
 login, history migration, bidirectional progress, retries, and account separation.
 No production account is created and no production vault is used by these tests.
 

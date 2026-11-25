@@ -2,3 +2,7 @@
 	path = service
 	url = https://github.com/JokuToni/obstudy-service.git
 	branch = main
+[submodule "database-service"]
+	path = database-service
+	url = https://github.com/JokuToni/obstudy-database-service.git
+	branch = main

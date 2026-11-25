@@ -6,25 +6,39 @@ import { randomUUID } from "node:crypto";
 import { createEmptyCard } from "ts-fsrs";
 import { buildApp } from "../../service/src/app";
 import { loadConfig } from "../../service/src/config";
-import { createDatabase, migrate } from "../../service/src/database";
+import { createDatabase, migrate } from "../../database-service/src/database";
+import { buildApp as buildDataApp } from "../../database-service/src/app";
+import { loadConfig as loadDataConfig } from "../../database-service/src/config";
 
 const temporary = mkdtempSync(join(tmpdir(), "obstudy-app-cloud-"));
-const config = loadConfig({
+const token = randomUUID() + randomUUID();
+const dataConfig = loadDataConfig({
     DATABASE_PATH: join(temporary, "api.db"),
     REGISTRATION_ENABLED: "true",
     LOG_LEVEL: "silent",
-    CORS_ORIGINS: "http://127.0.0.1:1420",
+    DATABASE_SERVICE_TOKEN: token,
 });
-const database = createDatabase(config);
-const api = buildApp(config, database);
+const database = createDatabase(dataConfig);
+const data = buildDataApp(dataConfig, database);
+let api: ReturnType<typeof buildApp>;
 let apiUrl: string;
 const password = "a-long-test-password";
 test.beforeAll(async () => {
     await migrate(database);
+    const dataUrl = await data.listen({ port: 0, host: "127.0.0.1" });
+    api = buildApp(
+        loadConfig({
+            DATABASE_SERVICE_URL: dataUrl,
+            DATABASE_SERVICE_TOKEN: token,
+            LOG_LEVEL: "silent",
+            CORS_ORIGINS: "http://127.0.0.1:1420",
+        }),
+    );
     apiUrl = await api.listen({ port: 0, host: "127.0.0.1" });
 });
 test.afterAll(async () => {
     await api.close();
+    await data.close();
     rmSync(temporary, { recursive: true, force: true });
 });
 function fixture() {

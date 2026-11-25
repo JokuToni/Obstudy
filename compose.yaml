@@ -1,0 +1,34 @@
+services:
+    database:
+        build: ./database-service
+        restart: unless-stopped
+        environment:
+            NODE_ENV: production
+            HOST: 0.0.0.0
+            PORT: 4000
+            DATABASE_PATH: /app/data/obstudy-api.db
+            DATABASE_SERVICE_TOKEN: ${DATABASE_SERVICE_TOKEN:?Set the shared private credential}
+            REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+            SESSION_DAYS: ${SESSION_DAYS:-30}
+            WEB_ORIGIN: ${WEB_ORIGIN:-http://127.0.0.1:3000}
+        volumes:
+            - database:/app/data
+        expose:
+            - "4000"
+    api:
+        build: ./service
+        restart: unless-stopped
+        depends_on:
+            database:
+                condition: service_healthy
+        environment:
+            NODE_ENV: production
+            HOST: 0.0.0.0
+            PORT: 3000
+            DATABASE_SERVICE_URL: http://database:4000
+            DATABASE_SERVICE_TOKEN: ${DATABASE_SERVICE_TOKEN:?Set the shared private credential}
+            CORS_ORIGINS: ${CORS_ORIGINS:-}
+        ports:
+            - "127.0.0.1:3000:3000"
+volumes:
+    database:
