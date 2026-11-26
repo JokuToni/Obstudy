@@ -516,3 +516,9 @@ Existing questions to avoid duplicating (JSON reference data):
 ## Private database readiness diagnostics
 
 - Gatewayn `/ready` erottaa tietopalvelun verkkovirheen, sisäisen tunnistusvirheen ja tietokannan valmiusvirheen. Verkkovirheestä palautetaan vain tunnettu virhekoodi sekä käytössä oleva protokolla ja portti. Yksityistä hostnamea, tunnisteita, raakoja poikkeuksia tai tietopalvelun virherunkoa ei palauteta. Yksityinen origin ja turvallinen virhekoodi näkyvät palvelinlokissa.
+
+## Desktop folder unlinking
+
+- Muistiinpanokansio pidetään sidottuna yhteen tiliin ja palvelimeen kerrallaan. Account and sync -välilehden Notes folder link näyttää linkitetyn tilin ja palvelimen. Unlink folder pyytää vahvistuksen, odottaa käynnissä olevan synkronoinnin, kirjaa tämän työpöytäsovelluksen ulos paikallisesti ja poistaa valitun linkityksen.
+- Toiminto toimii ilman verkkoyhteyttä. Se ei poista palvelintiliä, palvelindataa, muiden laitteiden istuntoja eikä paikallisia muistiinpanoja, kysymyksiä, vastauksia tai aikatauluja. Vanha synkronointidokumentti ja jonot arkistoidaan paikallisesti. Vahvistus kertoo, että uuden tilin yhdistäminen voi lähettää kansiossa olevan opiskeluhistorian sille tilille.
+- Synkronointipyynnöt sidotaan aloittaneeseen tiliin/palvelimeen. Vanhat commitit eivät kelpaa linkityksen poiston tai uudelleenlinkityksen jälkeen. Jo kehityksessä sovellettu migraatio 0014 säilyy muuttamattomana; 0015 palauttaa yhden aktiivisen linkin ja arkistoi ylimääräiset profiilit menettämättä niiden sisältöä.

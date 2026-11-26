@@ -20,7 +20,7 @@ pub async fn cloud_desktop_snapshot(
         if row.get::<String, _>("userId") != userId
             || row.get::<String, _>("serverUrl") != serverUrl
         {
-            return Err("This notes folder is linked to a different account or server. Use its original account or another notes folder.".into());
+            return Err("This notes folder is linked to a different account or server. Use Unlink folder in Account and sync before connecting another account.".into());
         }
         (
             row.get::<i64, _>("revision"),
@@ -75,7 +75,7 @@ pub async fn cloud_desktop_commit(
         .await
         .map_err(|e| e.to_string())?;
     let changed=if expectedRevision==0 {
-        sqlx::query("INSERT OR IGNORE INTO cloudState(id,userId,serverUrl,revision,document) VALUES (1,?,?,1,?)").bind(&userId).bind(&serverUrl).bind(state.to_string()).execute(&mut *transaction).await
+        sqlx::query("INSERT OR IGNORE INTO cloudState(id,userId,serverUrl,revision,document) VALUES (1,?,?,(SELECT COALESCE(MAX(revision),0)+1 FROM cloudStateArchive),?)").bind(&userId).bind(&serverUrl).bind(state.to_string()).execute(&mut *transaction).await
     }else{
         sqlx::query("UPDATE cloudState SET revision=revision+1,document=? WHERE id=1 AND userId=? AND serverUrl=? AND revision=?").bind(state.to_string()).bind(&userId).bind(&serverUrl).bind(expectedRevision).execute(&mut *transaction).await
     }.map_err(|e|e.to_string())?;
@@ -142,8 +142,69 @@ pub async fn cloud_desktop_commit(
     for questionId in touched {
         sqlx::query("UPDATE questions SET lastAnsweredAt=(SELECT MAX(answeredAt) FROM answerHistory WHERE questionId=questions.id),averageScore=COALESCE((SELECT AVG(points) FROM answerHistory WHERE questionId=questions.id AND points IS NOT NULL),0) WHERE id=?").bind(questionId).execute(&mut *transaction).await.map_err(|e|e.to_string())?;
     }
+    let revision: i64 = sqlx::query_scalar("SELECT revision FROM cloudState WHERE id=1")
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(|error| error.to_string())?;
     transaction.commit().await.map_err(|e| e.to_string())?;
-    Ok(expectedRevision + 1)
+    Ok(revision)
+}
+
+#[tauri::command]
+pub async fn cloud_desktop_link(folderPath: String) -> Result<Value, String> {
+    let (mut connection, _) = openDatabase(&folderPath).await?;
+    let row = sqlx::query("SELECT userId,serverUrl,revision,json_array_length(COALESCE(json_extract(document,'$.outbox'),'[]'))+json_array_length(COALESCE(json_extract(document,'$.resetQueue'),'[]'))+json_array_length(COALESCE(json_extract(document,'$.baselineRecords'),'[]')) AS pending FROM cloudState WHERE id=1")
+        .fetch_optional(&mut connection).await.map_err(|error| error.to_string())?;
+    Ok(row.map(|row| json!({"userId":row.get::<String,_>("userId"),"serverUrl":row.get::<String,_>("serverUrl"),"revision":row.get::<i64,_>("revision"),"pendingCount":row.get::<i64,_>("pending")})).unwrap_or(Value::Null))
+}
+
+async fn unlink_folder(
+    folderPath: &str,
+    userId: &str,
+    serverUrl: &str,
+    expectedRevision: i64,
+) -> Result<(), String> {
+    let (mut connection, _) = openDatabase(folderPath).await?;
+    let mut transaction = connection
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|error| error.to_string())?;
+    let archived = sqlx::query("INSERT INTO cloudStateArchive(userId,serverUrl,revision,document) SELECT userId,serverUrl,revision,document FROM cloudState WHERE id=1 AND userId=? AND serverUrl=? AND revision=?")
+        .bind(userId).bind(serverUrl).bind(expectedRevision).execute(&mut *transaction).await.map_err(|error|error.to_string())?;
+    if archived.rows_affected() != 1 {
+        return Err("The folder link changed. Refresh it and try again.".into());
+    }
+    let result = sqlx::query(
+        "DELETE FROM cloudState WHERE id=1 AND userId=? AND serverUrl=? AND revision=?",
+    )
+    .bind(userId)
+    .bind(serverUrl)
+    .bind(expectedRevision)
+    .execute(&mut *transaction)
+    .await
+    .map_err(|error| error.to_string())?;
+    if result.rows_affected() != 1 {
+        return Err("The folder link changed. Refresh it and try again.".into());
+    }
+    transaction
+        .commit()
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cloud_desktop_unlink(
+    window: tauri::WebviewWindow,
+    folderPath: String,
+    userId: String,
+    serverUrl: String,
+    expectedRevision: i64,
+) -> Result<(), String> {
+    if window.label() != "main" {
+        return Err("Folder unlinking is restricted to the main window.".into());
+    }
+    unlink_folder(&folderPath, &userId, &serverUrl, expectedRevision).await
 }
 
 #[cfg(test)]
@@ -231,6 +292,139 @@ mod tests {
                 )
                 .await
                 .is_err()
+            );
+            std::fs::remove_dir_all(root).unwrap();
+        });
+    }
+}
+
+#[cfg(test)]
+mod unlink_tests {
+    use super::*;
+
+    #[test]
+    fn unlink_is_specific_preserves_study_data_and_invalidates_stale_commits() {
+        tauri::async_runtime::block_on(async {
+            let root =
+                std::env::temp_dir().join(format!("obstudy-unlink-{}", uuid::Uuid::new_v4()));
+            std::fs::create_dir(&root).unwrap();
+            let folder = root.to_str().unwrap().to_string();
+            let server = "https://api.example.com";
+            let (mut connection, _) = openDatabase(&folder).await.unwrap();
+            sqlx::raw_sql(r#"INSERT INTO notes(id,filePath) VALUES ('note','note.md');
+                INSERT INTO questions(id,noteId,text,exampleAnswer,difficulty,format,maxCharacters,answerCriteria,isBasicQuestion) VALUES ('q','note','Q','A',1,1,100,'Explain',1);
+                INSERT INTO questionFsrs(questionId,fsrsData) VALUES ('q','{"due":"2026-01-01T00:00:00Z","reps":4}');
+                INSERT INTO cloudAnswers(id,exerciseId,noteId,mode,questionId,answeredAt,text,points,feedback,questionSnapshot) VALUES ('answer','exercise','note','practice','q','2026-01-01T00:00:00Z','Saved',1,'','{"id":"q"}');"#).execute(&mut connection).await.unwrap();
+            connection.close().await.unwrap();
+            let state = json!({"schemaVersion":1,"knownAnswerIds":[],"outbox":[{"id":"pending"}],"resetQueue":[]});
+            assert_eq!(
+                cloud_desktop_commit(
+                    folder.clone(),
+                    "original".into(),
+                    server.into(),
+                    0,
+                    state.clone(),
+                    None,
+                    vec![]
+                )
+                .await
+                .unwrap(),
+                1
+            );
+            let linked = cloud_desktop_link(folder.clone()).await.unwrap();
+            assert_eq!(linked["userId"], "original");
+            assert_eq!(linked["pendingCount"], 1);
+            assert!(unlink_folder(&folder, "wrong", server, 1).await.is_err());
+            assert!(unlink_folder(&folder, "original", server, 9).await.is_err());
+            assert!(
+                cloud_desktop_snapshot(folder.clone(), "another".into(), server.into())
+                    .await
+                    .is_err()
+            );
+            unlink_folder(&folder, "original", server, 1).await.unwrap();
+            assert!(cloud_desktop_link(folder.clone()).await.unwrap().is_null());
+            assert!(
+                cloud_desktop_commit(
+                    folder.clone(),
+                    "original".into(),
+                    server.into(),
+                    1,
+                    state.clone(),
+                    None,
+                    vec![]
+                )
+                .await
+                .is_err()
+            );
+            let (mut connection, _) = openDatabase(&folder).await.unwrap();
+            for table in ["notes", "questions", "cloudAnswers", "questionFsrs"] {
+                assert_eq!(
+                    sqlx::query_scalar::<_, i64>(&format!("SELECT COUNT(*) FROM {table}"))
+                        .fetch_one(&mut connection)
+                        .await
+                        .unwrap(),
+                    1
+                );
+            }
+            let card: String =
+                sqlx::query_scalar("SELECT fsrsData FROM questionFsrs WHERE questionId='q'")
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap();
+            assert_eq!(serde_json::from_str::<Value>(&card).unwrap()["reps"], 4);
+            let archived: String = sqlx::query_scalar(
+                "SELECT document FROM cloudStateArchive WHERE userId='original'",
+            )
+            .fetch_one(&mut connection)
+            .await
+            .unwrap();
+            assert_eq!(serde_json::from_str::<Value>(&archived).unwrap(), state);
+            connection.close().await.unwrap();
+            assert_eq!(
+                cloud_desktop_commit(
+                    folder.clone(),
+                    "original".into(),
+                    server.into(),
+                    0,
+                    state.clone(),
+                    None,
+                    vec![]
+                )
+                .await
+                .unwrap(),
+                2
+            );
+            assert!(
+                cloud_desktop_commit(
+                    folder.clone(),
+                    "original".into(),
+                    server.into(),
+                    1,
+                    state.clone(),
+                    None,
+                    vec![]
+                )
+                .await
+                .is_err()
+            );
+            unlink_folder(&folder, "original", server, 2).await.unwrap();
+            assert_eq!(
+                cloud_desktop_commit(
+                    folder.clone(),
+                    "another".into(),
+                    server.into(),
+                    0,
+                    state,
+                    None,
+                    vec![]
+                )
+                .await
+                .unwrap(),
+                3
+            );
+            assert_eq!(
+                cloud_desktop_link(folder).await.unwrap()["userId"],
+                "another"
             );
             std::fs::remove_dir_all(root).unwrap();
         });

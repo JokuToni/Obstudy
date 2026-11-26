@@ -1,6 +1,6 @@
 import { syncBatch } from "./batch";
 import { invoke } from "@tauri-apps/api/core";
-import { cloudRequest, CloudError, serverUrl } from "./client";
+import { cloudRequest as requestCloud, CloudError, serverUrl } from "./client";
 import { validateCatalog } from "../mobile/catalog";
 import type { CloudHistoryRecord, CloudExchange, CloudSession } from "./types";
 import type {
@@ -167,6 +167,16 @@ async function performSync(
 ): Promise<void> {
     const base = serverUrl();
     if (!base) throw new Error("Configure the study server first.");
+    const cloudRequest = <T>(
+        path: string,
+        method = "GET",
+        body?: unknown,
+        retry = true,
+    ) =>
+        requestCloud<T>(path, method, body, retry, {
+            userId: session.userId,
+            serverUrl: base,
+        });
     try {
         const capabilities = await cloudRequest<{ features: string[] }>(
             "/v1/capabilities",
@@ -469,4 +479,51 @@ async function performSync(
     }
     await commit();
     await exchange();
+}
+
+export interface DesktopFolderLink {
+    userId: string;
+    serverUrl: string;
+    revision: number;
+    pendingCount: number;
+}
+export function getDesktopFolderLink(
+    folderPath: string,
+): Promise<DesktopFolderLink | null> {
+    return invoke("cloud_desktop_link", { folderPath });
+}
+/** Finish existing sync work before forgetting credentials and removing the selected link. */
+export function unlinkDesktopFolder(
+    folderPath: string,
+    link: DesktopFolderLink,
+    session: CloudSession | null,
+): Promise<void> {
+    const next = pending
+        .catch(() => {})
+        .then(async () => {
+            const current = await getDesktopFolderLink(folderPath);
+            if (
+                !current ||
+                current.userId !== link.userId ||
+                current.serverUrl !== link.serverUrl
+            ) {
+                throw new Error(
+                    "The folder link changed. Refresh it and try again.",
+                );
+            }
+            const base = serverUrl();
+            if (base && session)
+                await invoke("cloud_forget_session", {
+                    serverUrl: base,
+                    expectedUserId: session.userId,
+                });
+            await invoke("cloud_desktop_unlink", {
+                folderPath,
+                userId: current.userId,
+                serverUrl: current.serverUrl,
+                expectedRevision: current.revision,
+            });
+        });
+    pending = next;
+    return next;
 }

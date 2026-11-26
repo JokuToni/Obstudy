@@ -40,10 +40,19 @@ and canonical FSRS schedules. Desktop still owns local Obsidian scanning, questi
 generation, AI credentials, practice settings, and the desktop editor/window flow.
 These functions do not require uploading the vault itself or AI secrets.
 
-A desktop vault is bound to its first linked account and server. Linking that same
-vault to a different account/server is rejected instead of mixing histories. Use
-the original account or a separate vault database. Remote notes owned by another
-publisher are preserved when this desktop updates its own notes. The API syncs
+A desktop vault is bound to one account and server at a time. Account and sync
+shows the current binding in Notes folder link. Unlink folder asks for confirmation,
+finishes any already-running sync, forgets this desktop's saved login locally and
+removes only the selected binding. It also works offline: no server account,
+remote history or other device's session is changed. Local notes, questions,
+answers and schedules remain. Pending sync state is archived locally, without
+being sent automatically after unlinking. Connecting another account can upload
+that retained local study data; the confirmation explains this explicitly.
+
+Stale sync writes are rejected after unlink/relink, including relinking the same
+account. Requests are pinned to the account/server that started the sync, so a
+login change cannot send an old queue through new credentials. Remote notes owned
+by another publisher are preserved when this desktop updates its own notes. The API syncs
 study data, not Markdown files, Obsidian configuration, or attachments on disk.
 
 The iOS cache is scoped by server and account. Signing out retains unsynced data
@@ -126,3 +135,13 @@ The installable web target shares the mobile study/sync service. It uses its own
 origin, HttpOnly cookie authentication and account-scoped IndexedDB. Preview mode
 still uses memory-only bearer tokens; native credentials stay in Keychain. See
 [web-app.md](web-app.md) for installation, offline updates and combined deployment.
+
+## Local link migrations
+
+Migration 0014 was already applied during development of the cancelled multi-account
+cache change. It remains unchanged. Migration 0015 restores the single-link
+constraint, retaining the original binding and archiving any extra development
+profiles with their documents and pending work. Applied SQL files must not be
+edited or removed. Unlinking archives the active sync document before removing
+its binding; new links use a higher revision so stale commits cannot overwrite
+fresh state. These are native vault migrations, independent of server migrations.

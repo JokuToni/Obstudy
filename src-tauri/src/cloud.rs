@@ -176,12 +176,21 @@ pub async fn cloud_request(
     path: String,
     method: String,
     body: Value,
+    expectedUserId: Option<String>,
 ) -> Result<Value, String> {
     if window.label() != "main" {
         return Err("Account access is restricted to the main window.".into());
     }
     let server = base_url(&serverUrl)?.origin().ascii_serialization();
     let saved = credentials(&server)?.ok_or("Sign in to sync this device.")?;
+    if expectedUserId
+        .as_deref()
+        .is_some_and(|expected| expected != saved.userId)
+    {
+        return Ok(
+            json!({"status":409,"body":{"error":"The signed-in account changed. Sync again with the current account."}}),
+        );
+    }
     request(&server, &path, &method, body, Some(&saved.token)).await
 }
 #[tauri::command]
@@ -205,6 +214,29 @@ pub async fn cloud_sign_out(window: tauri::WebviewWindow, serverUrl: String) -> 
         Err(_) => Err("Unable to remove saved login.".into()),
     }
 }
+/// Forget this desktop's login without contacting or changing the server account.
+#[tauri::command]
+pub async fn cloud_forget_session(
+    window: tauri::WebviewWindow,
+    serverUrl: String,
+    expectedUserId: String,
+) -> Result<(), String> {
+    if window.label() != "main" {
+        return Err("Account access is restricted to the main window.".into());
+    }
+    let server = base_url(&serverUrl)?.origin().ascii_serialization();
+    if let Some(saved) = credentials(&server)? {
+        if saved.userId != expectedUserId {
+            return Err("The signed-in account changed. Refresh and try again.".into());
+        }
+        match entry(&server)?.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => {}
+            Err(_) => return Err("Unable to remove the saved login from Keychain.".into()),
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

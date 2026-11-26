@@ -89,12 +89,12 @@ mod tests {
                 .execute(&mut connection)
                 .await
                 .unwrap();
-            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 13);
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 15);
             sqlx::query("INSERT INTO notes (id, filePath) VALUES ('note', 'note.md')")
                 .execute(&mut connection)
                 .await
                 .unwrap();
-            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 13);
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 15);
             let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM notes")
                 .fetch_one(&mut connection)
                 .await
@@ -161,8 +161,8 @@ mod tests {
                     .fetch_one(&mut connection)
                     .await
                     .unwrap();
-            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 13);
-            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 13);
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 15);
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 15);
             assert_eq!(
                 sqlx::query_scalar::<_, String>(
                     "SELECT fsrsData FROM questionFsrs WHERE questionId='q'"
@@ -215,11 +215,73 @@ mod tests {
                     .await
                     .unwrap()
                     .schemaVersion,
-                13
+                15
             );
             assert!(initialize_database("relative/path".into()).await.is_err());
             assert!(initialize_database(first.databasePath).await.is_err());
             std::fs::remove_dir_all(folderPath).unwrap();
+        });
+    }
+}
+
+#[cfg(test)]
+mod link_upgrade_tests {
+    use super::*;
+    use sqlx::{Row, migrate::Migrate};
+
+    #[test]
+    fn single_link_upgrade_preserves_original_and_archives_development_profiles() {
+        tauri::async_runtime::block_on(async {
+            let mut connection = SqliteConnection::connect("sqlite::memory:").await.unwrap();
+            connection.ensure_migrations_table().await.unwrap();
+            for migration in MIGRATIONS
+                .iter()
+                .filter(|migration| migration.version <= 13)
+            {
+                connection.apply(migration).await.unwrap();
+            }
+            let original = r#"{"cursor":"42","outbox":[{"id":"original-pending"}]}"#;
+            sqlx::query(
+                "INSERT INTO cloudState VALUES (1,'original','https://api.example.com',7,?)",
+            )
+            .bind(original)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+            connection
+                .apply(
+                    MIGRATIONS
+                        .iter()
+                        .find(|migration| migration.version == 14)
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let extra = r#"{"cursor":"99","outbox":[{"id":"extra-pending"}]}"#;
+            sqlx::query("INSERT INTO cloudState(userId,serverUrl,revision,document) VALUES ('other','https://api.example.com',9,?)").bind(extra).execute(&mut connection).await.unwrap();
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 15);
+            let active = sqlx::query("SELECT userId,revision,document FROM cloudState WHERE id=1")
+                .fetch_one(&mut connection)
+                .await
+                .unwrap();
+            assert_eq!(active.get::<String, _>("userId"), "original");
+            assert_eq!(active.get::<i64, _>("revision"), 7);
+            assert_eq!(active.get::<String, _>("document"), original);
+            let saved: String =
+                sqlx::query_scalar("SELECT document FROM cloudStateArchive WHERE userId='other'")
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap();
+            assert_eq!(saved, extra);
+            assert!(
+                sqlx::query(
+                    "INSERT INTO cloudState VALUES (2,'other','https://api.example.com',1,'{}')"
+                )
+                .execute(&mut connection)
+                .await
+                .is_err()
+            );
+            assert_eq!(createDatabaseTables(&mut connection).await.unwrap(), 15);
         });
     }
 }
