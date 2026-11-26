@@ -272,8 +272,20 @@ pub async fn save_generated_questions(
 ) -> Result<Value, String> {
     let _guard = state.0.lock().await;
     let (mut connection, _) = crate::database::openDatabase(&folderPath).await?;
-    let mut transaction = connection.begin().await.map_err(storage_error)?;
-    save_batch(&mut transaction, &batch).await?;
+    persist_batch(&mut connection, &batch).await
+}
+
+async fn persist_batch(
+    connection: &mut SqliteConnection,
+    batch: &QuestionBatch,
+) -> Result<Value, String> {
+    // Reserve the writer before loading the note. A deferred read transaction
+    // cannot wait when upgrading against a concurrent sync writer (SQLITE_BUSY).
+    let mut transaction = connection
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(storage_error)?;
+    save_batch(&mut transaction, batch).await?;
     let note = load_note(&mut transaction, &batch.noteId).await?;
     transaction.commit().await.map_err(storage_error)?;
     Ok(note)
@@ -358,7 +370,10 @@ pub async fn manage_note_questions(
 ) -> Result<Value, String> {
     let _guard = state.0.lock().await;
     let (mut connection, _) = crate::database::openDatabase(&folderPath).await?;
-    let mut transaction = connection.begin().await.map_err(storage_error)?;
+    let mut transaction = connection
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(storage_error)?;
     let note = apply_question_action(
         &mut transaction,
         &noteId,
@@ -410,6 +425,71 @@ mod tests {
                 "maxCharacters":500,"answerCriteria":"Explain the concept.",
                 "fsrsData":if basic {new_card()} else {Value::Null}}]
         })).unwrap()
+    }
+
+    #[test]
+    fn generation_waits_for_a_concurrent_sync_writer_and_preserves_both_changes() {
+        tauri::async_runtime::block_on(async {
+            let (root, mut sync_connection, note) = fixture().await;
+            let (mut generation_connection, _) =
+                crate::database::openDatabase(root.to_str().unwrap())
+                    .await
+                    .unwrap();
+            let mut sync = sync_connection.begin_with("BEGIN IMMEDIATE").await.unwrap();
+            sqlx::query("UPDATE notes SET isStudying=1 WHERE id='note'")
+                .execute(&mut *sync)
+                .await
+                .unwrap();
+            let pending_batch = batch(&note, true);
+            // Reproduce the old read-then-upgrade failure while sync owns the writer.
+            let mut deferred = generation_connection.begin().await.unwrap();
+            let lock_error = save_batch(&mut deferred, &pending_batch).await.unwrap_err();
+            assert!(lock_error.contains("database is locked"), "{lock_error}");
+            deferred.rollback().await.unwrap();
+            // Separate file-backed connections reproduce a writer held by sync while
+            // generation starts. No AI request or retry is needed to save this batch.
+            let (saved, ()) = tokio::join!(
+                persist_batch(&mut generation_connection, &pending_batch),
+                async {
+                    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+                    sync.commit().await.unwrap();
+                }
+            );
+            let saved = saved.unwrap();
+            assert_eq!(saved["isStudying"], true);
+            assert_eq!(saved["questions"].as_array().unwrap().len(), 1);
+            assert_eq!(saved["questionFsrs"].as_array().unwrap().len(), 1);
+            assert_eq!(
+                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM questions")
+                    .fetch_one(&mut generation_connection)
+                    .await
+                    .unwrap(),
+                1
+            );
+            assert_eq!(
+                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM questionFsrs")
+                    .fetch_one(&mut generation_connection)
+                    .await
+                    .unwrap(),
+                1
+            );
+            // Optimistic validation still rejects a stale retry without duplicating data,
+            // and a subsequent valid batch can write after that rollback.
+            assert!(
+                persist_batch(&mut generation_connection, &pending_batch)
+                    .await
+                    .unwrap_err()
+                    .contains("changed during generation")
+            );
+            let second = persist_batch(&mut generation_connection, &batch(&saved, false))
+                .await
+                .unwrap();
+            assert_eq!(second["questions"].as_array().unwrap().len(), 2);
+            assert_eq!(second["questionFsrs"].as_array().unwrap().len(), 1);
+            generation_connection.close().await.unwrap();
+            sync_connection.close().await.unwrap();
+            std::fs::remove_dir_all(root).unwrap();
+        });
     }
 
     async fn seed_history(connection: &mut SqliteConnection, note: &Value) {
