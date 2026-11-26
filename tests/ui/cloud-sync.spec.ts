@@ -123,6 +123,10 @@ test("iOS signs in, downloads questions, saves an answer to the API, and isolate
     await page
         .getByRole("button", { name: "Start session", exact: true })
         .click();
+    await page
+        .getByRole("dialog", { name: "Quick tweak", exact: true })
+        .getByRole("button", { name: "Start session", exact: true })
+        .click();
     await page.getByRole("radio", { name: "A", exact: true }).click();
 
     await expect

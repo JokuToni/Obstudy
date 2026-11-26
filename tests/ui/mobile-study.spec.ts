@@ -26,8 +26,12 @@ async function openSample(page: Page, mode: "Study" | "Practice" = "Study") {
         .getByRole("button", { name: "Try sample questions", exact: true })
         .click();
     await page.getByRole("button", { name: mode, exact: true }).click();
+    await page
+        .getByRole("button", { name: "Start session", exact: true })
+        .click();
     await page.getByLabel("Number of questions", { exact: true }).fill("3");
     await page
+        .getByRole("dialog", { name: "Quick tweak", exact: true })
         .getByRole("button", { name: "Start session", exact: true })
         .click();
     await expect(
