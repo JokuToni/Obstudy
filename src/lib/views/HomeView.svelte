@@ -345,6 +345,7 @@
                 request.questionFormat,
                 request.difficulty,
                 {
+                    generationMode: request.generationMode,
                     onProgress: (progress) => {
                         noteGenerations[request.noteId] = {
                             ...noteGenerations[request.noteId],

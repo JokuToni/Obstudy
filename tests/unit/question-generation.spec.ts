@@ -403,12 +403,15 @@ test("only rejected or missing questions are retried and retries are bounded", a
             '{"questions":[],"warnings":["Insufficient source content."]}',
         );
     };
-    const partial = await runQuestionGeneration(
-        { questionCount: 1, noteId: "note" },
-        noContent.dependencies,
-    );
-    expect(partial.complete).toBe(false);
-    expect(partial.generatedCount).toBe(0);
+    await expect(
+        runQuestionGeneration(
+            { questionCount: 1, noteId: "note" },
+            noContent.dependencies,
+        ),
+    ).rejects.toMatchObject({
+        message: expect.stringContaining("No questions were generated"),
+        result: { complete: false, generatedCount: 0 },
+    });
     expect(calls).toBe(planBasicQuestions(noContent.note).length * 2);
 });
 
@@ -502,7 +505,9 @@ test("progress starts at zero and note updates accompany each persisted batch", 
         { questionCount: 1, noteId: "note" },
         h.dependencies,
         {
-            onProgress: (event) => progress.push(event.generatedCount),
+            onProgress: (event) => {
+                if (!event.phase) progress.push(event.generatedCount);
+            },
             onNoteUpdated: (note) => savedCounts.push(note.questions.length),
         },
     );
@@ -539,4 +544,68 @@ test("provider errors preserve only safe diagnostics alongside saved generation 
         expect(failure.details).not.toContain("private");
         expect(failure.result.generatedCount).toBe(0);
     }
+});
+
+test("fenced provider JSON and an omitted warnings array preserve valid questions and math", () => {
+    const note = noteFixture();
+    const task = planBasicQuestions(note)[0];
+    const question = generated(task, "What is $\\mathbb{R}$?");
+    const parsed = parseGeneratedQuestions(
+        "```json\n" + JSON.stringify({ questions: [question] }) + "\n```",
+        task,
+        1,
+        note,
+    );
+    expect(parsed.questions).toHaveLength(1);
+    expect(parsed.questions[0].text).toBe(question.text);
+    expect(parsed.warnings).toEqual([]);
+    expect(() =>
+        parseGeneratedQuestions(
+            "Prose before " + JSON.stringify({ questions: [question] }),
+            task,
+            1,
+            note,
+        ),
+    ).toThrow();
+});
+
+test("topic-specific additional requests bypass incomplete basics and report each batch phase", async () => {
+    const h = harness();
+    const phases: string[] = [];
+    const result = await runQuestionGeneration(
+        {
+            questionCount: 2,
+            noteId: "note",
+            topicIds: ["sets"],
+            difficulty: 1,
+            generationMode: "additional",
+        },
+        h.dependencies,
+        {
+            onProgress: (progress) => {
+                if (progress.phase) {
+                    phases.push(progress.phase);
+                    expect(progress.topicTitle).toContain("Membership");
+                    expect(progress.topicTitle).not.toContain("Endpoints");
+                }
+            },
+        },
+    );
+    expect(result.mode).toBe("additional");
+    expect(result.generatedCount).toBe(2);
+    expect(result.note.questionFsrs).toEqual([]);
+    expect(
+        h.batches.every(
+            (batch) =>
+                !batch.isBasicQuestion && !batch.allowedTopicIds.includes("s3"),
+        ),
+    ).toBe(true);
+    expect(phases).toEqual([
+        "requesting",
+        "validating",
+        "saving",
+        "requesting",
+        "validating",
+        "saving",
+    ]);
 });

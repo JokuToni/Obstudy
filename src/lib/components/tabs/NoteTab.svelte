@@ -1,4 +1,6 @@
 <script lang="ts">
+    import GenerationStatus from "./GenerationStatus.svelte";
+    import GenerationTopics from "./GenerationTopics.svelte";
     import TopicReviewSchedule from "$lib/components/TopicReviewSchedule.svelte";
     import { onMount, tick } from "svelte";
     import type { SyncedNote } from "$lib/types/notes";
@@ -38,6 +40,19 @@
     } = $props();
     let managementOpen = $state(false);
     let managementButton: HTMLButtonElement;
+    let generationStatusPanel = $state<HTMLDivElement>();
+    const generating = $derived(!!generation?.isGenerating);
+    $effect(() => {
+        if (managementOpen && generating)
+            void tick().then(() => {
+                if (managementOpen)
+                    generationStatusPanel?.scrollIntoView({
+                        block: "nearest",
+                        behavior: "instant",
+                    });
+            });
+    });
+    let selectedTopicId = $state<string | null>(null);
     let questionCount = $state<number | undefined>(10);
     let difficulty = $state<Difficulty>(0);
     let questionFormat = $state<QuestionFormatSelection>(2);
@@ -66,8 +81,9 @@
         !!generation?.isGenerating || !!generation?.maintenanceAction,
     );
     const showAdditionalOptions = $derived(
-        basicRemaining === 0 &&
-            !(busy && generation?.progress?.mode === "basic"),
+        selectedTopicId !== null ||
+            (basicRemaining === 0 &&
+                !(busy && generation?.progress?.mode === "basic")),
     );
     const disabledReason = $derived(
         !note.isAvailable
@@ -87,14 +103,6 @@
                 questionCount < 1 ||
                 questionCount > 1000),
     );
-    const progress = $derived(generation?.progress);
-    const percent = $derived(
-        progress && progress.requestedCount > 0
-            ? Math.round(
-                  (progress.generatedCount / progress.requestedCount) * 100,
-              )
-            : 0,
-    );
     onMount(() => {
         questionCount = note.savedPracticeSettings?.questionCount ?? 10;
         difficulty = note.savedPracticeSettings?.difficulty ?? 0;
@@ -106,6 +114,8 @@
             questionCount = request.questionCount;
             difficulty = request.difficulty ?? 0;
             questionFormat = request.questionFormat ?? 2;
+            selectedTopicId =
+                request.topicIds?.length === 1 ? request.topicIds[0] : null;
         }
     });
     $effect(() => {
@@ -156,7 +166,8 @@
         void onGenerate({
             noteId: note.id,
             questionCount: showAdditionalOptions ? (questionCount ?? 10) : 1,
-            topicIds: [],
+            topicIds: selectedTopicId ? [selectedTopicId] : [],
+            generationMode: selectedTopicId ? "additional" : "auto",
             difficulty,
             questionFormat,
         });
@@ -234,6 +245,7 @@
             Study progress and questions for this note.
         </p>
     </div>
+    {#if generation && !managementOpen}<GenerationStatus {generation} />{/if}
     <dl class="grid grid-cols-2 gap-x-4 gap-y-6">
         {#each [{ label: "Questions", value: note.questions.length }, { label: "Questions answered", value: answeredQuestionCount }, { label: "Answers submitted", value: note.answers.length }, { label: "Average points per graded answer · all time", value: averagePoints === null ? "—" : averagePoints.toFixed(1) }] as statistic}
             <div>
@@ -291,10 +303,20 @@
                     onclick={closeManagement}>Close</button
                 >
             </div>
+            <GenerationTopics
+                {note}
+                {selectedTopicId}
+                disabled={busy || !!pendingAction}
+                onSelect={(id) => (selectedTopicId = id)}
+            />
             {#if showAdditionalOptions}
                 <p class="text-xs/5 text-text-secondary">
-                    Generate additional practice questions from all topics in
-                    this note. Additional questions do not get study cards.
+                    Generate additional practice questions from {selectedTopicId
+                        ? note.topics.find(
+                              (topic) => topic.id === selectedTopicId,
+                          )?.title
+                        : "all topics in this note"}. Additional questions do
+                    not get study cards.
                 </p>
                 <div class="grid min-w-0 gap-4 lg:grid-cols-3">
                     <div class="min-w-0 space-y-2">
@@ -462,77 +484,9 @@
                             onclick={configureAi}>Open AI integrations</button
                         >{/if}
                 </div>{/if}
-            {#if generation}
-                <div class="space-y-2" aria-busy={busy}>
-                    {#if generation.isGenerating || progress}
-                        <div
-                            class="flex flex-wrap items-center justify-between gap-2 text-xs/5 text-text-secondary"
-                        >
-                            <span
-                                >{busy
-                                    ? progress
-                                        ? `Generating ${progress.mode} questions…`
-                                        : "Preparing question generation…"
-                                    : "Generation progress"}</span
-                            >
-                            {#if progress}<span class="tabular-nums"
-                                    >{progress.generatedCount} of {progress.requestedCount}
-                                    saved · {percent}%</span
-                                >{/if}
-                        </div>
-                        <progress
-                            aria-label="Question generation progress"
-                            max={progress?.requestedCount || 1}
-                            value={progress
-                                ? progress.generatedCount
-                                : undefined}
-                            class="block h-2 w-full appearance-none overflow-hidden rounded-full border border-border bg-surface accent-accent-solid [&::-moz-progress-bar]:bg-accent-solid [&::-webkit-progress-bar]:bg-surface [&::-webkit-progress-value]:bg-accent-solid"
-                        ></progress>
-                    {/if}
-                    <p role="status" class="text-xs/5 text-text-secondary">
-                        {generation.isGenerating
-                            ? "Questions are saved after each batch. You can switch tabs while generation continues."
-                            : generation.maintenanceAction
-                              ? generation.maintenanceAction === "remove"
-                                  ? "Removing questions…"
-                                  : "Resetting study schedule…"
-                              : (generation.message ?? "")}
-                    </p>
-                    {#if generation.error}<p
-                            role="alert"
-                            class="break-words text-sm/5 text-danger"
-                        >
-                            {generation.error}
-                            {progress
-                                ? "Saved questions are preserved. Try generating again to continue."
-                                : "Please try again."}
-                        </p>{/if}
-                    {#if generation.errorDetails}<details
-                            class="text-xs/5 text-text-muted"
-                        >
-                            <summary class="cursor-pointer"
-                                >Technical details</summary
-                            >
-                            <pre
-                                class="mt-2 whitespace-pre-wrap break-words font-mono">{generation.errorDetails}</pre>
-                        </details>{/if}
-                    {#if generation.warnings.length}<details
-                            class="text-xs/5 text-warning"
-                        >
-                            <summary class="cursor-pointer"
-                                >Generation notices ({generation.warnings
-                                    .length})</summary
-                            >
-                            <ul class="mt-2 list-disc space-y-1 pl-4">
-                                {#each generation.warnings as warning}<li
-                                        class="break-words"
-                                    >
-                                        {warning}
-                                    </li>{/each}
-                            </ul>
-                        </details>{/if}
-                </div>
-            {/if}
+            {#if generation}<div bind:this={generationStatusPanel}>
+                    <GenerationStatus {generation} />
+                </div>{/if}
             {#if !note.questions.length}<p class="text-xs text-text-muted">
                     Generate questions before removing them or resetting their
                     study schedule.

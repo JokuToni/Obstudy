@@ -182,7 +182,14 @@
                             "h-full whitespace-nowrap rounded-t-md px-3 text-xs/4",
                             activeTab !== tab ? "hover:bg-hover" : "",
                             focusRing,
-                        ]}>{shortTabLabel(tabLabel(tab, notes))}</button
+                        ]}
+                        >{shortTabLabel(
+                            tabLabel(tab, notes),
+                        )}{#if tab.startsWith("note:") && noteGenerations[tab.slice(5)]?.isGenerating}<span
+                                aria-hidden="true"
+                                title="Generating questions"
+                                class="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-accent-solid motion-reduce:animate-none"
+                            ></span>{/if}</button
                     >
                     {#if tab !== "overview"}
                         <button

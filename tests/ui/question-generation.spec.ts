@@ -10,6 +10,7 @@ interface GenerationMockOptions {
     emptyResponses?: boolean;
     parseError?: string;
     pendingModel?: boolean;
+    multipleTopics?: boolean;
 }
 
 async function mockGeneration(
@@ -46,6 +47,17 @@ async function mockGeneration(
             parseError: null,
             parseWarnings: [],
         };
+        if (options.multipleTopics)
+            note.topics.push(
+                { id: "other-broad", noteId: "note", title: "Intervals" },
+                {
+                    id: "other-sub",
+                    noteId: "note",
+                    broadTopicId: "other-broad",
+                    title: "Endpoints",
+                    text: "Closed intervals include endpoints.",
+                },
+            );
         note.parseError = options.parseError ?? null;
         const controls = {
             pauseAtCall: options.pauseAtCall ?? 0,
@@ -162,12 +174,19 @@ async function mockGeneration(
                                 /Generate (\d+) (?:easy|medium-difficulty|hard) questions with difficulty (\d)(?:\s+and)?(?:\s+format| and format)\s+(\d)/,
                             )!;
                             const format = Number(match[3]);
+                            const source = JSON.parse(
+                                prompt
+                                    .split(
+                                        "Source material (JSON reference data):\n",
+                                    )[1]
+                                    .split("\n\nExisting questions")[0],
+                            );
                             const questions = Array.from(
                                 { length: Number(match[1]) },
                                 (_, i) => ({
                                     text: `Question ${aiCalls}.${i}`,
                                     exampleAnswer: "A supported answer.",
-                                    topicIds: ["sub"],
+                                    topicIds: [source.subtopics[0].id],
                                     difficulty: Number(match[2]),
                                     format,
                                     ...(format === 0
@@ -664,12 +683,9 @@ test("insufficient source content reports partial completion and generation noti
     await page
         .getByRole("button", { name: "Generate questions", exact: true })
         .click();
-    await expect(
-        page.getByText("Saved 0 of 7 questions. Generate again to continue.", {
-            exact: true,
-        }),
-    ).toBeVisible();
-    await page.getByText(/Generation notices \(/).click();
+    await expect(page.getByRole("alert")).toContainText(
+        "No questions were generated",
+    );
     await expect(
         page.getByText("Insufficient source content.", { exact: true }),
     ).toBeVisible();
@@ -868,4 +884,92 @@ test("maintenance failure preserves the saved question count and releases contro
     await expect(
         page.getByRole("button", { name: "Remove questions", exact: true }),
     ).toBeEnabled();
+});
+
+test("broad topics expand and generate additional questions only for their selected content before basics", async ({
+    page,
+}) => {
+    await mockGeneration(page, {
+        showNote: true,
+        configured: true,
+        multipleTopics: true,
+    });
+    await openNote(page);
+    await page
+        .getByRole("button", { name: "Expand Intervals", exact: true })
+        .click();
+    await page
+        .getByRole("radio", { name: "Generate for Endpoints", exact: true })
+        .check();
+    await page.getByLabel("Number of questions", { exact: true }).fill("2");
+    await page
+        .getByRole("button", { name: "Generate questions", exact: true })
+        .click();
+    await expect(
+        page.getByText("Generated 2 additional questions.", { exact: true }),
+    ).toBeVisible();
+    const first = await page.evaluate(
+        () =>
+            (
+                window as unknown as {
+                    generationBatches: QuestionGenerationBatch[];
+                }
+            ).generationBatches,
+    );
+    expect(first.flatMap((batch) => batch.questions)).toHaveLength(2);
+    expect(
+        first.every(
+            (batch) =>
+                !batch.isBasicQuestion &&
+                batch.allowedTopicIds.includes("other-sub") &&
+                !batch.allowedTopicIds.includes("sub"),
+        ),
+    ).toBe(true);
+    await page
+        .getByRole("radio", { name: "Generate for Sets", exact: true })
+        .check();
+    await page.getByLabel("Number of questions", { exact: true }).fill("1");
+    await page
+        .getByRole("button", { name: "Generate questions", exact: true })
+        .click();
+    await expect(
+        page.getByText("Generated 1 additional questions.", { exact: true }),
+    ).toBeVisible();
+    const batches = await page.evaluate(
+        () =>
+            (
+                window as unknown as {
+                    generationBatches: QuestionGenerationBatch[];
+                }
+            ).generationBatches,
+    );
+    expect(batches.at(-1)?.allowedTopicIds).toContain("sub");
+    expect(batches.at(-1)?.allowedTopicIds).not.toContain("other-sub");
+});
+
+test("waiting for the first AI batch stays visible after closing Manage questions", async ({
+    page,
+}) => {
+    await mockGeneration(page, {
+        showNote: true,
+        configured: true,
+        pauseAtCall: 1,
+    });
+    await openNote(page);
+    await page
+        .getByRole("button", { name: "Generate questions", exact: true })
+        .click();
+    await expect(page.getByText(/Waiting for AI response/)).toBeInViewport();
+    await expect(
+        page.getByRole("progressbar", { name: "Question generation progress" }),
+    ).toHaveAttribute("value", "0");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(
+        page.getByText("Generating questions", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/Waiting for AI response/)).toBeInViewport();
+    await releaseGeneration(page);
+    await expect(
+        page.getByText("Generated 7 basic questions.", { exact: true }),
+    ).toBeVisible();
 });

@@ -317,16 +317,25 @@ export function parseGeneratedQuestions(
     count: number,
     note: SyncedNote,
 ): { questions: GeneratedQuestion[]; warnings: string[] } {
-    const payload: unknown = JSON.parse(text);
+    // Some providers wrap otherwise valid JSON in a Markdown code block.
+    // Strip only a complete outer fence, preserving LaTeX backslashes and content.
+    const trimmed = text.trim().replace(/^\uFEFF/, "");
+    const fenced = /^```(?:json)?\s*\n([\s\S]*?)\n```$/i.exec(trimmed);
+    const payload: unknown = JSON.parse(fenced ? fenced[1] : trimmed);
     if (
         !record(payload) ||
         !Array.isArray(payload.questions) ||
-        !Array.isArray(payload.warnings) ||
-        !payload.warnings.every((warning) => typeof warning === "string")
+        (payload.warnings !== undefined &&
+            (!Array.isArray(payload.warnings) ||
+                !payload.warnings.every(
+                    (warning) => typeof warning === "string",
+                )))
     ) {
-        throw new Error("Expected JSON with questions and warnings arrays.");
+        throw new Error(
+            "Expected JSON with a questions array and optional warnings array.",
+        );
     }
-    const warnings = [...payload.warnings] as string[];
+    const warnings = [...((payload.warnings as string[] | undefined) ?? [])];
     const questions: GeneratedQuestion[] = [];
     const allowed = new Set(task.topics.map((topic) => topic.id));
     const subtopicIds = new Set(
@@ -475,7 +484,8 @@ export async function runQuestionGeneration(
         (task) => task.remainingCount > 0,
     );
     const isBasic =
-        options.generationMode !== "additional" && basics.length > 0;
+        (options.generationMode ?? request.generationMode) !== "additional" &&
+        basics.length > 0;
     const tasks = isBasic ? basics : planAdditionalQuestions(note, request);
     const result: QuestionGenerationResult = {
         mode: isBasic ? "basic" : "additional",
@@ -507,6 +517,22 @@ export async function runQuestionGeneration(
                         throw new Error(
                             "Question generation was cancelled. Saved batches are preserved.",
                         );
+                    const phase = (
+                        value: "requesting" | "validating" | "saving",
+                    ) =>
+                        options.onProgress?.({
+                            mode: result.mode,
+                            generatedCount: result.generatedCount,
+                            requestedCount: result.requestedCount,
+                            phase: value,
+                            topicTitle: task.topics
+                                .filter(isSubtopic)
+                                .map((topic) => topic.title)
+                                .join(", "),
+                            batchCount: missing,
+                            attempt: attempt + 1,
+                        });
+                    phase("requesting");
                     const response = await dependencies.promptAi(
                         buildQuestionPrompt(
                             note,
@@ -520,6 +546,7 @@ export async function runQuestionGeneration(
                         result.usage,
                     ) as (keyof AiTokenUsage)[])
                         result.usage[key] += response.usage[key];
+                    phase("validating");
                     let parsed: ReturnType<typeof parseGeneratedQuestions>;
                     try {
                         parsed = parseGeneratedQuestions(
@@ -542,6 +569,7 @@ export async function runQuestionGeneration(
                     // Date fields are serialized explicitly at the persistence boundary.
                     const now = new Date();
                     const card = isBasic ? createEmptyCard(now) : null;
+                    phase("saving");
                     note = await dependencies.saveBatch({
                         noteId: note.id,
                         sourceText: note.file.text,
@@ -585,6 +613,10 @@ export async function runQuestionGeneration(
         }
         result.complete = result.generatedCount === result.requestedCount;
         result.warnings = [...new Set(result.warnings)];
+        if (!result.generatedCount)
+            throw new Error(
+                "No questions were generated. The AI returned no usable questions. Check the generation notices, try fewer questions or different topics, then retry.",
+            );
         return result;
     } catch (error) {
         const message =

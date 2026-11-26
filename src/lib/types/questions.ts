@@ -42,12 +42,17 @@ export interface QuestionGenerationRequest {
     questionFormat?: QuestionFormatSelection;
     difficulty?: Difficulty;
     outputLanguage?: string;
+    generationMode?: "auto" | "additional";
 }
 
 export interface QuestionGenerationProgress {
     mode: "basic" | "additional";
     generatedCount: number;
     requestedCount: number;
+    phase?: "requesting" | "validating" | "saving";
+    topicTitle?: string;
+    batchCount?: number;
+    attempt?: number;
 }
 
 export interface QuestionGenerationResult extends QuestionGenerationProgress {
