@@ -482,9 +482,9 @@ Existing questions to avoid duplicating (JSON reference data):
 
 ## Phone practice navigation
 
-- Puhelimen web- ja native iOS -harjoituksessa vasemmalle pyyhkäisy vastaa Reveal answer / Next question -toimintoa. Arvioimaton vastaus näytetään ensin, ja seuraava pyyhkäisy siirtyy eteenpäin. Tyhjää vastausta ei lähetetä.
+- Puhelimen web- ja native iOS -harjoituksessa vasemmalle pyyhkäisy vastaa Reveal answer / Next question -toimintoa. Lähetys avaa yhteisen oikean vastauksen ja arvioinnin näkymän. Monivalinnan arvioitu vastaus voi siirtyä seuraavalla pyyhkäisyllä eteenpäin; tekstivastaus odottaa arviota tai Skip for now -valintaa. Tyhjää vastausta ei lähetetä.
 - Kortti seuraa sormea. Toiminto vahvistuu vasta sormen noustessa, kun etäisyys on vähintään 28 % sisältöleveydestä (enintään 120 px). Lyhyt pyyhkäisy, peruutus tai palaaminen kynnyksen alle palauttaa kortin ilman tallennusta tai siirtymistä.
-- Eteenpäin-painike ja vahvistettu pyyhkäisy käyttävät samaa liukusiirtymää. Oikea vastaus vieritetään näkyviin pehmeästi. Itsearvioinnin tallennuksen jälkeen siirrytään automaattisesti seuraavaan kysymykseen tai viimeisestä tuloksiin. Tallennusvirhe estää siirtymisen. Tulossivun jälkiarviointi säilyttää tuloslistan.
+- Eteenpäin-painike ja vahvistettu pyyhkäisy käyttävät samaa liukusiirtymää. Oikea vastaus ja arviointi avautuvat yhtenä paneelina. Pyyhkäisy ei näytä ohjetekstejä. Liike käyttää jatkuvaa vastusta ja lyhyttä liuku/häivytystä (130 ms ulos, 180 ms sisään, peruutus 200 ms). Itsearvioinnin tallennuksen jälkeen siirrytään automaattisesti seuraavaan kysymykseen tai viimeisestä tuloksiin. Tallennusvirhe estää siirtymisen. Tulossivun jälkiarviointi säilyttää tuloslistan.
 - Pystysuuntainen vieritys, tekstikentän muokkaus, kontrollit ja selaimen reunapyyhkäisyt säilyvät. Reduced motion poistaa automaattiset liukusiirtymät ja pehmeän vierityksen.
 
 ## Phone button haptics
@@ -496,8 +496,8 @@ Existing questions to avoid duplicating (JSON reference data):
 ## Phone answer selection and stable layout
 
 - Monivalinnan valitseminen lähettää vastauksen heti, tallentaa ja pisteyttää sen sekä näyttää oikean vastauksen. Valintoja ei voi vaihtaa lähetyksen jälkeen. Seuraava pyyhkäisy tai painike siirtää seuraavaan kysymykseen. Tekstivastausten lähetys säilyy ennallaan.
-- Monivalinnan kosketus käyttää iOS:n natiivia switch-palautetta ja oikeaa radio-kontrollia. Muissa värinää tukevissa selaimissa valinta antaa 8 ms pulssin. Pyyhkäisy antaa ensimmäisen kynnyksen ylityksessä 5 ms pulssin ja vahvistetussa vapautuksessa 8 ms pulssin; saman eleen edestakainen liike ei toista kynnyspulssia. iOS:n selain ei tue ohjelmallisia pyyhkäisyvärinöitä; niitä ei luvata natiivin kosketuspalautteen perusteella.
-- Puhelinkuori pysyy näkyvässä viewportissa myös Safarin palkkien ja näppäimistön muuttuessa. Ylä- ja alapalkki pysyvät paikallaan, vain keskimmäinen sisältöalue vierii. Safe area huomioidaan. Dokumentin vieritys estetään vain puhelinkuoren ollessa käytössä.
+- Monivalinnan kosketus käyttää iOS:n natiivia switch-palautetta ja oikeaa radio-kontrollia. Muissa värinää tukevissa selaimissa valinta antaa 8 ms pulssin. Pyyhkäisy antaa ensimmäisen kynnyksen ylityksessä 5 ms pulssin ja vahvistetussa vapautuksessa 8 ms pulssin; saman eleen edestakainen liike ei toista kynnyspulssia. iOS:n selain ei tue ohjelmallisia pyyhkäisyvärinöitä; niitä ei luvata natiivin kosketuspalautteen perusteella. Switch-palaute on kiinteä järjestelmäpulssi, jonka kestoa tai voimakkuutta ei voi säätää. Web Vibration API tukee kestoja ja taukoja, ei voimakkuuden säätöä.
+- Puhelinkuori pysyy näkyvässä viewportissa myös Safarin palkkien ja näppäimistön muuttuessa. Ylä- ja alapalkki pysyvät paikallaan, vain keskimmäinen sisältöalue vierii. Alapalkki ankkuroituu kuoren alareunaan ilman home indicator -lisätilaa palkin sisällä tai alapuolella. Toimintorivi on 60 px ja tasaleveät painikkeet 44 px, tekstit keskitettyinä. Tallennustila säilyy ruudunlukijalle, jotta se ei vie painikkeilta tilaa. Keskialue varaa alapalkin mitatun korkeuden. Dokumentin vieritys estetään vain puhelinkuoren ollessa käytössä.
 
 ## Separate hosted SQLite service
 
@@ -507,11 +507,11 @@ Existing questions to avoid duplicating (JSON reference data):
 - Migraatiot ja `DATABASE_PATH`, `REGISTRATION_ENABLED`, `SESSION_DAYS`, `WEB_ORIGIN` kuuluvat tietopalvelulle. `WEB_ORIGIN` tarkoittaa julkista gateway-domainia. Gatewayn `/ready` tarkistaa myös tietopalvelun valmiuden. Uusi gateway ei käynnisty ilman tietopalvelun asetuksia eikä luo paikallista tyhjää kantaa.
 - Nykyinen palvelindata siirretään yhtenäisellä SQLite-varmuuskopiolla kirjoitusten ollessa pysäytettynä. Vanhaa volyymia ei poisteta automaattisesti. Käyttöönotto-ohje: `docs/database-service.md`. Uutta gatewayta ei puskettaessa saa automaattisesti ottaa tuotantoon ennen tarvittavaa Railway-valmistelua.
 
-## Phone keyboard and separate grading step
+## Phone keyboard and answer review
 
-- Ohjelmistonäppäimistön avautuessa alapalkki ei nouse tekstieditorin päälle. Kuori säilyttää näppäimistöä edeltävän korkeutensa ja alapalkki jää näppäimistön taakse. Vain keskisisällön näkyvä vieritysalue rajataan. Peittynyt alapalkki ei vastaanota fokusta. Sulkeminen ei vaihda tilaa pelkän blur-tapahtuman vuoksi, vaan viewportin palauduttua.
+- Ohjelmistonäppäimistön avautuessa alapalkki ei nouse tekstieditorin päälle. Kuori säilyttää näppäimistöä edeltävän korkeutensa ja alapalkki jää näppäimistön taakse. Vain keskisisällön näkyvä vieritysalue rajataan. Peittynyt alapalkki ei vastaanota fokusta. Sulkeminen ei vaihda tilaa pelkän blur-tapahtuman vuoksi, vaan viewportin palauduttua. iOS:ssa verrataan nykyistä layout- ja visual viewport -korkeutta, jotta muuttunut Safari-palkki ei jätä alapalkkia näkymän ulkopuolelle.
 - Nopea vasen pyyhkäisy saa alkaa myös tekstieditorista tai paljastetusta read-only-vastauksesta. Lyhyt/peruttu liike ei lähetä. Pystysuuntainen vieritys, valittu tekstialue ja pidempi painallus tekstin valintaa/kursoria varten säilyvät. Onnistuneen pyyhkäisyn jälkeinen klikkaus ei avaa näppäimistöä uudelleen.
-- Puhelimen tekstivastauksen ensimmäinen lähetys/pyyhkäisy näyttää oikean vastauksen. Seuraava pyyhkäisy tai Grade answer avaa erillisen arviointivaiheen. Arvosanan tallennus siirtää seuraavaan kysymykseen, viimeisestä tuloksiin. Arviointi ei enää ole upotettu oikean vastauksen sisältöön. Back to answer palaa vastaukseen; Skip for now säilyttää myöhemmän tulosarvioinnin ja poistumisen vahvistuksen. Tallennusvirhe estää etenemisen. Monivalintojen automaattinen pisteytys säilyy.
+- Puhelimen tekstivastauksen ensimmäinen lähetys/pyyhkäisy avaa yhden pyöristetyn paneelin, jossa oikea vastaus on ylhäällä ja arviointi saman paneelin alaosassa. Incorrect, Partly correct ja Correct ovat yhdellä rivillä värikoodatuilla ikoneilla ja vähintään 44 px kosketusalueilla. Arvosanan tallennus siirtää seuraavaan kysymykseen, viimeisestä tuloksiin. Your answer palaa read-only-vastaukseen, Review answer avaa paneelin uudelleen; Skip for now säilyttää myöhemmän tulosarvioinnin ja poistumisen vahvistuksen. Tallennusvirhe estää etenemisen. Monivalintojen automaattinen pisteytys näkyy samassa paneelissa.
 
 ## Private database readiness diagnostics
 

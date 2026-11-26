@@ -66,9 +66,6 @@ test("phone shell is limited, saves draft answers across reloads, self grades, a
         page.getByRole("region", { name: "Example answer", exact: true }),
     ).toBeVisible();
     await page
-        .getByRole("button", { name: "Grade answer", exact: true })
-        .click();
-    await page
         .getByRole("button", { name: "Partly correct", exact: true })
         .click();
     await expect(page.getByRole("radio").first()).toBeVisible();
